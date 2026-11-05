@@ -1,52 +1,122 @@
-# Mã QR giỏ hàng cho phần mềm POS
+# Tài liệu tích hợp POS: mã QR giỏ hàng và báo thanh toán
 
-**Mục đích:** khách tự quét hàng bằng điện thoại, bấm Thanh toán, điện thoại hiện **một mã QR chứa toàn bộ món (mã vạch và số lượng)**. Thu ngân quét mã này vào POS, POS tạo đơn, **tính lại giá và khuyến mãi theo hệ thống của POS**, thu tiền. Thu ngân không quét từng món, khách không đứng chờ.
+Tài liệu này gửi cho đơn vị làm phần mềm POS. Có hai việc POS cần làm:
 
-POS **không cần gọi API của BRG**. Mọi thứ POS cần nằm trong mã QR. Nhờ vậy POS dùng được cả khi mạng chập chờn.
+1. **Đọc mã QR** trên điện thoại khách để tạo đơn hàng và tính tiền (mục 2 và 3).
+2. **Gọi API của BRG** để báo thanh toán thành công (mục 4 và 5). BRG trả lại kết quả cho khách và lưu bill.
 
-## 1. Định dạng
+## 1. Quy trình tổng thể
 
-Một chuỗi văn bản ASCII, các phần ngăn bằng `|`:
+```mermaid
+sequenceDiagram
+    participant K as Khách (điện thoại)
+    participant B as BRG Self Checkout
+    participant P as Phần mềm POS
+    K->>K: Quét mã vạch từng món, thấy tạm tính
+    K->>K: Bấm Thanh toán, điện thoại hiện mã QR
+    K->>P: Thu ngân quét mã QR (mã vạch, số lượng, mã điểm, mã giỏ)
+    P->>P: Tạo đơn, tính giá và khuyến mãi, thu tiền, xuất hoá đơn
+    P->>B: POST /api/pos/v1/baskets/{mã giỏ}/paid (mã đơn POS, số tiền, bill)
+    B-->>P: 200 OK (kể cả khi gửi trùng)
+    B-->>K: Màn hình khách: "Đã hoàn thành thanh toán", xem bill, tải PDF
+```
+
+| Bước | Ai làm | Nội dung |
+|------|--------|----------|
+| 1 | Khách và BRG | Khách quét món bằng điện thoại. Điện thoại hiện **tạm tính**, chỉ để tham khảo |
+| 2 | BRG | Khi khách bấm Thanh toán, tạo **mã giỏ** và mã QR. Mã QR lưu trên điện thoại nên còn khi mất mạng |
+| 3 | POS | Thu ngân quét mã QR. POS đọc, kiểm tra, **tạo đơn** với đúng món và số lượng |
+| 4 | POS | Tính giá và khuyến mãi **theo hệ thống của POS**, thu tiền (tiền mặt, QR, thẻ), xuất hoá đơn điện tử |
+| 5 | POS | **Báo thanh toán về BRG** bằng API ở mục 4. Số tiền trong báo cáo này là số tiền thật |
+| 6 | BRG | Ghi nhận, màn hình khách hiện hoàn thành, khách xem và tải bill |
+
+**Hai mã định danh cần phân biệt**
+
+| Tên | Do ai sinh | Có trong mã QR | Dùng để |
+|-----|-----------|----------------|---------|
+| **Mã giỏ** (ví dụ `Q7-LM3K2AB`) | BRG (điện thoại khách) | Có | BRG nhận ra giỏ. POS gửi lại trong đường dẫn khi báo thanh toán |
+| **Mã đơn POS** (`posOrderRef`, mã giao dịch hoặc mã bill của POS) | POS | Không | POS gửi lại trong báo thanh toán. BRG dùng để **chống ghi trùng** và đối soát |
+
+## 2. Định dạng mã QR
+
+Một chuỗi văn bản ASCII, các phần ngăn bằng ký tự `|`:
 
 ```
 BRG1|<mã điểm>|<mã giỏ>|<giờ>|<mã vạch>*<số lượng>,<mã vạch>*<số lượng>,...|T<tạm tính>|<CRC16>
 ```
 
-Ví dụ:
+Ví dụ (có sẵn trong `docs/mau/qr-gio-hang-mau.txt` và ảnh `docs/mau/qr-gio-hang-mau.svg`):
 
 ```
-BRG1|SP-0107|Q7-LM3K2AB|1762330000|8936036123456*2,8934567890123*1|T95000|3F2A
+BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T60800|1E1A
 ```
 
 | Phần | Ý nghĩa |
 |------|---------|
 | `BRG1` | Nhận dạng và phiên bản. Chuỗi không bắt đầu bằng `BRG1|` thì không phải mã của BRG |
-| mã điểm | Mã siêu thị trong hệ thống giá và POS (do quản trị nhập cho từng chi nhánh). POS nên **kiểm tra trùng với điểm bán của máy POS đang dùng**, khác thì báo thu ngân |
-| mã giỏ | Mã định danh giỏ, duy nhất. POS **lưu mã này để không tạo đơn hai lần** nếu mã bị quét lại |
+| mã điểm | Mã siêu thị trong hệ thống giá và POS, do quản trị BRG nhập cho từng chi nhánh. POS **nên so với điểm bán của máy đang dùng**, khác thì báo thu ngân |
+| mã giỏ | Duy nhất. POS **lưu mã này** để không tạo đơn hai lần nếu mã bị quét lại |
 | giờ | Giờ tạo giỏ, giây Unix |
-| món | Mã vạch và số lượng. Cùng mã vạch đã được gộp thành một dòng. Số lượng 1 đến 999 |
-| `T` | **Tạm tính** do BRG tính (VND). Chỉ để đối chiếu, không dùng làm số tiền thu |
-| CRC16 | CRC16-CCITT (đa thức 0x1021, khởi tạo 0xFFFF), viết hoa 4 ký tự hex, tính trên toàn bộ chuỗi đứng trước dấu `|` cuối cùng |
+| món | `mã vạch*số lượng`, cách nhau dấu phẩy. Cùng mã vạch đã gộp thành một dòng. Mã vạch là mã **in trên tem** hàng hoá. Số lượng từ 1 đến 999 |
+| `T` | **Tạm tính** của BRG (VND). Chỉ để đối chiếu, **không dùng làm số tiền thu** |
+| CRC16 | CRC16-CCITT (đa thức `0x1021`, khởi tạo `0xFFFF`), 4 ký tự hex viết hoa, tính trên toàn bộ chuỗi đứng **trước dấu `|` cuối cùng** |
 
-## 2. POS cần làm
+Mã QR có thể dài với giỏ nhiều món. Máy quét nên là loại đọc được mã 2D (không phải máy laser đọc vạch).
 
-1. Quét QR, kiểm tra tiền tố `BRG1|` và CRC16. Sai thì báo "Mã không hợp lệ, nhờ khách tạo lại".
+### Tính CRC16 (ví dụ)
+
+```python
+def crc16(s: str) -> str:
+    crc = 0xFFFF
+    for ch in s.encode("ascii"):
+        crc ^= ch << 8
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x1021) & 0xFFFF if crc & 0x8000 else (crc << 1) & 0xFFFF
+    return f"{crc:04X}"
+
+text = "BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T60800|1E1A"
+body, _, check = text.rpartition("|")
+assert crc16(body) == check   # đúng thì mã chưa bị sửa hoặc đọc sai
+```
+
+```csharp
+static string Crc16(string s) {
+    ushort crc = 0xFFFF;
+    foreach (byte b in System.Text.Encoding.ASCII.GetBytes(s)) {
+        crc ^= (ushort)(b << 8);
+        for (int i = 0; i < 8; i++) crc = (crc & 0x8000) != 0 ? (ushort)((crc << 1) ^ 0x1021) : (ushort)(crc << 1);
+    }
+    return crc.ToString("X4");
+}
+```
+
+### POS xử lý khi quét
+
+1. Kiểm tra tiền tố `BRG1|` và CRC16. Sai thì báo "Mã không hợp lệ, nhờ khách tạo lại".
 2. Kiểm tra mã điểm đúng cửa hàng.
-3. Kiểm tra mã giỏ chưa dùng. Đã dùng thì báo "Giỏ này đã được tạo đơn" và cho thu ngân mở lại đơn cũ.
-4. Với mỗi dòng, tìm sản phẩm theo mã vạch, thêm vào đơn đúng số lượng. Mã vạch không có trong POS thì báo thu ngân để xử lý tại chỗ.
-5. POS tính giá và khuyến mãi theo quy tắc của POS. Số tiền thu là số tiền của POS.
-6. Thu tiền, xuất hoá đơn như đơn thường. POS tự trừ tồn kho. **BRG không quản lý tồn kho.**
+3. Kiểm tra mã giỏ chưa dùng. Đã dùng thì mở lại đơn cũ, không tạo đơn mới.
+4. Với mỗi dòng, tìm sản phẩm theo mã vạch (mã nhà cung cấp hoặc mã nội bộ đều được, tuỳ POS) và thêm đúng số lượng. Mã không có trong POS thì báo thu ngân xử lý tại chỗ.
+5. POS tự tính giá, khuyến mãi, trừ kho. **BRG không quản lý tồn kho và không tính tiền thay POS.**
 
-## 3. Báo kết quả thanh toán về BRG (POS gọi tự động)
+## 3. Thông tin BRG cung cấp cho POS để chạy được
 
-Sau khi thu tiền xong, POS **tự động** gọi BRG. BRG ghi nhận, màn hình khách chuyển sang **"Đã hoàn thành thanh toán"** và khách có nút **Xem bill** và **Tải bill PDF**. Xác thực như [api-pos.md](api-pos.md) (khoá API trong `Authorization: Bearer <khoá>`).
+| Thông tin | Cách có |
+|-----------|---------|
+| Địa chỉ API (ví dụ `https://tên-miền-brg`) | BRG cung cấp |
+| Khoá API | Quản trị BRG tạo ở mục Tích hợp, có thể giới hạn theo chi nhánh. Chỉ hiện **một lần** |
+| Mã điểm của từng chi nhánh | Quản trị BRG nhập, hai bên thống nhất với mã điểm trong POS |
+| Môi trường thử và mã QR mẫu | BRG cấp môi trường thử, kèm mã QR mẫu ở `docs/mau/` |
+
+## 4. API báo thanh toán thành công
+
+Xác thực: header `Authorization: Bearer <khoá API>` (hoặc `X-Api-Key`). Chỉ gọi qua HTTPS. Nội dung JSON, UTF-8.
 
 `POST /api/pos/v1/baskets/{mã giỏ}/paid`
 
 ```json
 {
   "posOrderRef": "POS-20261105-000123",
-  "amount": 93800,
+  "amount": 60800,
   "method": "qr_transfer",
   "invoiceNo": "C26TAA-123",
   "invoiceUrl": "https://hddt.example.vn/tra-cuu/abc",
@@ -61,42 +131,75 @@ Sau khi thu tiền xong, POS **tự động** gọi BRG. BRG ghi nhận, màn h�
 
 | Trường | Bắt buộc | Ý nghĩa |
 |--------|----------|---------|
-| `posOrderRef` | Có | Mã đơn trên POS. **Khoá chống trùng**: gửi lại cùng mã giỏ với cùng `posOrderRef` thì BRG không ghi lần hai |
-| `amount` | Có | Số tiền thực thu, VND, số nguyên |
-| `method` | Có | `cash`, `qr_transfer`, `card`, `ewallet` |
-| `lines` | Nên có | Các dòng của bill POS (giá và khuyến mãi thật). Có thì khách thấy bill thật; không có thì khách thấy bản tạm tính, ghi rõ "chưa có bill chính thức" |
-| `invoiceNo`, `invoiceUrl` | Nên có | Số và đường dẫn (https) tới hoá đơn điện tử của POS |
-| `cashier`, `terminal` | Không | Hiện trong bill và báo cáo |
+| `posOrderRef` | **Có** | Mã đơn (mã giao dịch hoặc mã bill) trên POS. **Khoá chống trùng** |
+| `amount` | **Có** | Số tiền thực thu, VND, số nguyên dương |
+| `method` | **Có** | `cash`, `qr_transfer`, `card`, `ewallet` |
+| `lines` | Nên có | Các dòng bill POS với giá và khuyến mãi thật. Có thì khách thấy đúng bill POS. Không có thì khách thấy bản tạm tính, ghi rõ "chưa có bill chính thức" |
+| `invoiceNo`, `invoiceUrl` | Nên có | Số hoá đơn điện tử và đường dẫn tra cứu (https) |
+| `cashier`, `terminal` | Không | Hiện trên bill và báo cáo |
 
-Các lệnh khác: `GET /api/pos/v1/baskets/{mã giỏ}` (trạng thái, để POS kiểm tra) và `POST .../cancelled` (POS huỷ đơn, body `posOrderRef`, `reason`).
+Mỗi dòng `lines`: `name` (tên), `qty`, `unitPrice`, `discount` (không bắt buộc), `lineTotal` là số nguyên đồng (qty có thể lẻ nếu cần); `barcode` không bắt buộc.
 
-### Quy tắc thử lại (POS thực hiện)
+**Phản hồi thành công `200`:**
 
-Mạng có thể chập chờn nên **POS phải thử lại cho tới khi BRG trả thành công**. BRG xử lý gửi trùng an toàn, nên thử lại không gây thu hai lần.
+```json
+{ "ok": true, "duplicate": false, "transactionId": "SG-Q7-0042", "status": "paid", "amountMatches": true }
+```
 
-| Phản hồi của BRG | POS làm |
-|------------------|---------|
-| `200` (kể cả `duplicate: true`) | Thành công, dừng |
-| Không có phản hồi, timeout, `5xx`, `429` | Thử lại |
-| `404 BASKET_NOT_FOUND` | Thử lại: điện thoại khách có thể đang mất mạng nên giỏ chưa lên hệ thống |
-| `400`, `401`, `403`, `409 REF_IN_USE`, `409 ORDER_CANCELLED` | **Không** thử lại; ghi lỗi để người quản lý xử lý |
+`duplicate: true` nghĩa là BRG đã nhận trước đó (không ghi lần hai). `amountMatches: false` nghĩa là số tiền POS thu khác tạm tính của BRG. Việc này **bình thường** (khuyến mãi khác), BRG vẫn lấy số của POS.
 
-Lịch thử lại đề xuất: lần 1 ngay lập tức, rồi sau 5 giây, 30 giây, 2 phút (tổng 4 lần). Hết 4 lần vẫn chưa được thì POS **giữ đơn trong hàng đợi và thử lại mỗi 5 phút**, tối đa 24 giờ, và báo cho quản lý cửa hàng. Gửi cùng nội dung ở mọi lần thử.
+### Các lệnh khác
 
-### Khi POS chưa báo được
+| Lệnh | Dùng để |
+|------|---------|
+| `GET /api/pos/v1/baskets/{mã giỏ}` | Xem trạng thái giỏ (đã thanh toán chưa, đã lưu bill chưa) |
+| `POST /api/pos/v1/baskets/{mã giỏ}/cancelled` | POS huỷ đơn. Body: `{ "posOrderRef": "...", "reason": "..." }` |
+| `GET /api/pos/v1/health` | Kiểm tra khoá API và kết nối |
 
-Khách vẫn bấm được **"Đã thanh toán xong"** trên điện thoại để kết thúc giỏ. Giao dịch này BRG ghi là *đã chuyển POS, chưa được POS xác nhận*, khác với giao dịch POS đã báo. Khi POS báo muộn, BRG cập nhật thành đã thanh toán, kèm số tiền thật và bill.
+### Lỗi
 
-### Bill khách xem và tải
+Dạng `{ "error": "MÃ", "message": "…" }`.
 
-- Khách xem bill ngay trong ứng dụng web, và tải bản **PDF** để lưu. Bill lưu trên điện thoại để xem lại khi mất mạng (PDF cần mạng để tải).
-- Khách xem lại bill trong mục Lịch sử mua sắm.
-- Hiện bill chỉ có trên ứng dụng và PDF; không in giấy.
+| HTTP | Mã lỗi | Ý nghĩa | POS làm |
+|------|--------|---------|---------|
+| 400 | `BAD_AMOUNT`, `BAD_METHOD`, `BAD_LINES`, `REF_REQUIRED`, `BAD_INVOICE_URL` | Dữ liệu gửi sai | Sửa rồi gửi lại (không tự thử lại) |
+| 401 | `NO_API_KEY`, `BAD_API_KEY` | Khoá thiếu, sai hoặc bị thu hồi | Không thử lại, báo quản lý |
+| 403 | `STORE_FORBIDDEN` | Khoá không dùng cho chi nhánh này | Không thử lại |
+| 404 | `BASKET_NOT_FOUND` | Chưa thấy giỏ. Điện thoại khách có thể đang mất mạng nên giỏ chưa lên hệ thống | **Thử lại sau** |
+| 409 | `REF_IN_USE` | Giỏ đã gắn với đơn POS khác hoặc mã đơn dùng cho giỏ khác | Không thử lại, báo quản lý |
+| 409 | `ORDER_CANCELLED` | Đơn đã bị huỷ | Không thử lại, đối soát tay |
+| 5xx, timeout, 429 | | Lỗi tạm thời | **Thử lại** |
 
-## 4. Mã QR còn khi khách mất mạng
+## 5. Quy tắc thử lại (bắt buộc với POS)
 
-Điện thoại tạo mã QR ngay trên máy và lưu lại. Mất mạng, tắt điện thoại hoặc tắt trình duyệt, khách mở lại link cửa hàng là thấy lại cùng mã. Khi khách sửa giỏ rồi bấm Thanh toán lại, mã giỏ **đổi**; mã cũ không còn đúng.
+Mạng có thể chập chờn, nên **POS phải thử lại cho đến khi BRG trả `200`**. BRG xử lý gửi trùng an toàn (cùng mã giỏ và cùng `posOrderRef`), nên thử lại không thu tiền hai lần.
 
-## 5. Thử
+- **Lịch:** lần 1 ngay sau khi thu tiền; thử lại sau 5 giây, 30 giây, 2 phút (tổng 4 lần).
+- **Sau 4 lần vẫn chưa được:** POS giữ đơn trong hàng đợi, thử lại **mỗi 5 phút**, tối đa 24 giờ, và báo quản lý cửa hàng.
+- Mọi lần thử gửi **cùng nội dung**.
+- Chỉ thử lại với lỗi ở cột "Thử lại" ở mục 4. Lỗi 400, 401, 403, 409 thì dừng và báo người quản lý.
+- Khách vẫn hoàn tất được nếu POS báo chậm: khách bấm "Đã thanh toán xong", khi POS báo sau thì BRG cập nhật thành đã thanh toán kèm số tiền thật và bill.
 
-Khi chưa có POS, dùng mã QR ví dụ ở mục 1 hoặc xem mã trong trang Thanh toán của ứng dụng. Mã mẫu có thể kiểm bằng hàm `decodeBasket` trong `public/shared/basket.js` (JavaScript, không phụ thuộc thư viện), cùng quy tắc với POS.
+Ví dụ gọi thử:
+
+```bash
+curl -X POST "https://tên-miền-brg/api/pos/v1/baskets/Q7-LM3K2AB/paid" \
+  -H "Authorization: Bearer brgpos_xxxxxxxx" -H "Content-Type: application/json" \
+  -d '{"posOrderRef":"POS-1","amount":60800,"method":"cash","invoiceNo":"C26TAA-123"}'
+```
+
+## 6. Bill khách xem
+
+- Khách xem bill ngay trong ứng dụng web và tải bản **PDF**. Bill lưu trên điện thoại để xem lại khi mất mạng; tải PDF cần mạng.
+- Nội dung bill lấy từ `lines`, `invoiceNo`, `invoiceUrl`, `amount` POS gửi. Không in giấy.
+
+## 7. Danh sách kiểm tra khi tích hợp
+
+- [ ] POS quét được mã QR mẫu `docs/mau/qr-gio-hang-mau.svg` và đọc ra đúng 2 dòng hàng, mã điểm `SP-0107`, mã giỏ `Q7-LM3K2AB`.
+- [ ] POS kiểm tra CRC16 và từ chối khi chuỗi bị sửa một ký tự.
+- [ ] Quét cùng một mã QR hai lần không tạo hai đơn.
+- [ ] Mã điểm khác cửa hàng thì báo lỗi cho thu ngân.
+- [ ] Báo thanh toán lần 1 trả `duplicate: false`, lần 2 trả `duplicate: true`, không thu hai lần.
+- [ ] Ngắt mạng giữa chừng: POS thử lại theo lịch ở mục 5 và cuối cùng báo được.
+- [ ] Số tiền POS tính khác tạm tính vẫn báo được bình thường.
+- [ ] Khách thấy "Đã hoàn thành thanh toán" và bill khớp với bill POS.
