@@ -1,0 +1,30 @@
+{
+  "name": "BRG Quản trị",
+  "short_name": "BRG QT",
+  "description": "Quản trị chuỗi và chi nhánh",
+  "lang": "vi",
+  "start_url": "/a/",
+  "scope": "/a/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FAF7F4",
+  "theme_color": "#F07F1A",
+  "icons": [
+    {
+      "src": "/shared/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/shared/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/shared/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

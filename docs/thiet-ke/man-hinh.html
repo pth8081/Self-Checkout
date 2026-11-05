@@ -4,15 +4,15 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <style>
 /* Layout: lưới điện thoại theo từng nhóm luồng; mỗi màn có mã M01.. để trao đổi. App dùng bộ token --a-* riêng, tách khỏi giao diện trang. */
 :root{
-  --bg:#EDF1F1; --fg:#0F1A2A; --muted:#5A6877; --line:#D3DCDE; --card:#FFFFFF; --accent:#0E7C86; --frame:#0F1A2A;
-  --font:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --bg:#F6F3EF; --fg:#1F2430; --muted:#5A6877; --line:#D3DCDE; --card:#FFFFFF; --accent:#F07F1A; --frame:#1F2430;
+  --font:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0A1117;--fg:#E8EEF2;--muted:#8D9DAD;--line:#1F2B36;--card:#111B24;--accent:#3CC0CB;--frame:#2B3947;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0A1117;--fg:#E8EEF2;--muted:#8D9DAD;--line:#1F2B36;--card:#111B24;--accent:#3CC0CB;--frame:#2B3947;color-scheme:dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0A1117;--fg:#E8EEF2;--muted:#8D9DAD;--line:#1F2B36;--card:#111B24;--accent:#FF9A3D;--frame:#2B3947;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0A1117;--fg:#E8EEF2;--muted:#8D9DAD;--line:#1F2B36;--card:#111B24;--accent:#FF9A3D;--frame:#2B3947;color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--font);padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));line-height:1.5}
 .wrap{max-width:1280px;margin:0 auto}
@@ -41,13 +41,13 @@ figcaption p{margin:0;color:var(--muted)}
 
 /* ---------- App tokens ---------- */
 .phone{
-  --a-bg:#FFFFFF;--a-surface:#F2F5F7;--a-line:#E3E8EC;--a-ink:#0F1A2A;--a-muted:#667384;
-  --a-primary:#0E7C86;--a-on:#FFFFFF;--a-soft:#E3F3F4;--a-accent:#FF9F1C;
-  --a-ok:#1E9E5A;--a-ok-bg:#E4F5EB;--a-warn:#B45F06;--a-warn-bg:#FFF1DC;--a-err:#D6393A;--a-err-bg:#FDE9E9;
+  --a-bg:#FFFFFF;--a-surface:#F5F6F8;--a-line:#E5E7EB;--a-ink:#1F2430;--a-muted:#6B7280;
+  --a-primary:#F07F1A;--a-on:#FFFFFF;--a-soft:#FEF0E0;--a-accent:#FF9F1C;
+  --a-ok:#2F9E4F;--a-ok-bg:#E6F4EA;--a-warn:#8A6100;--a-warn-bg:#FFF3C8;--a-err:#D6393A;--a-err-bg:#FDE9E9;
   position:relative;width:296px;height:612px;border-radius:40px;border:8px solid var(--frame);background:var(--a-bg);color:var(--a-ink);
   overflow:hidden;display:flex;flex-direction:column;font-size:13px;line-height:1.45;box-shadow:0 18px 40px -22px rgba(10,20,30,.45)
 }
-.app-dark .phone{--a-bg:#0C141C;--a-surface:#16212C;--a-line:#243241;--a-ink:#EEF3F7;--a-muted:#93A1B1;--a-primary:#35B7C2;--a-on:#04262A;--a-soft:#12313A;
+.app-dark .phone{--a-bg:#0C141C;--a-surface:#16212C;--a-line:#243241;--a-ink:#EEF3F7;--a-muted:#93A1B1;--a-primary:#FF9A3D;--a-on:#2B1600;--a-soft:#3A2410;
   --a-ok:#4BC989;--a-ok-bg:#12301F;--a-warn:#F0A650;--a-warn-bg:#35260F;--a-err:#F26B6C;--a-err-bg:#3A1819}
 .sb{height:30px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:6px 20px 0;font-size:11px;font-weight:700;position:relative;z-index:3}
 .sb i{width:20px;height:9px;border:1.5px solid currentColor;border-radius:3px;position:relative;opacity:.85}
@@ -64,7 +64,7 @@ figcaption p{margin:0;color:var(--muted)}
 .h1{font-size:25px;font-weight:800;line-height:1.18;letter-spacing:-.015em;margin:0;text-wrap:balance}
 .h2{font-size:18px;font-weight:700;line-height:1.25;margin:0;text-wrap:balance}
 .p{color:var(--a-muted);font-size:13px;margin:0}
-.btn{display:flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:14px;background:var(--a-primary);color:var(--a-on);font:inherit;font-weight:700;font-size:15px;border:0;width:100%;padding:0 14px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:16px;background:var(--a-primary);color:var(--a-on);font:inherit;font-weight:700;font-size:15px;border:0;width:100%;padding:0 14px}
 .btn.ghost{background:var(--a-surface);color:var(--a-ink)}
 .btn.line{background:transparent;border:1.5px solid var(--a-line);color:var(--a-ink)}
 .btn.txt{background:transparent;color:var(--a-primary);height:36px;font-size:13px}
@@ -76,7 +76,7 @@ figcaption p{margin:0;color:var(--muted)}
 .badge .ic{width:44px;height:44px}
 .badge.ok{background:var(--a-ok-bg);color:var(--a-ok)}.badge.err{background:var(--a-err-bg);color:var(--a-err)}.badge.warn{background:var(--a-warn-bg);color:var(--a-warn)}
 .stack{display:grid;gap:12px}
-.card{background:var(--a-surface);border-radius:16px;padding:12px 14px}
+.card{background:var(--a-surface);border-radius:20px;padding:12px 14px}
 .row{display:flex;align-items:center;gap:10px;min-width:0}
 .sp{flex:1;min-width:0}
 .mut{color:var(--a-muted)}.sm-t{font-size:12px}.b{font-weight:700}
@@ -107,13 +107,15 @@ figcaption p{margin:0;color:var(--muted)}
 .banner.err{background:var(--a-err-bg);color:var(--a-err)}.banner.ok{background:var(--a-ok-bg);color:var(--a-ok)}
 .banner b{display:block;font-size:13px}
 .field{display:grid;gap:5px;font-size:12px;font-weight:600}
-.field .in{height:46px;border-radius:12px;border:1.5px solid var(--a-line);background:var(--a-bg);display:flex;align-items:center;padding:0 12px;font-size:15px;font-weight:500;color:var(--a-ink)}
+.field .in{height:46px;border-radius:16px;border:1.5px solid var(--a-line);background:var(--a-bg);display:flex;align-items:center;padding:0 12px;font-size:15px;font-weight:500;color:var(--a-ink)}
 .field .in.focus{border-color:var(--a-primary);box-shadow:0 0 0 3px var(--a-soft)}
 .field .in.ph{color:var(--a-muted)}
 .radio{display:flex;align-items:center;gap:12px;padding:12px;border:1.5px solid var(--a-line);border-radius:14px}
 .radio.on{border-color:var(--a-primary);background:var(--a-soft)}
 .radio .r{width:18px;height:18px;border-radius:50%;border:2px solid var(--a-line);margin-left:auto;flex:none}
 .radio.on .r{border:5px solid var(--a-primary);background:var(--a-on)}
+.mark{display:inline-block;width:34px;height:34px;flex:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M22 27V21a10 10 0 0 1 20 0v6' fill='none' stroke='%23F07F1A' stroke-width='6' stroke-linecap='round'/%3E%3Crect x='9' y='24' width='46' height='34' rx='11' fill='%2343A047'/%3E%3Cpath d='M23 40q9 10 18 0' fill='none' stroke='%23fff' stroke-width='4.5' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat}
+.side .brand .mark{width:26px;height:26px}
 .logo{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;flex:none}
 .sw{display:inline-block;vertical-align:middle;width:42px;height:24px;border-radius:999px;background:var(--a-line);position:relative;flex:none}
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff}
@@ -168,7 +170,7 @@ figcaption p{margin:0;color:var(--muted)}
 .res .glass{background:rgba(255,255,255,.16);border-radius:16px;padding:12px 14px;margin-top:20px;display:grid;gap:7px;font-size:12px}
 .res .glass div{display:flex;justify-content:space-between;gap:10px}
 .res .glass b{text-align:right}
-.res .btn{background:#fff;color:#0F1A2A}.res .btn.ghost{background:rgba(255,255,255,.18);color:#fff}
+.res .btn{background:#fff;color:#1F2430}.res .btn.ghost{background:rgba(255,255,255,.18);color:#fff}
 .cb{width:24px;height:24px;border-radius:50%;border:2px solid var(--a-line);display:grid;place-items:center;flex:none;color:#fff}
 .cb.on{background:var(--a-ok);border-color:var(--a-ok)}.cb .ic{width:14px;height:14px}
 .compact .it{padding:6px 0}.compact .tile{width:34px;height:34px;border-radius:10px;font-size:14px}
@@ -190,12 +192,12 @@ figcaption p{margin:0;color:var(--muted)}
 figure.wide{width:600px;max-width:100%}
 .deskwrap{width:100%;overflow-x:auto;border-radius:14px}
 .desk{
-  --a-bg:#FFFFFF;--a-surface:#F2F5F7;--a-line:#E3E8EC;--a-ink:#0F1A2A;--a-muted:#667384;
-  --a-primary:#0E7C86;--a-on:#FFFFFF;--a-soft:#E3F3F4;--a-accent:#FF9F1C;
-  --a-ok:#1E9E5A;--a-ok-bg:#E4F5EB;--a-warn:#B45F06;--a-warn-bg:#FFF1DC;--a-err:#D6393A;--a-err-bg:#FDE9E9;
+  --a-bg:#FFFFFF;--a-surface:#F5F6F8;--a-line:#E5E7EB;--a-ink:#1F2430;--a-muted:#6B7280;
+  --a-primary:#F07F1A;--a-on:#FFFFFF;--a-soft:#FEF0E0;--a-accent:#FF9F1C;
+  --a-ok:#2F9E4F;--a-ok-bg:#E6F4EA;--a-warn:#8A6100;--a-warn-bg:#FFF3C8;--a-err:#D6393A;--a-err-bg:#FDE9E9;
   width:600px;min-width:600px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--a-bg);color:var(--a-ink);font-size:11.5px;line-height:1.45
 }
-.app-dark .desk{--a-bg:#0C141C;--a-surface:#16212C;--a-line:#243241;--a-ink:#EEF3F7;--a-muted:#93A1B1;--a-primary:#35B7C2;--a-on:#04262A;--a-soft:#12313A;
+.app-dark .desk{--a-bg:#0C141C;--a-surface:#16212C;--a-line:#243241;--a-ink:#EEF3F7;--a-muted:#93A1B1;--a-primary:#FF9A3D;--a-on:#2B1600;--a-soft:#3A2410;
   --a-ok:#4BC989;--a-ok-bg:#12301F;--a-warn:#F0A650;--a-warn-bg:#35260F;--a-err:#F26B6C;--a-err-bg:#3A1819}
 .dbar{height:30px;background:var(--a-surface);display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid var(--a-line)}
 .dbar i{width:9px;height:9px;border-radius:50%;background:var(--a-line)}
@@ -267,7 +269,7 @@ figure.wide{width:600px;max-width:100%}
 
   <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
     <div class="pad stack" style="margin-top:8px">
-      <div class="row"><span class="logo" style="background:var(--a-primary)">BRG</span><b>BRG Self Checkout</b></div>
+      <div class="row"><span class="mark"></span><b>BRG Self Checkout</b></div>
       <h1 class="h1" style="margin-top:14px">Mua sắm không phải xếp hàng</h1>
       <p class="p">Quét mã từng món, thanh toán ngay trên điện thoại, rồi ra cổng.</p>
     </div>
@@ -347,14 +349,14 @@ figure.wide{width:600px;max-width:100%}
     <div class="bc"></div><div class="reticle"><b></b><b></b><b></b><b></b><div class="laser"></div></div>
     <div class="hint">Đưa mã vạch vào khung</div>
     <div class="tools"><span><span class="ic" data-i="kbd" style="width:16px;height:16px"></span>Nhập mã</span><span><span class="ic" data-i="help" style="width:16px;height:16px"></span>Cần giúp</span></div>
-    <div class="camfoot"><div class="bar" style="background:#fff;color:#0F1A2A"><span class="ic" data-i="bag"></span><div class="sp"><b class="num">130.000₫</b><span>10 món trong giỏ</span></div><div class="go">Xem giỏ <span class="ic" data-i="chev" style="width:14px;height:14px"></span></div></div></div>
+    <div class="camfoot"><div class="bar" style="background:#fff;color:#1F2430"><span class="ic" data-i="bag"></span><div class="sp"><b class="num">130.000₫</b><span>10 món trong giỏ</span></div><div class="go">Xem giỏ <span class="ic" data-i="chev" style="width:14px;height:14px"></span></div></div></div>
   </div></div>
   <figcaption><div class="t"><span class="id">M08</span><b>Quét mã vạch</b><span class="fr">FR-CUS-02</span><span class="fr">NFR-01</span></div><p>Mục tiêu nhận mã dưới 1 giây. Đèn flash cho chỗ thiếu sáng, Nhập mã khi mã nhàu hoặc mờ.</p></figcaption></figure>
 
   <figure><div class="phone cam"><div class="sb camtop"><b>9:41</b><i></i></div><div class="scr">
     <div class="top-app camtop"><span class="circ"><span class="ic" data-i="x"></span></span><div class="store"><span class="dot"></span><span>Chi nhánh Quận 7</span></div><span class="circ"><span class="ic" data-i="flash"></span></span></div>
     <div class="bc"></div><div class="reticle ok"><b></b><b></b><b></b><b></b></div>
-    <div class="sheet" style="--a-bg:#fff;--a-ink:#0F1A2A;--a-surface:#F2F5F7;--a-line:#E3E8EC;--a-muted:#667384;--a-primary:#0E7C86;--a-on:#fff;--a-ok:#1E9E5A;--a-ok-bg:#E4F5EB;background:#fff;color:#0F1A2A">
+    <div class="sheet" style="--a-bg:#fff;--a-ink:#1F2430;--a-surface:#F5F6F8;--a-line:#E5E7EB;--a-muted:#6B7280;--a-primary:#F07F1A;--a-on:#fff;--a-ok:#2F9E4F;--a-ok-bg:#E6F4EA;background:#fff;color:#1F2430">
       <span class="pill" style="justify-self:start"><span class="ic" data-i="check" style="width:13px;height:13px"></span>Đã thêm vào giỏ</span>
       <div class="row"><span class="tile" style="--h:40;width:52px;height:52px">D</span><div class="sp"><b>Dầu ăn đậu nành 1L</b><div class="mut sm-t">52.000₫</div></div>
         <div class="step"><button type="button"><span class="ic" data-i="minus"></span></button><span class="num">1</span><button type="button"><span class="ic" data-i="plus"></span></button></div></div>
@@ -367,7 +369,7 @@ figure.wide{width:600px;max-width:100%}
   <figure><div class="phone cam"><div class="sb camtop"><b>9:41</b><i></i></div><div class="scr">
     <div class="top-app camtop"><span class="circ"><span class="ic" data-i="x"></span></span><div class="store"><span class="dot"></span><span>Chi nhánh Quận 7</span></div><span class="circ"><span class="ic" data-i="flash"></span></span></div>
     <div class="bc"></div><div class="reticle err"><b></b><b></b><b></b><b></b></div>
-    <div class="sheet" style="--a-bg:#fff;--a-ink:#0F1A2A;--a-surface:#F2F5F7;--a-line:#E3E8EC;--a-muted:#667384;--a-primary:#0E7C86;--a-on:#fff;--a-err:#D6393A;--a-err-bg:#FDE9E9;background:#fff;color:#0F1A2A">
+    <div class="sheet" style="--a-bg:#fff;--a-ink:#1F2430;--a-surface:#F5F6F8;--a-line:#E5E7EB;--a-muted:#6B7280;--a-primary:#F07F1A;--a-on:#fff;--a-err:#D6393A;--a-err-bg:#FDE9E9;background:#fff;color:#1F2430">
       <div class="row"><span class="badge err" style="width:44px;height:44px;border-radius:14px"><span class="ic" data-i="alert" style="width:22px;height:22px"></span></span><div class="sp"><b>Không tìm thấy sản phẩm</b><div class="mut sm-t num">Mã 8934 5678 9012 3</div></div></div>
       <p class="p">Sản phẩm này chưa có trong hệ thống của chi nhánh. Bạn có thể thử lại hoặc gọi nhân viên hỗ trợ.</p>
       <button class="btn" type="button">Quét lại</button>
@@ -450,7 +452,7 @@ figure.wide{width:600px;max-width:100%}
     <div class="pad stack">
       <div class="card"><div class="row"><div class="sp"><div class="mut sm-t">Số tiền cần trả</div><div class="num" style="font-size:28px;font-weight:800;letter-spacing:-.02em">182.000₫</div></div><div class="mut sm-t" style="text-align:right">11 món<br><u>Chi tiết</u></div></div></div>
       <b style="font-size:13px">Chọn cách thanh toán</b>
-      <div class="radio on"><span class="logo" style="background:#1E9E5A">₫</span><div class="sp"><b>Tiền mặt tại quầy</b><div class="sm-t mut">Đưa mã giỏ hàng cho nhân viên</div></div><span class="r"></span></div>
+      <div class="radio on"><span class="logo" style="background:#2F9E4F">₫</span><div class="sp"><b>Tiền mặt tại quầy</b><div class="sm-t mut">Đưa mã giỏ hàng cho nhân viên</div></div><span class="r"></span></div>
       <div class="radio"><span class="logo" style="background:#0E5AA7">QR</span><div class="sp"><b>Chuyển khoản QR</b><div class="sm-t mut">Quét bằng app ngân hàng bất kỳ</div></div><span class="r"></span></div>
       <div class="card" style="opacity:.6"><div class="row"><span class="logo" style="background:#B0006D">Ví</span><span class="logo" style="background:#0E5AA7">VN</span><span class="logo" style="background:#475467"><span class="ic" data-i="card" style="width:18px;height:18px"></span></span><div class="sp"><b>Ví, VNPay, thẻ</b><div class="sm-t mut">Thanh toán tự động</div></div><span class="pill warn">Sắp có</span></div></div>
           </div>
@@ -578,7 +580,7 @@ figure.wide{width:600px;max-width:100%}
   <div class="grid">
 
   <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
-    <div class="pad stack" style="margin-top:16px"><div class="row"><span class="logo" style="background:var(--a-primary)">BRG</span><b>BRG Self Checkout</b></div><span class="pill warn" style="justify-self:start">Dành cho nhân viên</span><h1 class="h1">Đăng nhập</h1></div>
+    <div class="pad stack" style="margin-top:16px"><div class="row"><span class="mark"></span><b>BRG Self Checkout</b></div><span class="pill warn" style="justify-self:start">Dành cho nhân viên</span><h1 class="h1">Đăng nhập</h1></div>
     <div class="pad stack" style="margin-top:16px"><div class="field"><label>Mã nhân viên</label><div class="in focus num">NV0142</div></div><div class="field"><label>Mã PIN</label><div class="in num">• • • •</div></div></div>
     <div class="nums pad" style="margin-top:auto;margin-bottom:6px"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span></span><span>0</span><span>⌫</span></div>
     <div class="foot" style="padding-top:4px"><button class="btn" type="button">Đăng nhập</button></div>
@@ -662,7 +664,7 @@ figure.wide{width:600px;max-width:100%}
     <div class="top-app camtop"><span class="circ"><span class="ic" data-i="chevl"></span></span><div class="store"><span class="dot"></span><span>Cổng ra 1 · Q7</span></div><span class="circ"><span class="ic" data-i="flash"></span></span></div>
     <div class="reticle" style="width:180px;height:180px"><b></b><b></b><b></b><b></b><div class="laser"></div></div>
     <div class="hint" style="top:calc(44% + 112px)">Quét QR biên nhận của khách</div>
-    <div class="camfoot"><div class="bar" style="background:#fff;color:#0F1A2A"><div class="sp"><b class="num">24 khách</b><span>đã qua cổng trong ca này</span></div><div class="go">Lịch sử</div></div></div>
+    <div class="camfoot"><div class="bar" style="background:#fff;color:#1F2430"><div class="sp"><b class="num">24 khách</b><span>đã qua cổng trong ca này</span></div><div class="go">Lịch sử</div></div></div>
   </div></div>
   <figcaption><div class="t"><span class="id">N08</span><b>Quét QR ra cổng</b><span class="fr">FR-GATE-01</span></div><p>Mở là quét luôn, không bấm thêm. Tự nhận mã và gửi lên máy chủ kiểm tra.</p></figcaption></figure>
 
@@ -736,7 +738,7 @@ figure.wide{width:600px;max-width:100%}
   <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / dang-nhap</span></div>
    <div class="dbody" style="grid-template-columns:1fr 1fr;min-height:420px">
     <div style="background:var(--a-primary);color:var(--a-on);padding:28px 24px;display:flex;flex-direction:column;gap:10px">
-      <div class="row"><span class="logo" style="background:rgba(255,255,255,.2);color:inherit">BRG</span><b style="font-size:14px">BRG Self Checkout</b></div>
+      <div class="row"><span class="mark" style="background-color:#fff;border-radius:10px;padding:3px;background-origin:content-box"></span><b style="font-size:14px">BRG Self Checkout</b></div>
       <h3 style="margin:auto 0 0;font-size:24px;line-height:1.15;font-weight:800;letter-spacing:-.01em">Quản trị chuỗi và chi nhánh</h3>
       <div style="opacity:.85">Theo dõi giao dịch, đối soát tiền, cấu hình chi nhánh.</div>
     </div>
@@ -1021,7 +1023,7 @@ figure.wide{width:600px;max-width:100%}
   var NAV={chuoi:['Tổng quan','Chi nhánh','Tích hợp','Báo cáo','Phân quyền'],cn:['Hôm nay','Giao dịch','Nhân viên &amp; ca','Kiểm tra ngẫu nhiên','Đối soát','Mã không tìm thấy']};
   document.querySelectorAll('aside.side').forEach(function(a){
     var k=a.getAttribute('data-nav'),on=+a.getAttribute('data-active');
-    a.innerHTML='<div class="brand"><span class="logo">BRG</span>Self Checkout</div><div class="role">'+(k==='chuoi'?'Quản trị chuỗi':'Chi nhánh Quận 7')+'</div>'+
+    a.innerHTML='<div class="brand"><span class="mark"></span>Self Checkout</div><div class="role">'+(k==='chuoi'?'Quản trị chuỗi':'Chi nhánh Quận 7')+'</div>'+
       NAV[k].map(function(t,i){return '<a'+(i===on?' class="on"':'')+'>'+t+'</a>';}).join('')+'<div class="me">Thomas<br>Quản trị viên</div>';
   });
   // biểu đồ cột
