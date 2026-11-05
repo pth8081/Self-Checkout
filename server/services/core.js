@@ -21,9 +21,11 @@ export function getStoreConfig(db, storeId) {
 export function storeView(db, storeId) {
   const { store, cfg } = getStoreConfig(db, storeId);
   const bankOk = !!(cfg.bank_bin && cfg.bank_account);
+  const pos = cfg.payment_source === 'pos'; // thu tiền tại POS: khách chỉ có một lựa chọn "thanh toán tại quầy"
   return {
     id: store.id, name: store.name, address: store.address, enabled: !!store.enabled,
-    payment: { cash: !!cfg.pay_cash, qrTransfer: !!cfg.pay_qr && bankOk, online: false /* chưa tích hợp */ }
+    paymentSource: cfg.payment_source, guardCheck: !!cfg.guard_check,
+    payment: { cash: !pos && !!cfg.pay_cash, qrTransfer: !pos && !!cfg.pay_qr && bankOk, pos, online: false /* chưa tích hợp */ }
   };
 }
 
@@ -69,10 +71,30 @@ export function createOrResumeSession(ctx, storeId, deviceId) {
   return { session: sessionView(ctx, id), resumed: false };
 }
 
+/** Chuẩn hoá thông tin người mua (hoá đơn công ty) khách nhập trước khi khoá giỏ. */
+export function cleanBuyer(b) {
+  if (!b || typeof b !== 'object') return null;
+  const email = String(b.email || '').trim();
+  const out = {};
+  if (email) {
+    if (!/^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/.test(email)) throw bad('BAD_EMAIL', 'Email không hợp lệ');
+    out.email = email;
+  }
+  if (b.taxCode || b.companyName || b.address) {
+    const taxCode = String(b.taxCode || '').replace(/\s/g, '');
+    if (!/^\d{10}(-\d{3})?$/.test(taxCode)) throw bad('BAD_TAX_CODE', 'Mã số thuế gồm 10 chữ số (hoặc 13 số có chi nhánh)');
+    if (!String(b.companyName || '').trim() || !String(b.address || '').trim()) throw bad('COMPANY_INFO_REQUIRED', 'Nhập đủ tên công ty và địa chỉ');
+    if (!out.email) throw bad('BAD_EMAIL', 'Nhập email để nhận hoá đơn công ty');
+    Object.assign(out, { taxCode, companyName: String(b.companyName).trim().slice(0, 200), address: String(b.address).trim().slice(0, 300) });
+  }
+  return Object.keys(out).length ? JSON.stringify(out) : null;
+}
+
 /** Bỏ phiên cũ để bắt đầu giỏ mới (khách chọn "Bắt đầu giỏ mới"). */
 export function abandonSession(ctx, session) {
   const { db } = ctx;
   if (session.status === 'locked') {
+    if (db.prepare(`SELECT 1 FROM transactions WHERE session_id=? AND status='awaiting_counter' AND pos_status='claimed'`).get(session.id)) throw conflict('CLAIMED', 'Thu ngân đang xử lý đơn trên máy tính tiền');
     db.prepare(`UPDATE transactions SET status='cancelled' WHERE session_id=? AND status='awaiting_counter'`).run(session.id);
   } else if (session.status !== 'active') throw conflict('SESSION_CLOSED', 'Phiên này đã kết thúc');
   db.prepare(`UPDATE scan_sessions SET status='abandoned', ended_at=? WHERE id=?`).run(nowIso(), session.id);
@@ -168,7 +190,11 @@ export function txView(ctx, tx, { staff = false } = {}) {
     createdAt: tx.created_at, paidAt: tx.paid_at, exitedAt: tx.exited_at,
     checkRequired: !!tx.check_required && !tx.check_done, checkDone: !!tx.check_done,
     ageRestricted: !!tx.age_restricted, rating: tx.rating,
-    receipt: paid ? { token: makeReceiptToken(tx.id, tx.receipt_expires_at), expiresAt: tx.receipt_expires_at, expired: !!expired } : null,
+    paymentSource: cfg.payment_source, guardCheck: !tx.guard_skipped,
+    posStatus: tx.pos_status, posOrderRef: tx.pos_order_ref, posAmount: tx.pos_amount, posInvoiceNo: tx.pos_invoice_no,
+    buyer: tx.buyer_json ? JSON.parse(tx.buyer_json) : null,
+    // Chi nhánh không có bảo vệ: khách ra thẳng, không có mã QR ra cổng.
+    receipt: paid && !tx.guard_skipped ? { token: makeReceiptToken(tx.id, tx.receipt_expires_at), expiresAt: tx.receipt_expires_at, expired: !!expired } : null,
     invoice: inv ? { type: inv.type, status: inv.status, number: inv.number, email: inv.email } : null
   };
   if (tx.status === 'awaiting_counter' && tx.method === 'qr_transfer' && cfg.bank_bin && cfg.bank_account) {
@@ -201,6 +227,7 @@ function freshnessChanges(ctx, session, items) {
 
 function drawCheck(ctx, session, cfg, total) {
   const { db, rng } = ctx;
+  if (!cfg.guard_check) return false; // không có bảo vệ thì không có bước kiểm tra ngẫu nhiên ở cổng
   let rate = cfg.random_check_rate;
   const prev = db.prepare(`SELECT 1 FROM transactions WHERE device_id = ? AND status = 'paid' LIMIT 1`).get(session.device_id);
   if (!prev) rate = Math.max(rate, cfg.rate_first_time);
@@ -208,21 +235,29 @@ function drawCheck(ctx, session, cfg, total) {
   return rng() < rate;
 }
 
-export function lockSession(ctx, session, { method, acceptChanges = false }) {
+export function lockSession(ctx, session, { method, acceptChanges = false, buyer = null }) {
   const { db } = ctx;
   const { store, cfg } = getStoreConfig(db, session.store_id);
   if (!store.enabled) throw conflict('STORE_DISABLED', 'Chi nhánh này chưa bật Self Checkout');
-  if (!['cash', 'qr_transfer'].includes(method)) throw bad('METHOD_UNAVAILABLE', 'Cách thanh toán này chưa được hỗ trợ');
-  if (method === 'cash' && !cfg.pay_cash) throw bad('METHOD_UNAVAILABLE', 'Chi nhánh không nhận tiền mặt');
-  if (method === 'qr_transfer') {
-    if (!cfg.pay_qr) throw bad('METHOD_UNAVAILABLE', 'Chi nhánh không nhận chuyển khoản QR');
-    if (!cfg.bank_bin || !cfg.bank_account) throw conflict('BANK_NOT_CONFIGURED', 'Chi nhánh chưa cấu hình tài khoản nhận chuyển khoản');
+  const posMode = cfg.payment_source === 'pos';
+  if (posMode) {
+    if (method && method !== 'pos') throw bad('METHOD_UNAVAILABLE', 'Chi nhánh thu tiền tại quầy qua máy tính tiền');
+    method = 'pos';
+  } else {
+    if (!['cash', 'qr_transfer'].includes(method)) throw bad('METHOD_UNAVAILABLE', 'Cách thanh toán này chưa được hỗ trợ');
+    if (method === 'cash' && !cfg.pay_cash) throw bad('METHOD_UNAVAILABLE', 'Chi nhánh không nhận tiền mặt');
+    if (method === 'qr_transfer') {
+      if (!cfg.pay_qr) throw bad('METHOD_UNAVAILABLE', 'Chi nhánh không nhận chuyển khoản QR');
+      if (!cfg.bank_bin || !cfg.bank_account) throw conflict('BANK_NOT_CONFIGURED', 'Chi nhánh chưa cấu hình tài khoản nhận chuyển khoản');
+    }
   }
+  const buyerJson = posMode ? cleanBuyer(buyer) : null;
   // Đang khoá: chỉ đổi cách trả
   if (session.status === 'locked') {
     const tx = db.prepare(`SELECT * FROM transactions WHERE session_id = ? AND status = 'awaiting_counter'`).get(session.id);
     if (!tx) throw conflict('SESSION_CLOSED', 'Phiên này đã kết thúc');
-    db.prepare('UPDATE transactions SET method = ? WHERE id = ?').run(method, tx.id);
+    if (tx.pos_status === 'claimed') throw conflict('CLAIMED', 'Thu ngân đang xử lý đơn trên máy tính tiền, chưa đổi được');
+    db.prepare('UPDATE transactions SET method = ?, buyer_json = COALESCE(?, buyer_json) WHERE id = ?').run(method, buyerJson, tx.id);
     return txView(ctx, { ...tx, method });
   }
   if (session.status !== 'active') throw conflict('SESSION_CLOSED', 'Phiên này đã kết thúc');
@@ -250,10 +285,10 @@ export function lockSession(ctx, session, { method, acceptChanges = false }) {
     const check = drawCheck(ctx, session, cfg, t.total);
     const ts = nowIso();
     db.prepare(`INSERT INTO transactions(id,session_id,store_id,device_id,cart_code,transfer_content,subtotal,discount,total,method,status,
-      check_required,items_json,item_count,age_restricted,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      check_required,items_json,item_count,age_restricted,created_at,buyer_json,guard_skipped) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
       .run(id, session.id, session.store_id, session.device_id, `GH-${session.store_id}-${num}`, `SG ${session.store_id} ${num}`,
         t.subtotal, t.discount, t.total, method, 'awaiting_counter', check ? 1 : 0, JSON.stringify(snapshot),
-        itemCount(fresh), fresh.some((i) => i.age_restricted) ? 1 : 0, ts);
+        itemCount(fresh), fresh.some((i) => i.age_restricted) ? 1 : 0, ts, buyerJson, cfg.guard_check ? 0 : 1);
     db.prepare(`UPDATE scan_sessions SET status='locked', locked_at=?, last_activity=? WHERE id=?`).run(ts, ts, session.id);
     logScan(db, session, 'cart_locked', null, id);
     audit(db, { storeId: session.store_id, actorType: 'customer', actorId: session.device_id.slice(0, 8), action: 'cart.locked', entity: 'transaction', entityId: id,
@@ -268,6 +303,7 @@ export function unlockSession(ctx, session) {
   const tx = db.prepare(`SELECT * FROM transactions WHERE session_id = ? AND status = 'awaiting_counter'`).get(session.id);
   if (!tx) throw conflict('ALREADY_PAID', 'Giao dịch đã được thanh toán, không thể sửa giỏ');
   if (tx.exit_status === 'held') throw conflict('HELD', 'Giao dịch đang được quản lý xử lý');
+  if (tx.pos_status === 'claimed') throw conflict('CLAIMED', 'Thu ngân đang xử lý đơn trên máy tính tiền, chưa sửa được giỏ');
   db.transaction(() => {
     db.prepare(`UPDATE transactions SET status='cancelled' WHERE id=?`).run(tx.id);
     db.prepare(`UPDATE scan_sessions SET status='active', last_activity=? WHERE id=?`).run(nowIso(), session.id);
@@ -346,6 +382,7 @@ export async function collectPayment(ctx, user, txId, body) {
   const { db, invoicer } = ctx;
   if (!canCash(user)) throw forbidden('NOT_CASHIER', 'Tài khoản này không được thu tiền');
   const tx = ownTx(ctx, user, txId);
+  if (getStoreConfig(db, tx.store_id).cfg.payment_source === 'pos') throw conflict('POS_MODE', 'Chi nhánh thu tiền qua máy tính tiền (POS). Thu tiền trên POS, hệ thống tự xác nhận khi POS báo thanh toán');
   const shift = activeShift(db, user.id);
   if (!shift) throw conflict('NO_SHIFT', 'Hãy bắt đầu ca trước khi thu tiền');
   if (tx.exit_status === 'held') throw conflict('HELD', 'Giao dịch đang chờ quản lý xử lý');
@@ -380,6 +417,7 @@ export async function collectPayment(ctx, user, txId, body) {
     } else db.prepare('UPDATE transactions SET extra_due = 0 WHERE id = ?').run(tx.id);
     audit(db, { storeId: tx.store_id, actorType: 'staff', actorId: user.id, action: kind === 'main' ? 'payment.collected' : 'payment.extra_collected',
       entity: 'transaction', entityId: tx.id, data: { method, amount, cashReceived, change, shiftId: shift.id } });
+    if (kind === 'main' && tx.guard_skipped) markExited(db, db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.id), { id: 'SYSTEM' }, 'Không có bảo vệ');
   })();
   const updated = db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.id);
   if (kind === 'main') await issueInvoice(db, invoicer, updated, {});
@@ -422,7 +460,7 @@ function gateLog(db, user, txId, outcome, detail) {
     .run(user.store_id, user.id, txId ?? null, outcome, detail ? JSON.stringify(detail) : null, nowIso());
 }
 
-function markExited(db, tx, user, gate) {
+export function markExited(db, tx, user, gate) {
   const ts = nowIso();
   db.prepare(`UPDATE transactions SET exit_status='exited', exited_at=?, exited_by=?, exited_gate=? WHERE id=?`).run(ts, user.id, gate, tx.id);
   db.prepare(`UPDATE scan_sessions SET status='exited' WHERE id=?`).run(tx.session_id);
@@ -434,6 +472,7 @@ const summary = (tx) => ({ id: tx.id, code: tx.cart_code, itemCount: tx.item_cou
 export function gateScan(ctx, user, raw, gate = 'Cổng 1') {
   const { db } = ctx;
   if (!canGate(user)) throw forbidden('NOT_GATE', 'Tài khoản này không được kiểm tra cổng ra');
+  if (!getStoreConfig(db, user.store_id).cfg.guard_check) throw conflict('GUARD_DISABLED', 'Chi nhánh này không dùng bước kiểm tra của bảo vệ ở cổng ra');
   const text = String(raw || '').trim();
   const parsed = parseReceiptToken(text);
   const out = (outcome, extra = {}, tx = null) => {
@@ -471,6 +510,7 @@ export function recordCheck(ctx, user, body) {
   if (!['paid', 'awaiting_counter'].includes(tx.status)) throw conflict('NOT_CHECKABLE', 'Giao dịch này không kiểm tra được');
   if (tx.check_done) throw conflict('ALREADY_CHECKED', 'Giao dịch này đã được kiểm tra');
   const place = body.place === 'counter' ? 'counter' : 'gate';
+  if (place === 'gate' && !getStoreConfig(db, tx.store_id).cfg.guard_check) throw conflict('GUARD_DISABLED', 'Chi nhánh này không dùng bước kiểm tra của bảo vệ ở cổng ra');
   if (place === 'counter' && tx.status !== 'awaiting_counter') throw conflict('NOT_CHECKABLE', 'Kiểm tra tại quầy chỉ làm trước khi thu tiền');
   if (place === 'gate' && tx.status !== 'paid') throw conflict('NOT_CHECKABLE', 'Giao dịch chưa thanh toán');
   const result = body.result === 'mismatch' ? 'mismatch' : body.result === 'match' ? 'match' : null;

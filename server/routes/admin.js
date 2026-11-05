@@ -5,7 +5,8 @@ import { authenticate, sign, hashSecret, verifySecret, checkLocked, recordFail, 
 import { verifyTotp, randomSecret, otpauthUri } from '../services/totp.js';
 import { audit } from '../services/audit.js';
 import { retryPendingInvoices } from '../services/invoice.js';
-import { getStoreConfig, txView, voidTransaction, resolveHeld, shiftStats } from '../services/core.js';
+import { getStoreConfig, txView, voidTransaction, resolveHeld, shiftStats, markExited } from '../services/core.js';
+import { newKey, previewCart, claimCart, orderPaid, orderCancelled, orderStatus } from '../services/pos-api.js';
 import { userView } from './staff.js';
 import { registerGuides } from './guides.js';
 
@@ -77,7 +78,8 @@ export default async function adminRoutes(app) {
       const w = storeId ? 'AND p.store_id = ?' : '';
       const a = storeId ? [date, storeId] : [date];
       const p = db.prepare(`SELECT COUNT(CASE WHEN kind='main' THEN 1 END) tx, COALESCE(SUM(amount),0) revenue,
-        COALESCE(SUM(CASE WHEN method='cash' THEN amount END),0) cash, COALESCE(SUM(CASE WHEN method='qr_transfer' THEN amount END),0) transfer
+        COALESCE(SUM(CASE WHEN method='cash' THEN amount END),0) cash, COALESCE(SUM(CASE WHEN method='qr_transfer' THEN amount END),0) transfer,
+        COALESCE(SUM(CASE WHEN method NOT IN ('cash','qr_transfer') THEN amount END),0) other
         FROM payments p WHERE voided_at IS NULL AND ${sqlLocalDate('collected_at')} = ? ${w}`).get(...a);
       const w2 = storeId ? 'AND store_id = ?' : '';
       const c = db.prepare(`SELECT COUNT(*) checks, COALESCE(SUM(result='mismatch'),0) mismatches FROM exit_checks WHERE ${sqlLocalDate('created_at')} = ? ${w2}`).get(...a);
@@ -123,7 +125,8 @@ export default async function adminRoutes(app) {
         id: st.id, name: st.name, address: st.address, enabled: !!st.enabled,
         config: { payCash: !!c.pay_cash, payQr: !!c.pay_qr, payOnline: !!c.pay_online, qrProvider: c.qr_provider,
           randomCheckRate: c.random_check_rate, rateFirstTime: c.rate_first_time, rateHighValue: c.rate_high_value, highValueThreshold: c.high_value_threshold,
-          bank: { bin: c.bank_bin, name: c.bank_name, account: c.bank_account, holder: c.bank_holder }, posStaleMinutes: c.pos_stale_minutes }
+          bank: { bin: c.bank_bin, name: c.bank_name, account: c.bank_account, holder: c.bank_holder }, posStaleMinutes: c.pos_stale_minutes,
+          paymentSource: c.payment_source, guardCheck: !!c.guard_check }
       };
     };
     s.get('/stores', async (req) => ({
@@ -152,7 +155,7 @@ export default async function adminRoutes(app) {
       if (b.enabled !== undefined) chainOnly(req);
       if (b.enabled === true) {
         const c = db.prepare('SELECT * FROM store_config WHERE store_id = ?').get(id);
-        if (!c.pay_cash && !(c.pay_qr && c.bank_bin && c.bank_account)) throw conflict('NO_PAYMENT', 'Hãy bật ít nhất một cách thanh toán dùng được trước khi bật chi nhánh');
+        if (c.payment_source !== 'pos' && !c.pay_cash && !(c.pay_qr && c.bank_bin && c.bank_account)) throw conflict('NO_PAYMENT', 'Hãy bật ít nhất một cách thanh toán dùng được trước khi bật chi nhánh');
         if (!db.prepare('SELECT 1 FROM product_cache WHERE store_id = ? LIMIT 1').get(id)) throw conflict('NO_PRODUCTS', 'Chi nhánh chưa có dữ liệu sản phẩm, hãy đồng bộ POS trước');
       }
       db.prepare('UPDATE stores SET name = ?, address = ?, enabled = ? WHERE id = ?')
@@ -191,6 +194,18 @@ export default async function adminRoutes(app) {
         if (!(m >= 1 && m <= 1440)) throw bad('BAD_STALE', 'Ngưỡng cảnh báo từ 1 đến 1440 phút');
         n.pos_stale_minutes = m;
       }
+      if (b.paymentSource !== undefined) {
+        if (!['manual', 'pos'].includes(b.paymentSource)) throw bad('BAD_SOURCE', 'Nguồn thu tiền chỉ có manual hoặc pos');
+        if (b.paymentSource === 'pos' && !db.prepare('SELECT 1 FROM integration_keys WHERE active = 1 AND (store_id IS NULL OR store_id = ?)').get(id)) {
+          throw conflict('NO_POS_KEY', 'Chưa có khoá API cho POS dùng được ở chi nhánh này. Hãy tạo khoá ở mục Tích hợp trước');
+        }
+        if (b.paymentSource !== cur.payment_source) {
+          const pend = db.prepare(`SELECT COUNT(*) n FROM transactions WHERE store_id = ? AND status = 'awaiting_counter'`).get(id).n;
+          if (pend) throw conflict('CARTS_PENDING', `Còn ${pend} giỏ đang chờ thu. Hãy thu hoặc huỷ hết rồi mới đổi cách thu tiền`);
+        }
+        n.payment_source = b.paymentSource;
+      }
+      if (b.guardCheck !== undefined) n.guard_check = b.guardCheck ? 1 : 0;
       if (b.bank) {
         const k = b.bank;
         if (k.bin !== undefined && k.bin !== '' && !/^\d{6}$/.test(k.bin)) throw bad('BAD_BIN', 'Mã ngân hàng (BIN) gồm 6 chữ số');
@@ -199,9 +214,13 @@ export default async function adminRoutes(app) {
       }
       if (n.pay_qr && (!n.bank_bin || !n.bank_account) && b.payQr) throw bad('BANK_REQUIRED', 'Nhập ngân hàng và số tài khoản nhận trước khi bật chuyển khoản QR');
       db.prepare(`UPDATE store_config SET pay_cash=?,pay_qr=?,pay_online=0,qr_provider=?,random_check_rate=?,rate_first_time=?,rate_high_value=?,
-        high_value_threshold=?,bank_bin=?,bank_name=?,bank_account=?,bank_holder=?,pos_stale_minutes=? WHERE store_id=?`)
+        high_value_threshold=?,bank_bin=?,bank_name=?,bank_account=?,bank_holder=?,pos_stale_minutes=?,payment_source=?,guard_check=? WHERE store_id=?`)
         .run(n.pay_cash, n.pay_qr, n.qr_provider, n.random_check_rate, n.rate_first_time, n.rate_high_value, n.high_value_threshold,
-          n.bank_bin, n.bank_name, n.bank_account, n.bank_holder, n.pos_stale_minutes, id);
+          n.bank_bin, n.bank_name, n.bank_account, n.bank_holder, n.pos_stale_minutes, n.payment_source, n.guard_check, id);
+      // Tắt bước bảo vệ: những khách đã thanh toán mà chưa ra cổng coi như đã ra (không còn ai quét QR).
+      if (cur.guard_check && !n.guard_check) {
+        for (const t of db.prepare(`SELECT * FROM transactions WHERE store_id = ? AND status = 'paid' AND exit_status != 'exited'`).all(id)) markExited(db, t, { id: 'SYSTEM' }, 'Tắt bước bảo vệ');
+      }
       audit(db, { storeId: id, actorType: 'admin', actorId: req.user.id, action: 'store.config_updated', entity: 'store', entityId: id, data: b });
       return { store: storeRow(db.prepare('SELECT * FROM stores WHERE id = ?').get(id)) };
     });
@@ -222,6 +241,12 @@ export default async function adminRoutes(app) {
         einvoice: { provider: ctx.invoicer.name, configured: ctx.invoicer.name !== 'mock', failNext: !!einv.failNext,
           pending: db.prepare(`SELECT COUNT(*) n FROM invoices WHERE status='pending'`).get().n, issued: db.prepare(`SELECT COUNT(*) n FROM invoices WHERE status='issued'`).get().n },
         transfer: { qrProvider: 'self', providerAvailable: false },
+        posApi: (() => {
+          const since = new Date(Date.now() - 86400_000).toISOString();
+          const n = (w) => db.prepare(`SELECT COUNT(*) n FROM transactions WHERE pos_order_ref IS NOT NULL AND pos_claimed_at >= ? ${w}`).get(since).n;
+          return { keys: db.prepare('SELECT COUNT(*) n FROM integration_keys WHERE active = 1').get().n, lastUsedAt: db.prepare('SELECT MAX(last_used_at) t FROM integration_keys').get().t,
+            last24h: { claimed: n(''), paid: n(`AND pos_status = 'paid'`), cancelled: n(`AND pos_status = 'cancelled'`), differs: n(`AND pos_amount IS NOT NULL AND pos_amount != total`), waiting: n(`AND pos_status = 'claimed'`) } };
+        })(),
         note: 'POS và hoá đơn điện tử đang chạy bản giả lập. Gắn hệ thống thật bằng cách viết adapter tương ứng (xem docs/07).'
       };
     });
@@ -233,6 +258,39 @@ export default async function adminRoutes(app) {
       return { results: r };
     });
     s.post('/integrations/invoices/retry', async (req) => { chainOnly(req); return retryPendingInvoices(db, ctx.invoicer); });
+
+    // ---------------- Khoá API cho POS gọi vào ----------------
+    s.get('/pos/keys', async (req) => {
+      chainOnly(req);
+      return { keys: db.prepare('SELECT id, name, prefix, store_id, active, created_by, created_at, last_used_at FROM integration_keys ORDER BY id DESC').all()
+        .map((k) => ({ id: k.id, name: k.name, prefix: k.prefix, storeId: k.store_id, active: !!k.active, createdBy: k.created_by, createdAt: k.created_at, lastUsedAt: k.last_used_at })) };
+    });
+    s.post('/pos/keys', async (req) => {
+      chainOnly(req);
+      const name = String(req.body?.name || '').trim();
+      if (!name) throw bad('NAME_REQUIRED', 'Đặt tên cho khoá (ví dụ tên phần mềm POS)');
+      const storeId = req.body?.storeId ? String(req.body.storeId).toUpperCase() : null;
+      if (storeId) getStoreConfig(db, storeId);
+      const k = newKey();
+      const r = db.prepare('INSERT INTO integration_keys(name,key_hash,prefix,store_id,created_by,created_at) VALUES(?,?,?,?,?,?)').run(name.slice(0, 60), k.hash, k.prefix, storeId, req.user.id, nowIso());
+      audit(db, { storeId, actorType: 'admin', actorId: req.user.id, action: 'pos.key_created', entity: 'integration_key', entityId: String(r.lastInsertRowid), data: { name } });
+      return { id: r.lastInsertRowid, key: k.raw, prefix: k.prefix, note: 'Khoá chỉ hiện một lần, hãy chép và gửi cho nhà cung cấp POS' };
+    });
+    s.delete('/pos/keys/:id', async (req) => {
+      chainOnly(req);
+      const r = db.prepare('UPDATE integration_keys SET active = 0 WHERE id = ?').run(Number(req.params.id));
+      if (!r.changes) throw notFound('KEY_NOT_FOUND', 'Không tìm thấy khoá');
+      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'pos.key_revoked', entity: 'integration_key', entityId: String(req.params.id) });
+      return { ok: true };
+    });
+    s.get('/pos/orders', async (req) => {
+      const storeId = storeOf(req);
+      const where = ['store_id = ?', 'pos_order_ref IS NOT NULL']; const args = [storeId];
+      if (req.query.status) { where.push('pos_status = ?'); args.push(String(req.query.status)); }
+      const rows = db.prepare(`SELECT * FROM transactions WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 200`).all(...args);
+      return { orders: rows.map((t) => ({ transactionId: t.id, code: t.cart_code, posOrderRef: t.pos_order_ref, posStatus: t.pos_status, status: t.status, brgTotal: t.total, posAmount: t.pos_amount,
+        differs: t.pos_amount != null && t.pos_amount !== t.total, invoiceNo: t.pos_invoice_no, cashier: t.pos_cashier, terminal: t.pos_terminal, claimedAt: t.pos_claimed_at, paidAt: t.paid_at, exitStatus: t.exit_status })) };
+    });
 
     // Công cụ thử nghiệm: giả lập POS đổi giá/tồn kho (không có khi chạy production).
     s.post('/dev/pos-product', async (req) => {
@@ -246,6 +304,22 @@ export default async function adminRoutes(app) {
         .run(b.price ?? row.price, b.stock ?? row.stock, b.active === undefined ? row.active : (b.active ? 1 : 0), nowIso(), id, row.sku);
       if (b.sync) ctx.pos.sync(id);
       return { ok: true };
+    });
+    // Công cụ thử nghiệm: đóng vai POS gọi API (nhận giỏ, báo thanh toán, báo huỷ) mà không cần khoá API.
+    s.post('/dev/pos-simulate', async (req) => {
+      chainOnly(req);
+      if (config.isProd) throw forbidden('DEV_ONLY', 'Chỉ dùng ở môi trường thử');
+      const b = req.body || {};
+      const scope = { keyId: 0, name: 'Giả lập POS', storeId: null };
+      const ref = String(b.ref || '');
+      switch (b.action) {
+        case 'preview': return { result: previewCart(ctx, scope, b.code) };
+        case 'claim': return claimCart(ctx, scope, b.code, { posOrderRef: ref, cashier: b.cashier, terminal: b.terminal });
+        case 'paid': return orderPaid(ctx, scope, ref, { amount: Number(b.amount), method: b.method, invoiceNo: b.invoiceNo, cashier: b.cashier });
+        case 'cancelled': return orderCancelled(ctx, scope, ref, { reason: b.reason });
+        case 'status': return orderStatus(ctx, scope, ref);
+        default: throw bad('BAD_ACTION', 'action phải là preview, claim, paid, cancelled hoặc status');
+      }
     });
     s.get('/dev/pos-products', async (req) => {
       chainOnly(req);
@@ -268,16 +342,16 @@ export default async function adminRoutes(app) {
         rows.push({ date, ...dayStats(storeId, date) });
       }
       const sum = (k) => rows.reduce((a, r) => a + r[k], 0);
-      const totals = { tx: sum('tx'), revenue: sum('revenue'), cash: sum('cash'), transfer: sum('transfer'), checks: sum('checks'), mismatches: sum('mismatches') };
+      const totals = { tx: sum('tx'), revenue: sum('revenue'), cash: sum('cash'), transfer: sum('transfer'), other: sum('other'), checks: sum('checks'), mismatches: sum('mismatches') };
       totals.mismatchRate = totals.tx ? totals.mismatches / totals.tx : 0;
       return { from, to, storeId, rows, totals };
     };
     s.get('/reports', async (req) => buildReport(req));
     s.get('/reports.csv', async (req, reply) => {
       const r = buildReport(req);
-      const lines = ['Ngày,Giao dịch,Doanh thu,Tiền mặt,Chuyển khoản,Lượt kiểm tra,Chênh lệch'];
-      for (const x of r.rows) lines.push([x.date, x.tx, x.revenue, x.cash, x.transfer, x.checks, x.mismatches].join(','));
-      lines.push(['Tổng', r.totals.tx, r.totals.revenue, r.totals.cash, r.totals.transfer, r.totals.checks, r.totals.mismatches].join(','));
+      const lines = ['Ngày,Giao dịch,Doanh thu,Tiền mặt,Chuyển khoản,Khác,Lượt kiểm tra,Chênh lệch'];
+      for (const x of r.rows) lines.push([x.date, x.tx, x.revenue, x.cash, x.transfer, x.other, x.checks, x.mismatches].join(','));
+      lines.push(['Tổng', r.totals.tx, r.totals.revenue, r.totals.cash, r.totals.transfer, r.totals.other, r.totals.checks, r.totals.mismatches].join(','));
       reply.header('Content-Type', 'text/csv; charset=utf-8').header('Content-Disposition', `attachment; filename="bao-cao-${r.from}-${r.to}.csv"`);
       return '﻿' + lines.join('\r\n');
     });
@@ -380,7 +454,7 @@ export default async function adminRoutes(app) {
         .map((t) => txView(ctx, t));
       const inStore = db.prepare(`SELECT COUNT(*) n FROM scan_sessions WHERE store_id = ? AND status IN ('active','locked') AND last_activity >= ?`)
         .get(storeId, new Date(Date.now() - 2 * 3600_000).toISOString()).n;
-      return { date, storeId, tiles: { transactions: d.tx, revenue: d.revenue, cash: d.cash, transfer: d.transfer, checks: d.checks, mismatches: d.mismatches }, inStore, recent,
+      return { date, storeId, tiles: { transactions: d.tx, revenue: d.revenue, cash: d.cash, transfer: d.transfer, other: d.other, checks: d.checks, mismatches: d.mismatches }, inStore, recent,
         waiting: db.prepare(`SELECT COUNT(*) n FROM transactions WHERE store_id = ? AND status='awaiting_counter'`).get(storeId).n,
         held: db.prepare(`SELECT COUNT(*) n FROM transactions WHERE store_id = ? AND exit_status='held'`).get(storeId).n };
     });
@@ -410,7 +484,7 @@ export default async function adminRoutes(app) {
       if (sc) events.push({ ts: sc.last, tone: 'info', text: `Quét ${sc.n} lần, giữ ${tx.item_count} món${rm ? `, xoá ${rm.n} lần` : ''}${qy ? `, sửa số lượng ${qy.n} lần` : ''}${fl ? `, ${fl.n} lần quét lỗi` : ''}` });
       for (const a of db.prepare(`SELECT * FROM audit_events WHERE entity='transaction' AND entity_id = ? ORDER BY id`).all(tx.id)) {
         const d = a.data ? JSON.parse(a.data) : {};
-        const who = a.actor_type === 'staff' ? `NV ${a.actor_id}` : a.actor_type === 'admin' ? `Quản trị ${a.actor_id}` : a.actor_type === 'customer' ? 'Khách' : 'Hệ thống';
+        const who = a.actor_id?.startsWith('POS:') ? `POS (${a.actor_id.slice(4)})` : a.actor_type === 'staff' ? `NV ${a.actor_id}` : a.actor_type === 'admin' ? `Quản trị ${a.actor_id}` : a.actor_type === 'customer' ? 'Khách' : 'Hệ thống';
         const map = {
           'cart.locked': ['info', `Khoá giỏ, chọn ${d.method === 'cash' ? 'tiền mặt' : 'chuyển khoản'}, ${d.total?.toLocaleString('vi-VN')}₫`],
           'cart.unlocked': ['info', 'Khách quay lại sửa giỏ hàng'],

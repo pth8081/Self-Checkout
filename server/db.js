@@ -18,7 +18,9 @@ CREATE TABLE IF NOT EXISTS store_config (
   rate_high_value REAL NOT NULL DEFAULT 0.25,
   high_value_threshold INTEGER NOT NULL DEFAULT 500000,
   bank_bin TEXT DEFAULT '', bank_name TEXT DEFAULT '', bank_account TEXT DEFAULT '', bank_holder TEXT DEFAULT '',
-  pos_stale_minutes INTEGER NOT NULL DEFAULT 5
+  pos_stale_minutes INTEGER NOT NULL DEFAULT 5,
+  payment_source TEXT NOT NULL DEFAULT 'manual',
+  guard_check INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS staff (
   id TEXT PRIMARY KEY, store_id TEXT REFERENCES stores(id), name TEXT NOT NULL,
@@ -78,7 +80,9 @@ CREATE TABLE IF NOT EXISTS transactions (
   exit_status TEXT NOT NULL DEFAULT 'none', extra_due INTEGER NOT NULL DEFAULT 0,
   items_json TEXT NOT NULL, item_count INTEGER NOT NULL, age_restricted INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL, paid_at TEXT, exited_at TEXT, exited_by TEXT, exited_gate TEXT,
-  receipt_expires_at TEXT, rating INTEGER, void_reason TEXT, voided_at TEXT, voided_by TEXT
+  receipt_expires_at TEXT, rating INTEGER, void_reason TEXT, voided_at TEXT, voided_by TEXT,
+  pos_order_ref TEXT, pos_status TEXT, pos_claimed_at TEXT, pos_cashier TEXT, pos_terminal TEXT,
+  pos_amount INTEGER, pos_invoice_no TEXT, buyer_json TEXT, guard_skipped INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_tx_store_status ON transactions(store_id, status);
 CREATE INDEX IF NOT EXISTS idx_tx_store_code ON transactions(store_id, cart_code);
@@ -134,7 +138,25 @@ CREATE TABLE IF NOT EXISTS statements (
   lines TEXT NOT NULL, uploaded_by TEXT, created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS integration_keys (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, key_hash TEXT NOT NULL UNIQUE, prefix TEXT NOT NULL,
+  store_id TEXT, active INTEGER NOT NULL DEFAULT 1, created_by TEXT, created_at TEXT NOT NULL, last_used_at TEXT
+);
 `;
+
+/** Thêm cột còn thiếu cho CSDL tạo từ phiên bản cũ (CREATE TABLE IF NOT EXISTS không tự thêm cột). */
+const MIGRATIONS = [
+  ['store_config', 'payment_source', "TEXT NOT NULL DEFAULT 'manual'"], ['store_config', 'guard_check', 'INTEGER NOT NULL DEFAULT 1'],
+  ['transactions', 'pos_order_ref', 'TEXT'], ['transactions', 'pos_status', 'TEXT'], ['transactions', 'pos_claimed_at', 'TEXT'],
+  ['transactions', 'pos_cashier', 'TEXT'], ['transactions', 'pos_terminal', 'TEXT'], ['transactions', 'pos_amount', 'INTEGER'],
+  ['transactions', 'pos_invoice_no', 'TEXT'], ['transactions', 'buyer_json', 'TEXT'], ['transactions', 'guard_skipped', 'INTEGER NOT NULL DEFAULT 0']
+];
+function migrate(db) {
+  for (const [table, col, def] of MIGRATIONS) {
+    if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_tx_pos_ref ON transactions(pos_order_ref)');
+}
 
 export function openDb(file) {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -143,6 +165,7 @@ export function openDb(file) {
   db.pragma('busy_timeout = 5000'); // chờ tối đa 5 giây khi tiến trình khác đang ghi
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
+  migrate(db);
   // Mọi giao dịch CSDL bắt đầu bằng khoá ghi (BEGIN IMMEDIATE). Giao dịch "trì hoãn" mặc định đọc trước rồi mới xin khoá ghi,
   // nên khi có tiến trình khác vừa ghi xong sẽ báo "database is locked" ngay, không chờ busy_timeout.
   const txn = db.transaction.bind(db);

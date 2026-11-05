@@ -8,6 +8,7 @@ import { createMockInvoicer } from './services/invoice.js';
 import customerRoutes from './routes/customer.js';
 import staffRoutes from './routes/staff.js';
 import adminRoutes from './routes/admin.js';
+import posRoutes from './routes/pos.js';
 
 /** Dựng ứng dụng. Tham số cho phép thay CSDL, RNG, adapter khi kiểm thử. */
 export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = false, pos, invoicer, trustProxy = false } = {}) {
@@ -36,6 +37,7 @@ export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = f
   app.register(customerRoutes, { prefix: '/api/c' });
   app.register(staffRoutes, { prefix: '/api/s' });
   app.register(adminRoutes, { prefix: '/api/a' });
+  app.register(posRoutes, { prefix: '/api/pos' });
   // Kiểm tra tình trạng cho giám sát và reverse proxy: 200 khi máy chủ và CSDL đều ổn.
   app.get('/api/health', async (req, reply) => {
     try { db.prepare('SELECT 1').get(); return { ok: true, uptime: Math.round(process.uptime()) }; }

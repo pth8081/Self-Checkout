@@ -1,0 +1,145 @@
+// API cho phần mềm POS gọi vào BRG Self Checkout (POS là bên gọi):
+//   1. POS quét mã giỏ hàng của khách và "nhận" giỏ (lấy danh sách món để tự nhập vào đơn POS).
+//   2. POS báo đơn đã thanh toán, BRG tự xác nhận và cho khách ra (thu ngân không phải xác nhận lại).
+//   3. POS báo đơn đã huỷ.
+// Mọi lời gọi đều idempotent theo mã đơn POS (posOrderRef), gọi lại không tạo trùng.
+import crypto from 'node:crypto';
+import { config } from '../config.js';
+import { nowIso, bad, notFound, conflict, forbidden, money } from '../util.js';
+import { audit } from './audit.js';
+import { getStoreConfig, txView, markExited } from './core.js';
+
+export const hashKey = (k) => crypto.createHash('sha256').update(k).digest('hex');
+export function newKey() {
+  const raw = `brgpos_${crypto.randomBytes(24).toString('base64url')}`;
+  return { raw, prefix: raw.slice(0, 14), hash: hashKey(raw) };
+}
+
+export const POS_METHODS = ['cash', 'qr_transfer', 'card', 'ewallet', 'other'];
+const REF = /^[A-Za-z0-9._:/-]{1,64}$/;
+
+const byCode = (db, code) => db.prepare('SELECT * FROM transactions WHERE cart_code = ? ORDER BY created_at DESC LIMIT 1').get(String(code || '').trim().toUpperCase());
+const byRef = (db, ref) => db.prepare('SELECT * FROM transactions WHERE pos_order_ref = ? ORDER BY created_at DESC LIMIT 1').get(String(ref || ''));
+function inScope(scope, tx) { if (scope.storeId && scope.storeId !== tx.store_id) throw forbidden('STORE_FORBIDDEN', 'Khoá API này không dùng cho chi nhánh của giỏ hàng'); }
+
+/** Dữ liệu giỏ hàng trả cho POS: các món đã chốt giá (POS tự tính lại theo giá và khuyến mãi của POS). */
+export function cartForPos(tx) {
+  const items = JSON.parse(tx.items_json).map((i) => ({
+    sku: i.sku, barcode: i.barcode, name: i.name, qty: i.qty, unitPrice: i.price, discount: i.discount || 0, lineTotal: i.price * i.qty - (i.discount || 0)
+  }));
+  return {
+    code: tx.cart_code, transactionId: tx.id, storeId: tx.store_id, status: tx.status, posStatus: tx.pos_status, posOrderRef: tx.pos_order_ref,
+    subtotal: tx.subtotal, discount: tx.discount, total: tx.total, itemCount: tx.item_count, ageRestricted: !!tx.age_restricted,
+    buyer: tx.buyer_json ? JSON.parse(tx.buyer_json) : null, createdAt: tx.created_at, items
+  };
+}
+
+export function previewCart(ctx, scope, code) {
+  const tx = byCode(ctx.db, code);
+  if (!tx) throw notFound('CART_NOT_FOUND', 'Không tìm thấy giỏ hàng với mã này');
+  inScope(scope, tx);
+  return cartForPos(tx);
+}
+
+export function claimCart(ctx, scope, code, body = {}) {
+  const { db } = ctx;
+  const ref = String(body.posOrderRef || '');
+  if (!REF.test(ref)) throw bad('BAD_ORDER_REF', 'posOrderRef bắt buộc, tối đa 64 ký tự (chữ, số, . _ : / -)');
+  const tx = byCode(db, code);
+  if (!tx) throw notFound('CART_NOT_FOUND', 'Không tìm thấy giỏ hàng với mã này');
+  inScope(scope, tx);
+  if (getStoreConfig(db, tx.store_id).cfg.payment_source !== 'pos') throw conflict('POS_MODE_OFF', 'Chi nhánh này chưa bật chế độ thu tiền qua POS');
+  if (tx.pos_order_ref === ref) return { claimed: true, duplicate: true, cart: cartForPos(tx) }; // gọi lại cùng mã đơn
+  const other = byRef(db, ref);
+  if (other && other.id !== tx.id) throw conflict('REF_IN_USE', 'Mã đơn POS này đã gắn với giỏ hàng khác', { transactionId: other.id });
+  if (tx.status !== 'awaiting_counter') throw conflict('NOT_PAYABLE', `Giỏ hàng đang ở trạng thái "${tx.status}", không nhận được`, { status: tx.status });
+  if (tx.pos_status === 'claimed') throw conflict('ALREADY_CLAIMED', 'Giỏ hàng đã được đơn POS khác nhận', { posOrderRef: tx.pos_order_ref });
+  db.transaction(() => {
+    db.prepare(`UPDATE transactions SET pos_order_ref=?, pos_status='claimed', pos_claimed_at=?, pos_cashier=?, pos_terminal=? WHERE id=?`)
+      .run(ref, nowIso(), body.cashier ? String(body.cashier).slice(0, 40) : null, body.terminal ? String(body.terminal).slice(0, 40) : null, tx.id);
+    audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `POS:${scope.name}`, action: 'pos.claimed', entity: 'transaction', entityId: tx.id,
+      data: { posOrderRef: ref, cashier: body.cashier, terminal: body.terminal } });
+  })();
+  return { claimed: true, duplicate: false, cart: cartForPos(db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.id)) };
+}
+
+export function orderStatus(ctx, scope, ref) {
+  const tx = byRef(ctx.db, ref);
+  if (!tx) throw notFound('ORDER_NOT_FOUND', 'Không tìm thấy đơn POS này');
+  inScope(scope, tx);
+  return { posOrderRef: tx.pos_order_ref, code: tx.cart_code, transactionId: tx.id, status: tx.status, posStatus: tx.pos_status, total: tx.total,
+    paidAmount: tx.pos_amount, exitStatus: tx.exit_status, guardCheck: !tx.guard_skipped };
+}
+
+export function orderPaid(ctx, scope, ref, body = {}) {
+  const { db } = ctx;
+  const tx = byRef(db, ref);
+  if (!tx) throw notFound('ORDER_NOT_FOUND', 'Chưa nhận đơn POS này. Hãy gọi "nhận giỏ hàng" trước');
+  inScope(scope, tx);
+  const result = (dup) => ({ ok: true, duplicate: dup, transactionId: tx.id, status: 'paid', guardCheck: !tx.guard_skipped,
+    exitStatus: db.prepare('SELECT exit_status FROM transactions WHERE id = ?').get(tx.id).exit_status, amountMatches: money(tx.pos_amount) === tx.total });
+  if (tx.status === 'paid') return result(true); // báo lại: không tạo thêm khoản thu
+  if (tx.status === 'cancelled' || tx.status === 'voided') throw conflict('ORDER_CANCELLED', 'Đơn này đã bị huỷ');
+  if (tx.status !== 'awaiting_counter') throw conflict('NOT_PAYABLE', 'Đơn không ở trạng thái chờ thanh toán');
+  const amount = body.amount;
+  if (!Number.isInteger(amount) || amount <= 0) throw bad('BAD_AMOUNT', 'amount là số nguyên dương, đơn vị đồng');
+  if (!POS_METHODS.includes(body.method)) throw bad('BAD_METHOD', `method phải là một trong: ${POS_METHODS.join(', ')}`);
+  const invoiceNo = body.invoiceNo ? String(body.invoiceNo).slice(0, 64) : null;
+  const cashier = body.cashier ? String(body.cashier).slice(0, 40) : tx.pos_cashier;
+  const ts = nowIso();
+  const differs = amount !== tx.total;
+  db.transaction(() => {
+    const exp = new Date(Date.now() + config.receiptTtlMinutes * 60000).toISOString();
+    db.prepare(`INSERT INTO payments(transaction_id,store_id,kind,method,amount,collected_by,collected_at,provider,provider_ref,confirmations)
+      VALUES(?,?,'main',?,?,?,?,'pos',?,?)`).run(tx.id, tx.store_id, body.method, amount, `POS:${cashier || scope.name}`, ts, ref,
+      JSON.stringify({ paidAt: body.paidAt || null, terminal: body.terminal || tx.pos_terminal || null, note: body.note || null }));
+    db.prepare(`UPDATE transactions SET status='paid', method=?, paid_at=?, receipt_expires_at=?, extra_due=0, pos_status='paid', pos_amount=?,
+      pos_invoice_no=?, pos_cashier=? WHERE id=?`).run(body.method, ts, exp, amount, invoiceNo, cashier || null, tx.id);
+    db.prepare(`UPDATE scan_sessions SET status='paid', ended_at=? WHERE id=?`).run(ts, tx.session_id);
+    if (invoiceNo) {
+      const buyer = tx.buyer_json ? JSON.parse(tx.buyer_json) : {};
+      db.prepare(`INSERT INTO invoices(transaction_id,type,email,tax_code,company_name,address,status,number,created_at) VALUES(?,?,?,?,?,?,'issued',?,?)`)
+        .run(tx.id, buyer.taxCode ? 'company' : 'retail', buyer.email || null, buyer.taxCode || null, buyer.companyName || null, buyer.address || null, invoiceNo, ts);
+    }
+    audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `POS:${scope.name}`, action: 'payment.collected', entity: 'transaction', entityId: tx.id,
+      data: { source: 'pos', method: body.method, amount, posOrderRef: ref, invoiceNo, cashier } });
+    if (differs) audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `POS:${scope.name}`, action: 'pos.amount_differs', entity: 'transaction', entityId: tx.id, data: { brgTotal: tx.total, posAmount: amount } });
+    if (tx.guard_skipped) markExited(db, db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.id), { id: 'SYSTEM' }, 'Không có bảo vệ');
+  })();
+  return result(false);
+}
+
+export function orderCancelled(ctx, scope, ref, body = {}) {
+  const { db } = ctx;
+  const tx = byRef(db, ref);
+  if (!tx) throw notFound('ORDER_NOT_FOUND', 'Không tìm thấy đơn POS này');
+  inScope(scope, tx);
+  const reason = String(body.reason || 'POS huỷ đơn').slice(0, 200);
+  if (tx.status === 'cancelled' || tx.status === 'voided') return { ok: true, duplicate: true, status: tx.status };
+  const ts = nowIso();
+  if (tx.status === 'awaiting_counter') {
+    // Chưa thu tiền: nhả giỏ để khách sửa hoặc khoá lại.
+    db.transaction(() => {
+      db.prepare(`UPDATE transactions SET status='cancelled', pos_status='cancelled' WHERE id=?`).run(tx.id);
+      db.prepare(`UPDATE scan_sessions SET status='active', last_activity=? WHERE id=?`).run(ts, tx.session_id);
+      audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `POS:${scope.name}`, action: 'cart.cancelled', entity: 'transaction', entityId: tx.id, data: { reason, posOrderRef: ref } });
+    })();
+    return { ok: true, status: 'cancelled', cartReleased: true };
+  }
+  if (tx.status === 'paid') {
+    // Đã thu: POS là nguồn đúng, nên huỷ theo POS (QR mất hiệu lực, không tính doanh thu, hoá đơn chuyển yêu cầu huỷ).
+    const exited = tx.exit_status === 'exited';
+    db.transaction(() => {
+      db.prepare(`UPDATE transactions SET status='voided', pos_status='cancelled', void_reason=?, voided_at=?, voided_by=? WHERE id=?`).run(`POS huỷ: ${reason}`, ts, `POS:${scope.name}`, tx.id);
+      db.prepare('UPDATE payments SET voided_at = ? WHERE transaction_id = ? AND voided_at IS NULL').run(ts, tx.id);
+      db.prepare(`UPDATE invoices SET status = CASE WHEN status='issued' THEN 'cancel_requested' ELSE 'cancelled' END WHERE transaction_id = ?`).run(tx.id);
+      if (!exited) db.prepare(`UPDATE scan_sessions SET status='abandoned' WHERE id=?`).run(tx.session_id);
+      audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `POS:${scope.name}`, action: 'transaction.voided', entity: 'transaction', entityId: tx.id, data: { reason, source: 'pos', alreadyExited: exited } });
+      if (exited) audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `POS:${scope.name}`, action: 'pos.cancel_after_exit', entity: 'transaction', entityId: tx.id, data: { reason } });
+    })();
+    return { ok: true, status: 'voided', alreadyExited: exited };
+  }
+  throw conflict('NOT_CANCELLABLE', 'Đơn không ở trạng thái huỷ được');
+}
+
+export { txView };

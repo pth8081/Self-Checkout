@@ -75,7 +75,7 @@ export default async function customerRoutes(app) {
   });
   app.post('/sessions/:id/lock', async (req) => {
     const s = session(req);
-    const transaction = lockSession(ctx, s, { method: req.body?.method, acceptChanges: !!req.body?.acceptChanges });
+    const transaction = lockSession(ctx, s, { method: req.body?.method, acceptChanges: !!req.body?.acceptChanges, buyer: req.body?.buyer });
     return { session: sessionView(ctx, s.id), transaction };
   });
   app.post('/sessions/:id/unlock', async (req) => {
