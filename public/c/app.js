@@ -1,9 +1,12 @@
 // PWA khách BRG Self Checkout: điều hướng, khởi động, chốt chặn theo trạng thái giao dịch.
-import { html, render, useRoute, go, useEffect, useState, Toasts, OfflineBar, registerSW, Loading, ErrorBox, Header, toast } from '/shared/lib.js';
-import { useStore, loadStore, setStoreCode, openSession, refreshSession, resetSession, getState, local, setState } from './store.js';
+import { html, render, useRoute, go, useEffect, useState, useRef, Toasts, OfflineBar, registerSW, Loading, ErrorBox, Header, toast } from '/shared/lib.js';
+import { useStore, lastUnlockAt, loadStore, setStoreCode, openSession, refreshSession, resetSession, getState, local, setState } from './store.js';
 import { Welcome, Guide, CameraPermission, CameraBlocked, StoreDisabled, Stores, WebviewNotice, Resume, isWebview } from './screens-start.js';
 import { Scan, Manual, Cart } from './screens-scan.js';
 import { PayMethod, Transfer, Wait, Receipt, Done, Invoice, History, Order } from './screens-pay.js';
+
+// Thanh toán xong là ra luôn: chi nhánh không có bảo vệ, hoặc khách đã ra cổng.
+const noGate = (tx) => tx.exitStatus === 'exited' || tx.guardCheck === false || (!tx.receipt && tx.exitStatus === 'exited');
 
 const FLOW = ['/scan', '/manual', '/cart', '/pay', '/transfer', '/wait'];
 
@@ -38,7 +41,7 @@ function App() {
         const seen = local.get('brg.c.seen', 0);
         const hasRoute = location.hash.length > 2;
         if (!st.store.enabled && !cur) go('/closed', true);
-        else if (cur?.status === 'paid') go(cur.exitStatus === 'exited' ? '/done' : '/receipt', true);
+        else if (cur?.status === 'paid') go(noGate(cur) ? '/done' : '/receipt', true);
         else if (cur?.status === 'awaiting_counter') go('/wait', true);
         else if (st.session?.items.length && st.session.status === 'active' && Date.now() - seen > 10 * 60_000) go('/resume', true);
         else if (!hasRoute) go('/', true);
@@ -51,13 +54,19 @@ function App() {
   }, []);
 
   // ---------- Chốt chặn điều hướng theo trạng thái ----------
+  const prevTx = useRef(null);
+  useEffect(() => { if (tx) prevTx.current = tx; else if (path !== '/wait' && path !== '/transfer') prevTx.current = null; }, [tx, path]);
   useEffect(() => {
     if (!boot.done) return;
     const inFlow = FLOW.includes(path);
-    if (tx?.status === 'paid' && inFlow) go('/receipt', true);
+    if (tx?.status === 'paid' && inFlow) go(noGate(tx) ? '/done' : '/receipt', true);
     else if (tx?.status === 'awaiting_counter' && inFlow && !['/wait', '/transfer'].includes(path)) go(tx.method === 'qr_transfer' && path === '/pay' ? '/transfer' : '/wait', true);
-    else if ((!tx || tx.status === 'voided') && ['/wait', '/transfer'].includes(path)) go(s.session ? '/cart' : '/', true);
-    else if (tx?.status === 'paid' && path === '/receipt' && tx.exitStatus === 'exited') go('/done', true);
+    else if ((!tx || tx.status === 'voided') && ['/wait', '/transfer'].includes(path)) {
+      // Thu ngân huỷ đơn trên POS (khách không tự mở khoá): giỏ được nhả về cho khách sửa.
+      if (s.session && Date.now() - lastUnlockAt > 8000 && prevTx.current?.status === 'awaiting_counter' && prevTx.current.paymentSource === 'pos') toast('Thu ngân đã huỷ đơn. Bạn có thể sửa giỏ rồi thanh toán lại');
+      go(s.session ? '/cart' : '/', true);
+    }
+    else if (tx?.status === 'paid' && path === '/receipt' && noGate(tx)) go('/done', true);
     else if (!s.session && (inFlow || path === '/receipt' || path === '/done') && !(path === '/receipt' && s.receipt)) go('/', true);
   }, [boot.done, path, tx?.status, tx?.exitStatus, !!s.session]);
 

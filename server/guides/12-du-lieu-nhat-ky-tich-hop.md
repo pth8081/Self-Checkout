@@ -25,6 +25,12 @@ access: chain
 
 > **Lưu ý:** Hiện hoá đơn điện tử chạy bản giả lập, chưa phát hành hoá đơn thật.
 
+## POS gọi vào BRG
+
+Ở chi nhánh thu tiền qua POS, **POS gọi API của BRG** (không phải BRG gọi POS): nhận giỏ khi thu ngân quét mã, báo thanh toán, báo huỷ. Xem hướng dẫn "Kết nối POS". Mục **Tích hợp** có thẻ "POS gọi vào BRG": danh sách khoá API, thống kê 24 giờ (đã nhận giỏ, đã thanh toán, đã huỷ, lệch tiền, đang chờ).
+
+> **Lưu ý:** Dữ liệu sản phẩm (giá, tồn kho) vẫn do BRG **đọc từ POS** theo cách ở trên; còn đơn hàng thì POS **gọi vào BRG**. Hai chiều này độc lập.
+
 ## Nhật ký và truy vết
 
 Mọi sự kiện quan trọng được ghi **không sửa xoá**: tạo và khoá giỏ, thu tiền, thu bổ sung, hoá đơn, quét ở cổng, kết quả kiểm tra, quyết định của quản lý, huỷ giao dịch, thay đổi cấu hình, tài khoản, đăng nhập quản trị.
@@ -53,3 +59,6 @@ Mọi sự kiện quan trọng được ghi **không sửa xoá**: tạo và kho
 | Khách không quét được mã QR cổng vào | Mã in mờ, trình duyệt trong app khác | In lại mã rõ nét, hướng dẫn mở bằng Safari hoặc Chrome |
 | Camera không chạy | Trang không dùng HTTPS | Kiểm tra chứng chỉ HTTPS của máy chủ |
 | Nhân viên không đăng nhập được | Sai PIN nhiều lần (khoá 15 phút) hoặc tài khoản bị khoá | Quản lý mở khoá, đặt lại PIN |
+| POS báo lỗi 401 khi gọi BRG | Khoá API sai, đã thu hồi hoặc hết hạn sử dụng | Tạo khoá mới, gửi lại cho nhà cung cấp POS, thu hồi khoá cũ |
+| Khách kẹt ở màn "đã vào máy tính tiền" | POS nhận giỏ rồi không báo kết quả | Đơn POS, **Nhả giỏ** kèm lý do |
+| Nhiều đơn lệch tiền | Khuyến mãi theo hoá đơn của POS hoặc giá hai bên lệch | Kiểm tra đồng bộ giá, hỏi nhà cung cấp POS về quy tắc khuyến mãi |

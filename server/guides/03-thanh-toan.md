@@ -114,13 +114,57 @@ Khi kiểm tra ngẫu nhiên phát hiện khách còn hàng chưa quét, nhân v
 
 Xem thêm "Cổng ra và kiểm tra ngẫu nhiên".
 
+## Khi chi nhánh thu tiền qua POS
+
+Áp dụng cho chi nhánh được quản trị chuỗi chuyển sang **Qua POS**. Thu ngân dùng **POS** để thu tiền, không dùng app nhân viên của BRG.
+
+```seq
+title: Thanh toán khi thu tiền qua POS
+actors: Khách | Thu ngân | POS | Hệ thống BRG
+Khách -> Hệ thống BRG: Chọn Thanh toán tại quầy, khoá giỏ
+Hệ thống BRG --> Khách: Mã giỏ hàng GH-... (QR)
+Khách -> Thu ngân: Đưa mã giỏ hàng
+Thu ngân -> POS: Quét mã trong POS
+POS -> Hệ thống BRG: Nhận giỏ
+Hệ thống BRG --> POS: Danh sách món, thông tin hoá đơn khách đã nhập
+POS --> Thu ngân: Đơn đã có đủ món
+Khách -> Thu ngân: Trả tiền trên POS bằng QR, tiền mặt hoặc thẻ
+POS -> POS: Xuất hoá đơn điện tử
+POS -> Hệ thống BRG: Báo đã thanh toán, số tiền, cách trả, số hoá đơn
+Hệ thống BRG --> Khách: Tự xác nhận
+```
+
+**Khách** chỉ có một lựa chọn "Thanh toán tại quầy". Trước khi khoá giỏ khách có thể nhập **email** nhận hoá đơn và, nếu cần, **thông tin hoá đơn công ty** (mã số thuế, tên, địa chỉ), để POS xuất đúng hoá đơn ngay từ đầu.
+
+**Thu ngân** quét mã giỏ hàng bằng máy quét của POS. POS nhận món từ BRG và tạo đơn, thu ngân không gõ tay. Khi thu xong, POS báo về BRG. Không còn bước thu ngân tick hay bấm xác nhận trong BRG, vì **POS đã biết tiền thu thật hay chưa**.
+
+**Trạng thái giỏ hàng** mà khách thấy trên điện thoại:
+- Chờ thu ngân quét: "Đưa mã này cho thu ngân quét vào máy tính tiền".
+- POS đã nhận giỏ: "Đơn của bạn đã vào máy tính tiền, thanh toán tại quầy". Từ lúc này khách **không sửa được giỏ**.
+- POS báo đã thanh toán: tự chuyển sang QR ra cổng (có bảo vệ) hoặc màn hoàn tất (không bảo vệ).
+
+**Số tiền:** POS tự tính lại giá và khuyến mãi theo quy tắc của POS. Số tiền POS báo mới là **số tiền thật** và được ghi nhận. Số trên điện thoại khách lúc khoá giỏ chỉ là tạm tính. Khi hai số khác nhau, giao dịch được đánh dấu **lệch tiền** và hiện ở trang **Đơn POS** của web quản trị để quản lý xem lại.
+
+**Huỷ đơn do POS làm** (POS có sẵn chức năng này):
+- Huỷ **trước khi thanh toán:** giỏ được nhả về cho khách. Khách sửa giỏ rồi khoá lại sẽ có mã giỏ mới.
+- Huỷ **sau khi thanh toán** (hoàn tiền) khi khách chưa ra cổng: QR ra cổng mất hiệu lực, khoản thu không tính vào doanh thu của BRG, hoá đơn chuyển sang "yêu cầu huỷ".
+- Huỷ khi khách **đã ra:** BRG ghi nhận, loại khỏi doanh thu và để lại dấu vết; việc xử lý hàng đã ra do cửa hàng.
+
+**Khi POS gặp sự cố:**
+- POS nhận giỏ nhưng **không báo kết quả** (POS sập giữa chừng): quản lý mở **Đơn POS** và bấm **Nhả giỏ** (bắt buộc ghi lý do) để khách sửa giỏ hoặc khoá lại. Nếu POS sau đó vẫn báo đã thanh toán cho đơn đó, BRG từ chối và cần đối soát tay với POS.
+- POS **ngừng hẳn** trong thời gian dài: quản trị chuỗi chuyển chi nhánh về **Tự thu trong BRG** (cần không còn giỏ chờ thu) để thu ngân dùng quy trình thủ công ở trên, rồi chuyển lại khi POS sẵn sàng.
+
+> **Quan trọng:** Ở chế độ POS không còn người xác nhận trong BRG, nên **đối soát từng giao dịch BRG với POS** hằng ngày (trang Đơn POS, mục lệch tiền) là bước kiểm soát chính. Xem "Quản lý, đối soát và huỷ giao dịch".
+
+> **Cần xác nhận:** Hạn chờ nhận giỏ và hạn chờ thanh toán (đơn bị bỏ quên trên POS) hiện chưa tự hết hạn. Xem "Điểm cần chốt".
+
 ## Hoá đơn điện tử
 
 - Khi thu tiền xong, hệ thống **tự xuất hoá đơn bán lẻ** cho giao dịch (không cần khách làm gì).
 - Khách có thể **nhập email** để nhận hoá đơn, hoặc **xin hoá đơn công ty** (mã số thuế, tên, địa chỉ, email). Hoá đơn công ty **thay thế** hoá đơn bán lẻ và **chỉ xuất được trong ngày** phát sinh giao dịch.
 - Nếu nhà cung cấp hoá đơn lỗi, giao dịch **vẫn hoàn tất**, khách vẫn ra cổng. Hoá đơn ở trạng thái **đang chờ**, hệ thống tự thử lại khoảng 2 phút một lần, quản trị có nút **Thử lại hoá đơn treo**.
 
-> **Lưu ý:** Hiện hoá đơn điện tử chạy bản giả lập. Khi nối nhà cung cấp thật, cần chốt: POS hay BRG Self Checkout là bên xuất hoá đơn, để không xuất trùng.
+> **Lưu ý:** Mô tả trên là cho chế độ **tự thu**. Ở chế độ **POS**, hoá đơn do **POS phát hành**; BRG chỉ lưu số hoá đơn POS gửi về để hiện cho khách và không tự xuất. Ở chế độ tự thu, hoá đơn điện tử của BRG hiện chạy bản giả lập; khi nối nhà cung cấp thật cần chốt bên nào xuất để không xuất trùng.
 
 ## Các trạng thái và nơi xem
 

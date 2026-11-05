@@ -23,7 +23,13 @@
 - Huỷ giao dịch đã thu: chỉ quản lý, bắt buộc lý do, chưa ra cổng; QR trở nên vô hiệu, hoá đơn đã xuất chuyển sang "yêu cầu huỷ".
 - Mọi thao tác quan trọng ghi `audit_events` (truy vết ở A07, nhật ký ở trang quản trị).
 
-## 3. Gắn POS thật
+## 2b. Chế độ POS và bỏ bước bảo vệ (cờ theo chi nhánh)
+
+- **`paymentSource = pos`:** POS gọi API `/api/pos/v1` của BRG (nhận giỏ, báo thanh toán, báo huỷ), xem [api-pos.md](api-pos.md). BRG tự xác nhận khi POS báo thanh toán; thu tiền thủ công trong BRG bị chặn ở chi nhánh này.
+- **`guardCheck = false`:** không có bước cổng ra, không bốc kiểm tra ngẫu nhiên, thanh toán xong khách ra luôn, không có QR.
+- Cả hai chỉ quản trị chuỗi đổi, có ghi nhật ký. Đây là hướng POS gọi vào BRG, **khác** với cách BRG gọi POS để lấy giá và tồn kho ở mục 3.
+
+## 3. Gắn POS thật (đọc giá và tồn kho)
 
 Bản giả lập: `server/services/pos.js` (đọc bảng `pos_products`). POS thật thay bằng một adapter cùng giao diện, chọn trong `server/app.js` (tham số `pos` của `buildApp`, hoặc đổi nơi tạo `createMockPos`).
 

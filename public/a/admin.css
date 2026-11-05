@@ -218,3 +218,13 @@
   .gd-svg { min-width: 0 !important; max-width: 100% !important; width: 100% !important; }
   .gd-md a { color: inherit; }
 }
+
+/* Thu tiền qua POS, bảo vệ cổng ra */
+.tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.tag { display: inline-flex; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 8px; background: var(--orange-soft); color: var(--orange-ink); }
+.tag.warn { background: var(--warn-soft); color: var(--warn); }
+.tbl tr.differs td { background: var(--err-soft); }
+.differs-amt, .kv .differs { color: var(--err); font-weight: 800; }
+.jsonbox { margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--surface); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto; }
+ul.bullets { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }

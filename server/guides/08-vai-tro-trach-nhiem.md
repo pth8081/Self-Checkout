@@ -25,7 +25,9 @@ access: all
 | Cấu hình ngân hàng nhận tiền, tích hợp | | | | | ✓ |
 | Báo cáo toàn chuỗi, tạo quản trị viên | | | | | ✓ |
 
-Nhân viên có vai trò **thu ngân + cổng ra** làm được cả hai cột. Quản lý đăng nhập app nhân viên bằng PIN cũng làm được các việc của thu ngân, cổng ra và quản lý.
+Nhân viên có vai trò **thu ngân + cổng ra** làm được cả hai cột.
+
+Ở chi nhánh **thu tiền qua POS**, công việc của thu ngân diễn ra trên **POS** (do nhà cung cấp POS phân quyền), không phải trong BRG; app nhân viên của BRG chỉ còn việc ở cổng ra và của quản lý. Ở chi nhánh **không có bảo vệ**, không có việc ở cổng ra. Chỉ **quản trị chuỗi** đổi được cách thu tiền, bật hoặc tắt bước bảo vệ, tạo và thu hồi **khoá API cho POS**. Khoá API cho phép POS xác nhận thanh toán thay thu ngân, nên **giữ bí mật như mật khẩu** và thu hồi ngay khi nghi lộ. Quản lý đăng nhập app nhân viên bằng PIN cũng làm được các việc của thu ngân, cổng ra và quản lý.
 
 ## Tách biệt nhiệm vụ
 

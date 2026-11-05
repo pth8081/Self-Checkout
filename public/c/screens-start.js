@@ -17,7 +17,7 @@ export function Welcome({ store, onStart, busy, error }) {
     <div class="page pad-b">
       <div class="stack-lg" style="margin-top:8px">
         <h1 style="font-size:30px">Mua sắm không phải xếp hàng</h1>
-        <p class="muted">Quét mã từng món, chọn cách thanh toán rồi ra cổng bằng mã QR. Không cần cài ứng dụng.</p>
+        <p class="muted">Quét mã từng món, ${store.payment?.pos ? 'thanh toán tại quầy' : 'chọn cách thanh toán'} rồi ${store.guardCheck === false ? 'ra về' : 'ra cổng bằng mã QR'}. Không cần cài ứng dụng.</p>
       </div>
       <div class="card">
         <div class="row"><div class="ico-tile"><${Icon} name="store"/></div>
@@ -26,7 +26,7 @@ export function Welcome({ store, onStart, busy, error }) {
       </div>
       ${error && html`<${ErrorBox} error=${error}/>`}
       <div class="stack" style="margin-top:4px">
-        ${[['scan', 'Quét mã vạch từng món bằng camera'], ['cash', 'Trả tiền mặt hoặc chuyển khoản tại quầy'], ['qr', 'Nhận mã QR để ra cổng']].map(([ic, t]) => html`
+        ${[['scan', 'Quét mã vạch từng món bằng camera'], ['cash', store.payment?.pos ? 'Thanh toán tại quầy, thu ngân quét mã giỏ hàng' : 'Trả tiền mặt hoặc chuyển khoản tại quầy'], ['qr', store.guardCheck === false ? 'Thanh toán xong là ra về' : 'Nhận mã QR để ra cổng']].map(([ic, t]) => html`
           <div class="row"><div class="ico-tile" style="width:40px;height:40px;border-radius:14px"><${Icon} name=${ic}/></div><div>${t}</div></div>`)}
       </div>
       <div class="row wrap" style="justify-content:center;gap:4px">
@@ -44,7 +44,7 @@ export function Welcome({ store, onStart, busy, error }) {
 const STEPS = [
   { icon: 'barcode', title: 'Quét mã vạch từng món', text: 'Đưa mã vạch trên sản phẩm vào khung camera. Món được thêm vào giỏ ngay.' },
   { icon: 'bag', title: 'Kiểm tra giỏ hàng', text: 'Xem lại món, số lượng và tổng tiền. Sửa hoặc bỏ món trước khi thanh toán.' },
-  { icon: 'qr', title: 'Thanh toán và ra cổng', text: 'Trả tiền tại quầy Self Checkout, nhận mã QR rồi đưa cho nhân viên ở cổng.' }
+  { icon: 'qr', title: 'Thanh toán và ra cổng', text: 'Trả tiền tại quầy, rồi ra về theo hướng dẫn trên màn hình (có thể là mã QR đưa nhân viên ở cổng).' }
 ];
 export function Guide({ onDone }) {
   const [i, setI] = useState(0);

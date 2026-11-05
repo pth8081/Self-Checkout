@@ -180,13 +180,16 @@ export const removeItem = (itemId) => setQty(itemId, 0);
 export function dismissIssue(id) { setState({ issues: state.issues.filter((i) => i.id !== id) }); }
 
 // ---------- Khoá giỏ & thanh toán ----------
-export async function lock(method, acceptChanges = false) {
+export async function lock(method, acceptChanges = false, buyer = undefined) {
   if (state.queue.length) { const m = await flush(); if (m === null) throw new Error('Cần có mạng để thanh toán'); }
-  const r = await api.post(`/sessions/${state.session.id}/lock`, { method, acceptChanges });
+  const r = await api.post(`/sessions/${state.session.id}/lock`, { method, acceptChanges, buyer });
   setState({ session: r.session });
   return r.transaction;
 }
+/** Thời điểm khách tự mở khoá giỏ (để phân biệt với việc thu ngân huỷ đơn bên POS). */
+export let lastUnlockAt = 0;
 export async function unlock() {
+  lastUnlockAt = Date.now();
   const r = await api.post(`/sessions/${state.session.id}/unlock`);
   setState({ session: r.session });
 }

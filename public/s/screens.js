@@ -1,7 +1,7 @@
 // Màn hình thu ngân, ca làm việc và giao dịch của PWA nhân viên.
 import { html, useState, useEffect, useRef, Icon, Logo, Scanner, Banner, Pill, Field, Sheet, Confirm, Spinner, Empty, Loading, ErrorBox,
   fmt, go, toast, usePoll, useAsync, Keypad, copyText } from '/shared/lib.js';
-import { api, setToken, flash, useBusy, beep, enc, Top, Page, BottomBar, NeedShift, Denied, Tick, MoneyPad, QueueList, Fetching, useTx, txStatus, roleName } from '/s/common.js';
+import { api, setToken, flash, useBusy, beep, enc, Top, Page, BottomBar, NeedShift, Denied, Tick, MoneyPad, QueueList, Fetching, useTx, txStatus, roleName, flagsOf } from '/s/common.js';
 
 // ============================== N01 Đăng nhập ==============================
 export function Login({ onLogin }) {
@@ -37,12 +37,14 @@ export function Home({ c }) {
   const [kind, setKind] = useState(new Date().getHours() < 12 ? 'sang' : 'chieu');
   const [busy, run] = useBusy();
   const [queueN, setQueueN] = useState(null);
+  const f = flagsOf(store);
   usePoll(async () => {
+    c.refreshMe();
     if (!c.shift) return;
-    const [s, q] = await Promise.all([api.get('/shifts/current'), user.canCash ? api.get('/queue') : Promise.resolve(null)]);
+    const [s, q] = await Promise.all([api.get('/shifts/current'), user.canCash && !f.pos ? api.get('/queue') : Promise.resolve(null)]);
     c.setShift(s.shift);
     if (q) setQueueN(q.carts.length);
-  }, 4000, [!!shift]);
+  }, 4000, [!!shift, f.pos]);
   const hour = new Date().getHours();
   const hi = hour < 11 ? 'Chào buổi sáng' : hour < 14 ? 'Chào buổi trưa' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
   const start = () => run(async () => {
@@ -57,28 +59,32 @@ export function Home({ c }) {
     <div class="stack" style="gap:4px"><h1>${hi}, ${user.name}</h1><div class="muted">${store.name} · ${roleName(user)}</div></div>
     ${!shift ? html`
       ${last && html`<div class="card"><div class="row"><div class="ico-tile green"><${Icon} name="docok"/></div><div class="grow"><h2>Ca vừa kết thúc</h2><div class="small muted">Bàn giao lúc ${fmt.time(last.ended_at)}</div></div></div>
-        <div class="sum"><div><span>Giao dịch</span><b>${last.stats.transactions}</b></div><div><span>Tiền mặt hệ thống</span><b class="num">${fmt.money(last.system_cash)}</b></div>
+        <div class="sum"><div><span>Giao dịch</span><b>${last.stats.transactions}</b></div>${!f.pos && html`<div><span>Tiền mặt hệ thống</span><b class="num">${fmt.money(last.system_cash)}</b></div>
         <div><span>Tiền mặt đếm thực tế</span><b class="num">${fmt.money(last.counted_cash)}</b></div>
         <div><span>Chênh lệch</span><b class="num" style=${`color:var(${last.diff === 0 ? '--ok' : '--err'})`}>${last.diff > 0 ? '+' : ''}${fmt.money(last.diff)}</b></div>
-        <div><span>Chuyển khoản</span><b class="num">${fmt.money(last.stats.transfer)}</b></div></div></div>`}
-      <div class="card"><div class="row"><div class="ico-tile"><${Icon} name="clock"/></div><div class="grow"><h2>Bắt đầu ca làm việc</h2><div class="small muted">Chọn ca rồi bắt đầu để thu tiền và kiểm tra cổng ra.</div></div></div>
+        <div><span>Chuyển khoản</span><b class="num">${fmt.money(last.stats.transfer)}</b></div>`}</div></div>`}
+      <div class="card"><div class="row"><div class="ico-tile"><${Icon} name="clock"/></div><div class="grow"><h2>Bắt đầu ca làm việc</h2><div class="small muted">${f.pos && !f.guard ? 'Chọn ca rồi bắt đầu ca làm việc.' : f.pos ? 'Chọn ca rồi bắt đầu để kiểm tra cổng ra.' : !f.guard ? 'Chọn ca rồi bắt đầu để thu tiền.' : 'Chọn ca rồi bắt đầu để thu tiền và kiểm tra cổng ra.'}</div></div></div>
         <div class="seg" role="group" aria-label="Chọn ca"><button aria-pressed=${kind === 'sang'} onClick=${() => setKind('sang')}>Ca sáng</button><button aria-pressed=${kind === 'chieu'} onClick=${() => setKind('chieu')}>Ca chiều</button></div>
         <button class="btn primary" disabled=${busy} onClick=${start}>${busy ? html`<${Spinner} sm/>` : 'Bắt đầu ca'}</button></div>`
     : html`
       <div class="row"><${Pill} tone="ok"><span class="dot"></span> ${shift.kind === 'sang' ? 'Ca sáng' : 'Ca chiều'}<//><span class="small muted">từ ${fmt.time(shift.started_at)}</span></div>
+      ${f.pos && !f.guard ? html`<${Banner} tone="info" icon="info" title="Không cần dùng ứng dụng này cho thu tiền hay cổng ra">Chi nhánh dùng POS và không có bảo vệ: bạn không cần dùng ứng dụng này cho việc thu tiền hay cổng ra. Thu ngân quét mã giỏ hàng của khách trong phần mềm POS, hệ thống tự xác nhận khi POS báo đã thanh toán.<//>`
+        : f.pos ? html`<${Banner} tone="info" icon="info" title="Thu tiền trên máy tính tiền (POS)">Thu ngân quét mã giỏ hàng của khách trong phần mềm POS. Hệ thống tự xác nhận khi POS báo đã thanh toán.<//>`
+        : !f.guard ? html`<${Banner} tone="info" icon="info" title="Không có bước kiểm tra của bảo vệ">Khách thanh toán xong là ra luôn, không có mã QR ra cổng.<//>` : null}
       <div class="stack">
-        ${user.canCash && html`<button class="actcard main" onClick=${() => go('/thu')}><div class="ico-tile"><${Icon} name="cash" size=${28}/></div>
+        ${!f.pos && user.canCash && html`<button class="actcard main" onClick=${() => go('/thu')}><div class="ico-tile"><${Icon} name="cash" size=${28}/></div>
           <div class="grow"><div class="t">Thu tiền giỏ hàng</div><div class="small muted">${queueN === null ? 'Đang tải hàng đợi…' : queueN ? `${queueN} khách đang chờ` : 'Chưa có khách chờ'}</div></div>
           ${queueN > 0 && html`<span class="pill" style="background:#fff;color:var(--orange-ink);font-size:16px;padding:6px 14px">${queueN}</span>`}<${Icon} name="chev"/></button>`}
-        ${user.canGate && html`<button class="actcard" onClick=${() => go('/cong')}><div class="ico-tile green"><${Icon} name="shield" size=${28}/></div>
+        ${f.guard && user.canGate && html`<button class="actcard" onClick=${() => go('/cong')}><div class="ico-tile green"><${Icon} name="shield" size=${28}/></div>
           <div class="grow"><div class="t">Kiểm tra cổng ra</div><div class="small muted">Quét QR biên nhận của khách</div></div><${Icon} name="chev"/></button>`}
       </div>
       <div><h3 style="margin-bottom:8px">Trong ca này</h3><div class="tiles">
         <div class="tilebox"><span class="k">Giao dịch</span><span class="v">${st?.transactions ?? 0}</span></div>
-        <div class="tilebox"><span class="k">Kiểm tra ngẫu nhiên</span><span class="v">${st?.checks ?? 0}${st?.mismatches ? html`<span class="small muted" style="font-weight:600"> · ${st.mismatches} lệch</span>` : ''}</span></div>
-        <div class="tilebox"><span class="k">Tiền mặt</span><span class="v">${fmt.money(st?.cash)}</span></div>
-        <div class="tilebox"><span class="k">Chuyển khoản</span><span class="v">${fmt.money(st?.transfer)}</span></div></div></div>
-      <button class="btn line" onClick=${() => go('/doi-soat')}><${Icon} name="docok"/> Đối soát & kết thúc ca</button>`}
+        ${f.guard && html`<div class="tilebox"><span class="k">Kiểm tra ngẫu nhiên</span><span class="v">${st?.checks ?? 0}${st?.mismatches ? html`<span class="small muted" style="font-weight:600"> · ${st.mismatches} lệch</span>` : ''}</span></div>`}
+        ${!f.pos && html`<div class="tilebox"><span class="k">Tiền mặt</span><span class="v">${fmt.money(st?.cash)}</span></div>
+        <div class="tilebox"><span class="k">Chuyển khoản</span><span class="v">${fmt.money(st?.transfer)}</span></div>`}</div></div>
+      ${user.isManager && (f.pos || !f.guard) && html`<button class="btn line" onClick=${() => go('/giao-dich')}><${Icon} name="receipt"/> Giao dịch gần đây</button>`}
+      <button class="btn line" onClick=${() => go('/doi-soat')}><${Icon} name="docok"/> ${f.pos ? 'Kết thúc ca' : 'Đối soát & kết thúc ca'}</button>`}
   <//>`;
 }
 
@@ -144,13 +150,14 @@ export function Cart({ c, id }) {
   const [busy, run] = useBusy();
   const tx = st.data;
   const pay = c.store.payment;
+  const guardOn = flagsOf(c.store).guard;
   useEffect(() => {
     if (tx && !method) setMethod(tx.method === 'qr_transfer' && pay.qrTransfer ? 'qr_transfer' : pay.cash ? 'cash' : 'qr_transfer');
   }, [tx]);
   if (!c.user.canCash) return html`<${Denied} c=${c}/>`;
   if (!tx) return html`<${Top} c=${c} title="Giỏ hàng" back="/thu"/><${Page}><${Fetching} st=${st}/><//>`;
   const mode = modeOf(tx), amount = amountOf(tx), held = tx.exitStatus === 'held';
-  const flagged = mode === 'main' && tx.checkRequired; // được chọn kiểm tra ngẫu nhiên
+  const flagged = guardOn && mode === 'main' && tx.checkRequired; // được chọn kiểm tra ngẫu nhiên
   const doCancel = () => run(async () => {
     const text = reason === 'Lý do khác' ? (other.trim() || 'Lý do khác') : reason;
     await api.post(`/carts/${enc(tx.id)}/cancel`, { reason: text });
@@ -163,7 +170,7 @@ export function Cart({ c, id }) {
   return html`<${Top} c=${c} title=${mode === 'extra' ? 'Thu bổ sung' : 'Giỏ hàng cần thu'} sub=${tx.code} back="/thu"/><${Page} bottom>
     <${NeedShift} c=${c}/>
     <div class="row wrap"><${Pill} tone=${s.tone}>${s.text}<//><${Pill}>Khách chọn: ${fmt.method(tx.method)}<//><span class="small muted end">${fmt.time(tx.createdAt)}</span></div>
-    ${held && html`<${Banner} tone="err" icon="alert" title="Đang chờ quản lý xử lý">Chưa thu tiền được cho tới khi quản lý quyết định.<//>`}
+    ${held && guardOn && html`<${Banner} tone="err" icon="alert" title="Đang chờ quản lý xử lý">Chưa thu tiền được cho tới khi quản lý quyết định.<//>`}
     ${flagged && html`<${Banner} tone="warn" icon="eye" title="Được chọn kiểm tra ngẫu nhiên">Có thể đối chiếu hàng thật ngay tại quầy, hoặc để nhân viên cổng ra kiểm tra khi khách ra.<//>`}
     ${tx.ageRestricted && html`<${Banner} tone="warn" icon="user" title="Có hàng giới hạn độ tuổi">Hãy kiểm tra giấy tờ của khách trước khi thu tiền.<//>`}
     ${mode === 'none' && !held && html`<${Banner} tone="info" icon="info" title="Không có khoản nào cần thu">${tx.status === 'paid' ? 'Giao dịch này đã thu tiền đầy đủ.' : 'Giao dịch này không thu tiền được.'}<//>`}
@@ -187,7 +194,7 @@ export function Cart({ c, id }) {
     <button class="btn primary" disabled=${!c.shift || !method} onClick=${() => go(`/gio/${enc(tx.id)}/${method === 'cash' ? 'tien-mat' : 'chuyen-khoan'}`)}>
         ${method === 'cash' ? 'Thu tiền mặt' : 'Xác nhận chuyển khoản'} · ${fmt.money(amount)}</button>
     ${flagged && html`<button class="btn line" onClick=${() => go(`/doi-chieu/${enc(tx.id)}?place=counter`)}><${Icon} name="eye"/> Đối chiếu ngay tại quầy</button>`}<//>`}
-  ${held && c.user.isManager && html`<${BottomBar}><button class="btn primary" onClick=${() => go('/cho-quan-ly')}>Xử lý ca chờ quản lý</button><//>`}
+  ${held && guardOn && c.user.isManager && html`<${BottomBar}><button class="btn primary" onClick=${() => go('/cho-quan-ly')}>Xử lý ca chờ quản lý</button><//>`}
   ${cancel && html`<${Sheet} onClose=${() => setCancel(false)}><h2>Huỷ giỏ ${tx.code}?</h2><p class="muted">Giỏ sẽ mở lại trên điện thoại của khách để họ sửa hoặc thanh toán lại.</p>
     <div class="stack" style="gap:8px">${CANCEL_REASONS.map((r) => html`<button key=${r} class=${`option ${reason === r ? 'on' : ''}`} onClick=${() => setReason(r)}>${r}<span class="radio"></span></button>`)}</div>
     ${reason === 'Lý do khác' && html`<input class="input" placeholder="Ghi lý do" value=${other} onInput=${(e) => setOther(e.target.value)} aria-label="Lý do huỷ"/>`}
@@ -270,19 +277,21 @@ export function Done({ c }) {
     <div class="glass">
       <div><span>Giỏ hàng</span><b>${tx.code}</b></div><div><span>Cách trả</span><b>${fmt.method(d.method)}</b></div>
       <div><span>Giờ thu</span><b>${fmt.time(d.at)}</b></div><div><span>Nhân viên</span><b>${d.staff}</b></div></div>
-    <p>Khách sẽ nhận QR biên nhận trên điện thoại để ra cổng.</p>
+    <p>${flagsOf(c.store).guard ? 'Khách sẽ nhận QR biên nhận trên điện thoại để ra cổng.' : 'Khách đã thanh toán xong và có thể ra về, không cần qua bước kiểm tra cổng.'}</p>
     <div class="actions"><button class="btn" onClick=${() => { flash.done = null; go('/thu', true); }}>Khách tiếp theo</button>
       <button class="btn ghost" onClick=${() => { flash.done = null; go('/', true); }}>Về trang chính</button></div></div>`;
 }
 
 // ============================== Giao dịch gần đây ==============================
+const POS_ST = { claimed: 'POS đang xử lý', paid: 'POS đã thu', cancelled: 'POS đã huỷ' };
 export function Transactions({ c }) {
   const st = useAsync(async () => (await api.get('/transactions')).transactions, []);
   return html`<${Top} c=${c} title="Giao dịch gần đây" sub="12 giờ qua" right=${html`<button class="iconbtn" onClick=${st.reload} aria-label="Làm mới"><${Icon} name="refresh"/></button>`}/><${Page}>
     <${Fetching} st=${st}/>
     ${st.data && (st.data.length ? html`<div class="card tight"><div class="list">${st.data.map((t) => { const s = txStatus(t); return html`<button key=${t.id} class="item" style="background:none;border:0;border-bottom:1px solid var(--line);text-align:left;width:100%" onClick=${() => go(`/giao-dich/${enc(t.id)}`)}>
-      <div class="grow"><div class="b">${t.code}</div><div class="small muted">${fmt.time(t.paidAt || t.createdAt)} · ${t.itemCount} sản phẩm · ${fmt.method(t.method)}</div></div>
-      <div style="text-align:right"><div class="b num">${fmt.money(t.total)}</div><${Pill} tone=${s.tone}>${s.text}<//></div><${Icon} name="chev"/></button>`; })}</div></div>`
+      <div class="grow"><div class="b">${t.code}</div><div class="small muted">${fmt.time(t.paidAt || t.createdAt)} · ${t.itemCount} sản phẩm · ${fmt.method(t.method)}</div>
+        ${t.posOrderRef && html`<div class="small muted">POS: ${t.posOrderRef}${t.posInvoiceNo ? ` · HĐ ${t.posInvoiceNo}` : ''}${t.posStatus ? ` · ${POS_ST[t.posStatus] || t.posStatus}` : ''}</div>`}</div>
+      <div style="text-align:right"><div class="b num">${fmt.money(t.status === 'paid' ? (t.posAmount ?? t.total) : t.total)}</div><${Pill} tone=${s.tone}>${s.text}<//></div><${Icon} name="chev"/></button>`; })}</div></div>`
       : html`<${Empty} icon="receipt" title="Chưa có giao dịch" text="Giao dịch đã thu hoặc đang chờ thu trong 12 giờ qua sẽ hiện ở đây."/>`)}
   <//>`;
 }
@@ -292,19 +301,24 @@ export function TxDetail({ c, id }) {
   const tx = st.data;
   if (!tx) return html`<${Top} c=${c} title="Chi tiết giao dịch" back="/giao-dich"/><${Page}><${Fetching} st=${st}/><//>`;
   const s = txStatus(tx);
-  const canExtra = c.user.canCash && modeOf(tx) !== 'none' && tx.exitStatus !== 'held';
-  return html`<${Top} c=${c} title="Chi tiết giao dịch" sub=${tx.code} back="/giao-dich"/><${Page} bottom=${canExtra || (tx.exitStatus === 'held' && c.user.isManager)}>
-    <div class="row wrap"><${Pill} tone=${s.tone}>${s.text}<//><${Pill}>${fmt.method(tx.method)}<//>${tx.checkDone && html`<${Pill} tone="info">Đã kiểm tra<//>`}</div>
+  const f = flagsOf(c.store);
+  const canExtra = !f.pos && c.user.canCash && modeOf(tx) !== 'none' && tx.exitStatus !== 'held';
+  return html`<${Top} c=${c} title="Chi tiết giao dịch" sub=${tx.code} back="/giao-dich"/><${Page} bottom=${canExtra || (f.guard && tx.exitStatus === 'held' && c.user.isManager)}>
+    <div class="row wrap"><${Pill} tone=${s.tone}>${s.text}<//><${Pill}>${fmt.method(tx.method)}<//>${tx.checkDone && html`<${Pill} tone="info">Đã kiểm tra<//>`}${tx.posStatus && html`<${Pill} tone=${tx.posStatus === 'paid' ? 'ok' : tx.posStatus === 'cancelled' ? '' : 'warn'}>${POS_ST[tx.posStatus] || tx.posStatus}<//>`}</div>
     ${tx.extraDue > 0 && html`<${Banner} tone="warn" icon="cash" title=${`Còn thu bổ sung ${fmt.money(tx.extraDue)}`}>Khách cần trả thêm trước khi ra cổng.<//>`}
     <div class="card"><div class="list">${(tx.items || []).map((i, n) => html`<div class="item" key=${n}><div class="tile" style=${`--h:${fmt.tone(n + 3)}`}>${i.qty}×</div>
       <div class="grow"><div class="name">${i.name}</div><div class="small muted">${fmt.money(i.price)} × ${i.qty}</div></div><div class="b num">${fmt.money(i.price * i.qty - (i.discount || 0))}</div></div>`)}</div>
       <div class="sum"><div><span>Tạm tính</span><span class="num">${fmt.money(tx.subtotal)}</span></div>${tx.discount > 0 && html`<div><span>Khuyến mãi</span><span class="num">−${fmt.money(tx.discount)}</span></div>`}
-        <div class="tot"><span>Tổng</span><span class="num">${fmt.money(tx.total)}</span></div></div></div>
+        <div class="tot"><span>Tổng</span><span class="num">${fmt.money(tx.total)}</span></div>
+        ${tx.posAmount != null && html`<div><span>Đã trả (theo POS)</span><b class="num">${fmt.money(tx.posAmount)}</b></div>`}</div></div>
+    ${(tx.posOrderRef || tx.posInvoiceNo) && html`<div class="card tight"><div class="label">Nguồn thu: máy tính tiền (POS)</div><div class="sum">
+      ${tx.posOrderRef && html`<div><span>Đơn POS</span><b>${tx.posOrderRef}</b></div>`}${tx.posInvoiceNo && html`<div><span>Số hoá đơn</span><b>${tx.posInvoiceNo}</b></div>`}
+      ${tx.posStatus && html`<div><span>Trạng thái POS</span><span>${POS_ST[tx.posStatus] || tx.posStatus}</span></div>`}</div></div>`}
     <div class="card tight"><div class="sum"><div><span>Mã giao dịch</span><b>${tx.id}</b></div><div><span>Tạo lúc</span><span>${fmt.dateTime(tx.createdAt)}</span></div>
-      ${tx.paidAt && html`<div><span>Thu tiền lúc</span><span>${fmt.dateTime(tx.paidAt)}</span></div>`}${tx.exitedAt && html`<div><span>Ra cổng lúc</span><span>${fmt.dateTime(tx.exitedAt)}</span></div>`}</div></div>
+      ${tx.paidAt && html`<div><span>Thu tiền lúc</span><span>${fmt.dateTime(tx.paidAt)}</span></div>`}${tx.guardCheck !== false && tx.exitedAt && html`<div><span>Ra cổng lúc</span><span>${fmt.dateTime(tx.exitedAt)}</span></div>`}</div></div>
   <//>
   ${canExtra && html`<${BottomBar}><button class="btn primary" onClick=${() => go(`/gio/${enc(tx.id)}`)}>${tx.status === 'paid' ? 'Thu bổ sung' : 'Mở để thu tiền'}</button><//>`}
-  ${!canExtra && tx.exitStatus === 'held' && c.user.isManager && html`<${BottomBar}><button class="btn primary" onClick=${() => go('/cho-quan-ly')}>Xử lý ca chờ quản lý</button><//>`}`;
+  ${!canExtra && f.guard && tx.exitStatus === 'held' && c.user.isManager && html`<${BottomBar}><button class="btn primary" onClick=${() => go('/cho-quan-ly')}>Xử lý ca chờ quản lý</button><//>`}`;
 }
 
 // ============================== N14 Đối soát cuối ca ==============================
@@ -318,8 +332,9 @@ export function EndShift({ c }) {
   const shift = st.data;
   if (!shift) return html`<${Top} c=${c} title="Đối soát cuối ca" back="/"/><${Page}>${st.loading ? html`<${Loading}/>` : st.error ? html`<${ErrorBox} error=${st.error} retry=${st.reload}/>`
     : html`<${Empty} icon="clock" title="Bạn chưa bắt đầu ca" text="Không có ca nào đang mở để đối soát."><button class="btn primary" onClick=${() => go('/')}>Về trang chính</button><//>`}<//>`;
-  const sys = shift.stats.cash, has = counted !== '', cnt = Number(counted || 0), diff = cnt - sys;
-  const needNote = has && diff !== 0;
+  const pos = flagsOf(c.store).pos;
+  const sys = pos ? 0 : shift.stats.cash, has = pos || counted !== '', cnt = pos ? 0 : Number(counted || 0), diff = cnt - sys;
+  const needNote = !pos && has && diff !== 0;
   const finish = () => {
     if (needNote && !note.trim()) { setConfirm(false); setNoteErr('Tiền mặt lệch, hãy ghi lý do trước khi kết thúc ca'); return; }
     run(async () => {
@@ -331,13 +346,13 @@ export function EndShift({ c }) {
   };
   return html`<${Top} c=${c} title="Đối soát cuối ca" sub=${`${shift.kind === 'sang' ? 'Ca sáng' : 'Ca chiều'} từ ${fmt.time(shift.started_at)}`} back="/"/><${Page} bottom>
     <div class="tiles"><div class="tilebox"><span class="k">Giao dịch</span><span class="v">${shift.stats.transactions}</span></div>
-      <div class="tilebox"><span class="k">Chuyển khoản</span><span class="v">${fmt.money(shift.stats.transfer)}</span></div></div>
-    <div class="amountbox"><span class="label">Tiền mặt theo hệ thống</span><span class="bigamt">${fmt.money(sys)}</span></div>
+      ${!pos && html`<div class="tilebox"><span class="k">Chuyển khoản</span><span class="v">${fmt.money(shift.stats.transfer)}</span></div>`}</div>
+    ${pos ? html`<${Banner} tone="info" icon="info" title="Tiền do POS thu">Chi nhánh thu tiền trên máy tính tiền nên không cần đếm tiền mặt khi kết thúc ca.<//>` : html`<div class="amountbox"><span class="label">Tiền mặt theo hệ thống</span><span class="bigamt">${fmt.money(sys)}</span></div>
     <div class="amountbox in"><span class="label">Tiền mặt đếm thực tế</span><span class="bigamt">${has ? fmt.money(cnt) : html`<span class="muted">Nhập số tiền đã đếm</span>`}</span></div>
-    ${has && html`<div class=${`change ${diff === 0 ? '' : 'short'}`} style=${diff !== 0 ? 'background:var(--err-soft);color:var(--err)' : ''}><div class="label" style="color:inherit">${diff === 0 ? 'Khớp với hệ thống' : diff > 0 ? 'Thừa so với hệ thống' : 'Thiếu so với hệ thống'}</div><div class="bigamt">${diff > 0 ? '+' : ''}${fmt.money(diff)}</div></div>`}
-    <${MoneyPad} value=${counted} onChange=${(v) => { setCounted(v); setNoteErr(''); }} max=${10}/>
+    ${!pos && has && html`<div class=${`change ${diff === 0 ? '' : 'short'}`} style=${diff !== 0 ? 'background:var(--err-soft);color:var(--err)' : ''}><div class="label" style="color:inherit">${diff === 0 ? 'Khớp với hệ thống' : diff > 0 ? 'Thừa so với hệ thống' : 'Thiếu so với hệ thống'}</div><div class="bigamt">${diff > 0 ? '+' : ''}${fmt.money(diff)}</div></div>`}
+    <${MoneyPad} value=${counted} onChange=${(v) => { setCounted(v); setNoteErr(''); }} max=${10}/>`}
     ${needNote && html`<${Field} label="Lý do chênh lệch (bắt buộc)" error=${noteErr}><textarea class=${`input ${noteErr ? 'err' : ''}`} placeholder="Ví dụ: trả nhầm tiền thừa 20.000₫" value=${note} onInput=${(e) => { setNote(e.target.value); setNoteErr(''); }}></textarea><//>`}
   <//>
   <${BottomBar}><button class="btn primary" disabled=${!has || busy || (needNote && !note.trim())} onClick=${() => setConfirm(true)}>Kết thúc ca & bàn giao</button><//>
-  ${confirm && html`<${Confirm} title="Kết thúc ca?" text=${`Tiền mặt đếm ${fmt.money(cnt)}, hệ thống ${fmt.money(sys)}. Sau khi kết thúc không thu tiền tiếp được nếu chưa bắt đầu ca mới.`} ok="Kết thúc ca" busy=${busy} onOk=${finish} onCancel=${() => setConfirm(false)}/>`}`;
+  ${confirm && html`<${Confirm} title="Kết thúc ca?" text=${pos ? 'Sau khi kết thúc, bạn cần bắt đầu ca mới nếu muốn làm việc tiếp.' : `Tiền mặt đếm ${fmt.money(cnt)}, hệ thống ${fmt.money(sys)}. Sau khi kết thúc không thu tiền tiếp được nếu chưa bắt đầu ca mới.`} ok="Kết thúc ca" busy=${busy} onOk=${finish} onCancel=${() => setConfirm(false)}/>`}`;
 }

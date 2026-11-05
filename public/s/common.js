@@ -1,5 +1,5 @@
 // Phần dùng chung của PWA nhân viên: gọi API, trạng thái phiên, thành phần giao diện nhỏ.
-import { html, createApi, toast, useState, useRef, useCallback, useEffect, useAsync, Header, Icon, Banner, Pill, Keypad, Loading, ErrorBox, fmt, go } from '/shared/lib.js';
+import { html, createApi, toast, useState, useRef, useCallback, useEffect, useAsync, Header, Icon, Banner, Pill, Keypad, Loading, ErrorBox, Empty, fmt, go } from '/shared/lib.js';
 
 const TK = 'brg.s.token';
 let token = null;
@@ -11,11 +11,33 @@ export const setToken = (t) => {
 };
 let onUnauth = () => {};
 export const setOnUnauth = (f) => { onUnauth = f; };
-export const api = createApi({
+const rawApi = createApi({
   base: '/api/s',
   headers: () => (token ? { Authorization: `Bearer ${token}` } : {}),
   onUnauthorized: () => { if (token) onUnauth(); }
 });
+
+/** Cờ chi nhánh: pos = thu tiền qua POS, guard = có bước kiểm tra của bảo vệ ở cổng ra. */
+export const flagsOf = (store) => ({ pos: store?.paymentSource === 'pos', guard: store?.guardCheck !== false });
+export const POS_TEXT = 'Chi nhánh này thu tiền trên máy tính tiền (POS). Thu ngân quét mã giỏ hàng của khách trong phần mềm POS. Hệ thống tự xác nhận khi POS báo đã thanh toán.';
+export const GUARD_TEXT = 'Chi nhánh này không dùng bước kiểm tra của bảo vệ. Khách thanh toán xong là ra luôn, không có mã QR ra cổng.';
+const FLAG_MSG = { POS_MODE: 'Chi nhánh đã chuyển sang thu tiền trên POS. Thu ngân quét mã giỏ hàng trong phần mềm POS.', GUARD_DISABLED: 'Chi nhánh không còn dùng bước kiểm tra của bảo vệ ở cổng ra.' };
+let onFlagChange = () => {};
+export const setOnFlagChange = (f) => { onFlagChange = f; };
+let lastFlagAt = 0;
+function guarded(fn) {
+  return async (...a) => {
+    try { return await fn(...a); }
+    catch (e) {
+      if (FLAG_MSG[e?.code]) {
+        e.message = FLAG_MSG[e.code]; e.flagHandled = true;
+        if (Date.now() - lastFlagAt > 1500) { lastFlagAt = Date.now(); onFlagChange(e); }
+      }
+      throw e;
+    }
+  };
+}
+export const api = { get: guarded(rawApi.get), post: guarded(rawApi.post), put: guarded(rawApi.put), del: guarded(rawApi.del), download: rawApi.download };
 
 /** Trạng thái chuyển giữa các màn hình (kết quả cổng, màn "Đã thu", ca vừa kết thúc). */
 export const flash = { done: null, gate: null, lastShift: null, denied: new Set() };
@@ -29,6 +51,7 @@ export function useBusy() {
     lock.current = true; set(true);
     try { return await fn(); }
     catch (e) {
+      if (e?.flagHandled) return undefined;
       if (onError && onError(e) === true) return undefined;
       toast(e?.message || 'Có lỗi xảy ra, vui lòng thử lại', 'err');
       return undefined;
@@ -59,6 +82,7 @@ export function roleName(u) {
 }
 
 export function txStatus(t) {
+  if (t.guardCheck === false && t.status === 'paid' && t.extraDue <= 0) return { text: 'Đã thu tiền', tone: 'ok' };
   if (t.exitStatus === 'held') return { text: 'Chờ quản lý', tone: 'err' };
   if (t.exitStatus === 'exited') return { text: 'Đã ra cổng', tone: 'ok' };
   if (t.status === 'awaiting_counter') return { text: 'Chờ thu tiền', tone: 'warn' };
@@ -84,6 +108,15 @@ export function NeedShift({ c }) {
   if (c.shift) return null;
   return html`<${Banner} tone="err" icon="clock" title="Bạn chưa bắt đầu ca">Hãy bắt đầu ca ở trang chính trước khi thu tiền.
     <div style="margin-top:8px"><button class="btn sm line" onClick=${() => go('/')}>Về trang chính</button></div><//>`;
+}
+
+/** Màn thông báo khi chức năng không dùng ở chi nhánh này (vào bằng địa chỉ cũ). */
+export function Unavailable({ c, kind }) {
+  const pos = kind === 'pos';
+  return html`<${Top} c=${c} title=${pos ? 'Thu tiền qua POS' : 'Không có bước cổng ra'} back="/"/><${Page}>
+    <${Empty} icon=${pos ? 'cash' : 'shield'} title=${pos ? 'Thu tiền trên máy tính tiền' : 'Không cần kiểm tra cổng ra'} text=${pos ? POS_TEXT : GUARD_TEXT}>
+      ${pos && html`<p class="small muted">Nếu POS bị lỗi và cần thu thủ công, hãy báo quản lý chuyển chi nhánh về chế độ thủ công trong web quản trị.</p>`}
+      <button class="btn primary" onClick=${() => go('/')}>Về trang chính</button><//><//>`;
 }
 
 export function Denied({ c, text }) {

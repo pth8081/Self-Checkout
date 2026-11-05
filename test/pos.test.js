@@ -253,3 +253,16 @@ test('công cụ giả lập POS trong trang quản trị chạy đủ luồng (
   assert.equal((await sim({ action: 'xyz' })).status, 400);
   await app.close();
 });
+
+test('quản lý nhả giỏ khi POS nhận rồi không báo kết quả; POS báo thanh toán muộn bị từ chối', async () => {
+  const app = await makeApp();
+  const { key, admin } = await setup(app);
+  const { tx, id } = await lockCart(app);
+  assert.equal((await call(app, 'POST', `/api/a/pos/orders/${tx.id}/release`, { token: admin, body: { reason: 'x' } })).body.error, 'NOT_CLAIMED');
+  await pos(app, key, 'POST', `/carts/${tx.code}/claim`, { posOrderRef: 'R-1' });
+  assert.equal((await call(app, 'POST', `/api/a/pos/orders/${tx.id}/release`, { token: admin, body: {} })).body.error, 'REASON_REQUIRED');
+  assert.equal((await call(app, 'POST', `/api/a/pos/orders/${tx.id}/release`, { token: admin, body: { reason: 'POS sập' } })).status, 200);
+  assert.equal((await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.status, 'active');
+  assert.equal((await pos(app, key, 'POST', '/orders/R-1/paid', { amount: tx.total, method: 'cash' })).body.error, 'ORDER_CANCELLED');
+  await app.close();
+});

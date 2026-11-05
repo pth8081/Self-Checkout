@@ -21,6 +21,15 @@ export const TX_STATUS = {
   locked: ['Đã khoá giỏ', 'info'], active: ['Đang mua', 'info']
 };
 export const EXIT_STATUS = { none: ['Chưa ra cổng', ''], checking: ['Đang kiểm tra', 'warn'], held: ['Chờ quản lý', 'err'], exited: ['Đã ra cổng', 'ok'] };
+export const POS_STATUS = { claimed: ['Đã nhận', 'info'], paid: ['Đã thanh toán', 'ok'], cancelled: ['Đã huỷ', 'err'] };
+export const posPill = (s) => { const [t, tone] = POS_STATUS[s] || [s || '–', '']; return html`<${Pill} tone=${tone}>${t}<//>`; };
+export const PAY_SOURCE = { manual: 'Tự thu trong BRG', pos: 'Qua POS' };
+/** Cấu hình của một chi nhánh (từ danh sách chi nhánh đã gộp cấu hình ở app.js). */
+export const cfgOf = (stores, id) => stores?.find((s) => s.id === id)?.config || {};
+export const isPos = (cfg) => cfg?.paymentSource === 'pos';
+export const noGuard = (cfg) => cfg?.guardCheck === false;
+/** Người thu: khoản thu do POS ghi có dạng "POS:tên" -> "POS (tên)". */
+export const payerLabel = (by) => (String(by || '').startsWith('POS:') ? `POS (${by.slice(4)})` : by);
 export const BIN_NOTE = 'Ví dụ 970436 (Vietcombank), 970415 (VietinBank), 970418 (BIDV)';
 export const SHIFT_VI = { sang: 'Sáng', chieu: 'Chiều' };
 
@@ -44,6 +53,11 @@ const ACTION_VI = {
   'invoice.issued': () => 'Xuất hoá đơn điện tử',
   'invoice.failed': () => 'Xuất hoá đơn điện tử lỗi',
   'pos.sync': () => 'Đồng bộ dữ liệu POS',
+  'pos.key_created': () => 'Tạo khoá API cho POS',
+  'pos.key_revoked': () => 'Thu hồi khoá API của POS',
+  'pos.claimed': () => 'POS nhận giỏ hàng',
+  'pos.amount_differs': () => 'Số tiền POS lệch với BRG',
+  'pos.cancel_after_exit': () => 'POS báo huỷ sau khi khách đã ra',
   'shift.started': () => 'Bắt đầu ca',
   'shift.ended': () => 'Kết thúc ca',
   'statement.uploaded': () => 'Tải lên sao kê ngân hàng',
@@ -78,6 +92,9 @@ export function auditDetail(ev) {
   if (d.payCash !== undefined) p.push(`Tiền mặt: ${d.payCash ? 'bật' : 'tắt'}`);
   if (d.payQr !== undefined) p.push(`Chuyển khoản: ${d.payQr ? 'bật' : 'tắt'}`);
   if (d.randomCheckRate !== undefined) p.push(`Tỷ lệ kiểm tra: ${fmt.pct(d.randomCheckRate)}`);
+  if (d.paymentSource !== undefined) p.push(`Thu tiền: ${PAY_SOURCE[d.paymentSource] || d.paymentSource}`);
+  if (d.guardCheck !== undefined) p.push(`Bảo vệ cổng ra: ${d.guardCheck ? 'bật' : 'tắt'}`);
+  if (d.name && ev.action.startsWith('pos.key')) p.push(`Khoá: ${d.name}`);
   if (d.bank) p.push('Cập nhật thông tin ngân hàng');
   if (d.posStaleMinutes !== undefined) p.push(`Ngưỡng POS: ${d.posStaleMinutes} phút`);
   if (d.date) p.push(`Ngày ${d.date}`);

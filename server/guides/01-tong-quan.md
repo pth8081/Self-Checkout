@@ -10,7 +10,20 @@ access: all
 
 BRG Self Checkout cho khách **tự quét mã vạch từng món bằng điện thoại**, xem giỏ hàng và tổng tiền ngay, rồi **thanh toán tại quầy Self Checkout** và ra cổng bằng **mã QR biên nhận**. Nhân viên không phải quét từng món, chỉ đối chiếu giỏ, thu tiền và kiểm tra.
 
-> **Lưu ý:** Giai đoạn 1 chưa có thanh toán online. Khách trả **tiền mặt** hoặc **chuyển khoản QR**, và **nhân viên xác nhận** đã thu. Ví điện tử, VNPay, thẻ sẽ bật sau bằng cấu hình.
+> **Lưu ý:** Giai đoạn 1 chưa có thanh toán online trong BRG. Mỗi chi nhánh chọn **một trong hai cách thu tiền** (xem bên dưới). Ví điện tử, VNPay, thẻ sẽ bật sau bằng cấu hình, hoặc dùng sẵn trên POS ở chế độ thu tiền qua POS.
+
+## Hai cách thu tiền và tuỳ chọn bảo vệ
+
+Quản trị chuỗi chọn cho **từng chi nhánh**:
+
+| Cài đặt | Lựa chọn | Hệ quả |
+|---------|----------|--------|
+| **Thu tiền** | **Tự thu trong BRG** (mặc định) | Khách trả **tiền mặt** hoặc **chuyển khoản QR** tại quầy, **thu ngân xác nhận** trong app nhân viên |
+| | **Qua POS** | Thu ngân quét mã giỏ **trong phần mềm POS**. POS lấy món từ BRG qua API, thu tiền (QR, tiền mặt, thẻ), phát hành hoá đơn điện tử và **báo thanh toán về BRG; BRG tự xác nhận**, thu ngân không thao tác thêm trong BRG |
+| **Bảo vệ cổng ra** | **Bật** (mặc định) | Khách nhận QR ra cổng, bảo vệ quét, có kiểm tra ngẫu nhiên |
+| | **Tắt** (chi nhánh không có bảo vệ) | Thanh toán xong khách **ra luôn**, **không có QR ra cổng**, không có kiểm tra ngẫu nhiên |
+
+Hai cài đặt độc lập, nên có bốn tổ hợp. Các hướng dẫn nghiệp vụ mô tả luồng **mặc định** (tự thu, có bảo vệ) và có mục riêng cho **chế độ POS** và **chi nhánh không có bảo vệ**.
 
 ## Các bên tham gia
 
@@ -54,11 +67,29 @@ Cùng một giao dịch đi qua ba bước kiểm soát độc lập: **hệ th�
 
 1. **POS là nguồn giá và tồn kho.** BRG Self Checkout không tự nhập giá. Giá khách thấy lúc quét có thể bị đối chiếu lại khi khoá giỏ, và khách phải đồng ý nếu giá đổi.
 2. **Giá chốt khi khoá giỏ.** Sau khi khoá, không sửa được giỏ, trừ khi khách (hoặc thu ngân) mở khoá và quay lại bước quét.
-3. **Chỉ người có thẩm quyền mới xác nhận đã thu tiền.** Khách không tự bấm "đã thanh toán". Mỗi xác nhận ghi rõ người thu, cách thu, giờ.
+3. **Khách không tự xác nhận đã thanh toán.** Ở chế độ tự thu, chỉ thu ngân xác nhận (ghi rõ người thu, cách thu, giờ). Ở chế độ POS, POS báo thanh toán thành công và BRG tự xác nhận (ghi rõ nguồn POS, cách trả, số tiền, số hoá đơn).
 4. **QR biên nhận dùng một lần.** Quét hợp lệ ở cổng là bị đánh dấu đã dùng ngay. Chụp lại ảnh QR để vào lần hai sẽ bị chặn.
 5. **Không sửa, không xoá.** Thanh toán và nhật ký chỉ được thêm. Sai sót được xử lý bằng thao tác huỷ có lý do và người duyệt, vẫn để lại dấu vết.
 6. **Kiểm tra ngẫu nhiên do hệ thống chọn**, không phải nhân viên. Không có nút bỏ qua.
 7. **Mỗi chi nhánh bật tắt độc lập.** Tắt một chi nhánh khi có sự cố không ảnh hưởng chi nhánh khác.
+
+## Luồng khi thu tiền qua POS
+
+```seq
+title: Chế độ thu tiền qua POS
+actors: Khách | POS | Hệ thống BRG | Cổng ra
+Khách -> Hệ thống BRG: Khoá giỏ, nhận mã giỏ hàng
+Khách -> POS: Đưa mã, thu ngân quét trong POS
+POS -> Hệ thống BRG: Nhận giỏ bằng mã giỏ hàng
+Hệ thống BRG --> POS: Danh sách món
+POS -> POS: Tạo đơn, thu tiền, phát hành hoá đơn
+POS -> Hệ thống BRG: Báo đã thanh toán, kèm số hoá đơn
+Hệ thống BRG --> Khách: Tự xác nhận, hiện QR ra cổng hoặc cho ra luôn
+== Ra cổng nếu có bảo vệ ==
+Khách -> Cổng ra: Đưa QR biên nhận
+Cổng ra -> Hệ thống BRG: Quét QR
+Hệ thống BRG --> Cổng ra: Cho qua hoặc cần kiểm tra
+```
 
 ## Các trạng thái của một giao dịch
 

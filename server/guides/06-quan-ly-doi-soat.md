@@ -82,6 +82,21 @@ Dùng khi thu ngân bấm nhầm xác nhận, hoặc khách rút lại giỏ sau
 
 > **Cần xác nhận:** Ứng dụng chưa có chức năng **hoàn tiền**. Hoàn tiền cho khách (tiền mặt hoặc chuyển khoản lại) làm ngoài hệ thống, quản lý ghi nhận bằng ghi chú huỷ. Khi khách đã ra cổng thì không huỷ được. Xem "Điểm cần chốt".
 
+## Đơn POS và đối soát với POS
+
+Ở chi nhánh **thu tiền qua POS**, trang **Đơn POS** (web quản trị) liệt kê mọi giỏ POS đã nhận: mã giỏ, mã đơn POS, trạng thái (đã nhận, đã thanh toán, đã huỷ), **tổng BRG so với số tiền POS**, số hoá đơn, thu ngân và quầy. Trang tự làm mới.
+
+Việc quản lý cần làm:
+
+| Việc | Cách làm |
+|------|----------|
+| **Đơn lệch tiền** (số POS khác tạm tính của BRG) | Xem nguyên nhân: khuyến mãi theo hoá đơn, làm tròn, hay sai sót. Lệch lớn hoặc lặp lại thì báo bộ phận POS |
+| **Đơn chờ lâu** (POS đã nhận giỏ nhưng quá 10 phút chưa báo thanh toán) | Hỏi thu ngân. Nếu POS sập giữa chừng, bấm **Nhả giỏ** kèm lý do để khách không bị kẹt. Nhả rồi mà POS vẫn báo đã thanh toán thì BRG từ chối, phải đối soát tay |
+| **Đơn đã huỷ sau khi khách ra** | Xem nhật ký và xác minh với POS, xử lý hàng hoá theo quy định của cửa hàng |
+| **Đối soát cuối ngày** | So số giao dịch và số tiền BRG đã thu trong ngày với báo cáo bán hàng của POS (đơn có nguồn Self Checkout). Chênh lệch phải giải thích được |
+
+Tiền mặt và chuyển khoản ở chế độ POS **do POS đối soát** (két theo ca của POS, sao kê theo POS). Các màn đối soát tiền mặt và sao kê trong BRG chỉ còn ý nghĩa cho chi nhánh tự thu.
+
 ## Truy vết một giao dịch
 
 Mở **Giao dịch**, tìm theo mã giỏ (`GH-...`) hoặc mã giao dịch (`SG-...`). Trang chi tiết có **dòng thời gian**: khách bắt đầu, số lần quét, khoá giỏ, ai thu tiền và bằng cách nào (kể cả tiền khách đưa, tiền thừa), hoá đơn, quét ở cổng nào, kết quả kiểm tra, quyết định của quản lý. Dùng khi khách khiếu nại hoặc tiền lệch.

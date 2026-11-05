@@ -292,6 +292,21 @@ export default async function adminRoutes(app) {
         differs: t.pos_amount != null && t.pos_amount !== t.total, invoiceNo: t.pos_invoice_no, cashier: t.pos_cashier, terminal: t.pos_terminal, claimedAt: t.pos_claimed_at, paidAt: t.paid_at, exitStatus: t.exit_status })) };
     });
 
+    // Giải cứu khách khi POS đã nhận giỏ nhưng không báo kết quả (POS sập giữa chừng): quản lý nhả giỏ về cho khách.
+    // Nếu sau đó POS vẫn báo "đã thanh toán" cho đơn này thì BRG từ chối (ORDER_CANCELLED) và cần đối soát tay.
+    s.post('/pos/orders/:id/release', async (req) => {
+      const tx = txScoped(req);
+      if (tx.status !== 'awaiting_counter' || tx.pos_status !== 'claimed') throw conflict('NOT_CLAIMED', 'Chỉ nhả được giỏ đã được POS nhận mà chưa thanh toán');
+      const reason = String(req.body?.reason || '').trim();
+      if (!reason) throw bad('REASON_REQUIRED', 'Hãy nhập lý do nhả giỏ');
+      db.transaction(() => {
+        db.prepare(`UPDATE transactions SET status='cancelled', pos_status='cancelled' WHERE id = ?`).run(tx.id);
+        db.prepare(`UPDATE scan_sessions SET status='active', last_activity = ? WHERE id = ?`).run(nowIso(), tx.session_id);
+        audit(db, { storeId: tx.store_id, actorType: 'admin', actorId: req.user.id, action: 'pos.released', entity: 'transaction', entityId: tx.id, data: { reason, posOrderRef: tx.pos_order_ref } });
+      })();
+      return { ok: true };
+    });
+
     // Công cụ thử nghiệm: giả lập POS đổi giá/tồn kho (không có khi chạy production).
     s.post('/dev/pos-product', async (req) => {
       chainOnly(req);

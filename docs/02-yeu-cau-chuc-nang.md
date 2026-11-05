@@ -36,6 +36,10 @@
 | FR-PAY-07 | Nhân viên kết thúc ca bằng đối soát tiền mặt thực tế với hệ thống; lệch phải ghi lý do | M | N14, A10 | |
 | FR-PAY-08 | Quản trị chuỗi bật/tắt từng cách thanh toán theo chi nhánh | M | A02 | Cờ tính năng |
 | FR-PAY-09 | Thanh toán online qua cổng (ví, VNPay, thẻ), tự xác nhận | GĐ2 | M23, M24 | Hiện mờ ở GĐ1 |
+| FR-PAY-10 | Chi nhánh chọn thu tiền **qua POS**: khách chỉ có "Thanh toán tại quầy", thu ngân quét mã giỏ trong POS, POS thu tiền và xuất hoá đơn, BRG tự xác nhận khi POS báo thanh toán | M | M16, M18, A02 | [api-pos](api-pos.md) |
+| FR-PAY-11 | API cho POS gọi: xem trước và nhận giỏ, hỏi trạng thái, báo đã thanh toán, báo huỷ; xác thực bằng khoá API quản lý được (tạo, thu hồi, giới hạn chi nhánh); idempotent theo mã đơn POS | M | A03 | |
+| FR-PAY-12 | Quản trị theo dõi đơn POS (đã nhận, đã thanh toán, đã huỷ, lệch tiền, chờ lâu) và **nhả giỏ** khi POS không báo kết quả | M | Đơn POS, A07 | |
+| FR-PAY-13 | Khách nhập thông tin hoá đơn (email, hoá đơn công ty) trước khi khoá giỏ để POS xuất đúng ngay lần đầu | M | M16 | |
 
 ## 3. Nhân viên cổng ra
 
@@ -47,6 +51,7 @@
 | FR-GATE-04 | Quy trình xử lý khi chênh lệch (thu bổ sung / báo quản lý) | M | N13 | |
 | FR-GATE-05 | Ghi log mọi lượt kiểm tra | M | N12, N13 | `ExitCheck` |
 | FR-GATE-06 | Khách từ chối kiểm tra thì gọi quản lý | M | N10 | |
+| FR-GATE-07 | Chi nhánh **không có bảo vệ** tắt được bước kiểm tra ở cổng: không bốc kiểm tra ngẫu nhiên, không có QR ra cổng, thanh toán xong khách ra luôn; tắt thì khách đã thanh toán mà chưa ra coi như đã ra | M | A02, M21 | Cờ `guardCheck` theo chi nhánh |
 
 ## 4. Quản trị
 

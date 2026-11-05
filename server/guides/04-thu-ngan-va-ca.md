@@ -8,6 +8,8 @@ access: all
 
 # Thu ngân và ca làm việc
 
+> **Lưu ý:** Hướng dẫn này cho chi nhánh **tự thu trong BRG**. Ở chi nhánh **thu tiền qua POS**, thu ngân làm việc hoàn toàn trên POS: quét mã giỏ trong POS, thu tiền, và hệ thống tự xác nhận. Các chức năng thu tiền trong app nhân viên (quét mã giỏ, hàng đợi, thu tiền mặt, xác nhận chuyển khoản, thu bổ sung, đối soát tiền mặt cuối ca) được **ẩn**; tiền mặt do POS đối soát theo ca của POS.
+
 ## Vòng đời một ca
 
 ```flow

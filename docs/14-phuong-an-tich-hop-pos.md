@@ -1,6 +1,6 @@
 # 14. Phương án: giỏ hàng tự vào POS, thu tiền và hoá đơn tại POS
 
-**Trạng thái:** Đề xuất, chưa làm. Chưa chọn được phương án vì chưa biết POS có API hay không. Bản mô phỏng từng bước có trong trang "Phương án tích hợp POS" (Artifact, cùng nội dung bên dưới).
+**Trạng thái:** Đã chọn hướng và làm phần máy chủ. Khách hàng trả lời: POS chưa có API nhưng **BRG cung cấp API để POS gọi** (POS quét mã giỏ rồi gọi BRG lấy món), POS sẽ **báo thanh toán thành công về BRG và BRG tự xác nhận** (thu ngân không kiểm nữa), việc **huỷ đơn do POS làm** (và báo về BRG), và khách hàng có **môi trường thử**. Nghĩa là thay vì "BRG đẩy đơn vào POS" (phương án 1 bên dưới), ta làm theo hướng **POS kéo giỏ từ BRG**. Tài liệu cho nhà cung cấp POS: [api-pos.md](api-pos.md). Hướng dẫn cho quản trị: mục "Kết nối POS" trong web quản trị. Phân tích ban đầu giữ lại bên dưới để tham khảo.
 
 ## Yêu cầu
 

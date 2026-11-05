@@ -3,7 +3,7 @@ import { html, render, useState, useEffect, useMemo, useCallback, useRoute, go, 
 import { api, S, store, ROLE_VI } from '/a/common.js';
 import { Overview, Stores, Integrations, Reports, Users, Audit } from '/a/pages-chain.js';
 import { GuideList, GuideDoc } from '/a/guides.js';
-import { Today, Transactions, TxDetail, Plans, RandomCheck, Reconcile, Unknown } from '/a/pages-store.js';
+import { Today, Transactions, TxDetail, PosOrders, Plans, RandomCheck, Reconcile, Unknown } from '/a/pages-store.js';
 
 const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = '/a/admin.css'; document.head.appendChild(link);
 
@@ -11,16 +11,16 @@ const TOKEN_KEY = 'brg_a_token', STORE_KEY = 'brg_a_store';
 
 const PAGE_TITLES = {
   overview: 'Tổng quan chuỗi', stores: 'Chi nhánh & tính năng', integrations: 'Tích hợp', reports: 'Báo cáo', users: 'Tài khoản & phân quyền', audit: 'Nhật ký',
-  today: 'Hôm nay', transactions: 'Giao dịch', plans: 'Nhân viên & ca', 'random-check': 'Kiểm tra ngẫu nhiên', reconcile: 'Đối soát', 'unknown-barcodes': 'Mã không tìm thấy',
+  today: 'Hôm nay', transactions: 'Giao dịch', 'pos-orders': 'Đơn POS', plans: 'Nhân viên & ca', 'random-check': 'Kiểm tra ngẫu nhiên', reconcile: 'Đối soát', 'unknown-barcodes': 'Mã không tìm thấy',
   'huong-dan': 'Hướng dẫn nghiệp vụ', 'huong-dan-he-thong': 'Hướng dẫn hệ thống'
 };
-const CHAIN_ONLY = ['overview', 'stores', 'integrations'];
+const CHAIN_ONLY = ['overview', 'integrations'];
 
 function navItems(me, storeName) {
   const chain = me.role === 'chain_admin';
   const guides = [{ group: 'Hướng dẫn' }, { id: 'huong-dan', label: 'Hướng dẫn nghiệp vụ', icon: 'docok' }, { id: 'huong-dan-he-thong', label: 'Hướng dẫn hệ thống', icon: 'settings' }];
   const branch = [
-    { id: 'today', label: 'Hôm nay', icon: 'home' }, { id: 'transactions', label: 'Giao dịch', icon: 'receipt' },
+    { id: 'today', label: 'Hôm nay', icon: 'home' }, { id: 'transactions', label: 'Giao dịch', icon: 'receipt' }, { id: 'pos-orders', label: 'Đơn POS', icon: 'card' },
     { id: 'plans', label: 'Nhân viên & ca', icon: 'calendar' }, { id: 'random-check', label: 'Kiểm tra ngẫu nhiên', icon: 'shield' },
     { id: 'reconcile', label: 'Đối soát', icon: 'cash' }, { id: 'unknown-barcodes', label: 'Mã không tìm thấy', icon: 'barcode' }
   ];
@@ -31,7 +31,7 @@ function navItems(me, storeName) {
   ];
   return [
     { group: storeName || 'Chi nhánh' }, ...branch,
-    { group: 'Quản lý' }, { id: 'reports', label: 'Báo cáo', icon: 'doc' }, { id: 'users', label: 'Tài khoản', icon: 'users' }, { id: 'audit', label: 'Nhật ký', icon: 'list' }, ...guides
+    { group: 'Quản lý' }, { id: 'stores', label: 'Cấu hình chi nhánh', icon: 'store' }, { id: 'reports', label: 'Báo cáo', icon: 'doc' }, { id: 'users', label: 'Tài khoản', icon: 'users' }, { id: 'audit', label: 'Nhật ký', icon: 'list' }, ...guides
   ];
 }
 
@@ -107,14 +107,15 @@ function Shell({ session, setSession, reloadStores, logout }) {
   const onSelect = (id) => go(`/${id}`);
   let view = null;
   switch (page) {
-    case 'overview': view = chain && html`<${Overview} setStoreId=${setStoreId}/>`; break;
-    case 'stores': view = chain && html`<${Stores} reloadStores=${reloadStores}/>`; break;
+    case 'overview': view = chain && html`<${Overview} stores=${stores} setStoreId=${setStoreId}/>`; break;
+    case 'stores': view = html`<${Stores} me=${me} reloadStores=${reloadStores} setStoreId=${setStoreId}/>`; break;
     case 'integrations': view = chain && html`<${Integrations} stores=${stores}/>`; break;
     case 'reports': view = html`<${Reports} me=${me} stores=${stores}/>`; break;
     case 'users': view = html`<${Users} me=${me} stores=${stores} onMe=${(u) => setSession({ ...session, me: u })}/>`; break;
     case 'audit': view = html`<${Audit} me=${me} stores=${stores}/>`; break;
     case 'today': view = html`<${Today} key=${storeId} ctx=${ctx}/>`; break;
     case 'transactions': view = seg[1] ? html`<${TxDetail} key=${seg[1]} ctx=${ctx} id=${decodeURIComponent(seg[1])}/>` : html`<${Transactions} key=${storeId} ctx=${ctx}/>`; break;
+    case 'pos-orders': view = html`<${PosOrders} key=${storeId} ctx=${ctx}/>`; break;
     case 'plans': view = html`<${Plans} key=${storeId} ctx=${ctx}/>`; break;
     case 'random-check': view = html`<${RandomCheck} key=${storeId} ctx=${ctx}/>`; break;
     case 'reconcile': view = html`<${Reconcile} key=${storeId} ctx=${ctx}/>`; break;
@@ -124,7 +125,7 @@ function Shell({ session, setSession, reloadStores, logout }) {
     default: view = null;
   }
   const activeNav = page === 'huong-dan' && seg[1] && guideGroup === 'he-thong' ? 'huong-dan-he-thong' : page;
-  const isStorePage = ['today', 'transactions', 'plans', 'random-check', 'reconcile', 'unknown-barcodes'].includes(page);
+  const isStorePage = ['today', 'transactions', 'pos-orders', 'plans', 'random-check', 'reconcile', 'unknown-barcodes'].includes(page);
   return html`<div class="shell">
     <${Sidebar} items=${items} active=${activeNav} onSelect=${onSelect} me=${me} onLogout=${logout}/>
     <div class="mainarea">
@@ -150,8 +151,10 @@ function App() {
   S.onLogout = () => logout('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.');
 
   const loadMe = useCallback(async () => {
-    const r = await api.get('/me');
-    setSession({ me: r.user, stores: r.stores, permissions: r.permissions });
+    const [r, cfg] = await Promise.all([api.get('/me'), api.get('/stores').catch(() => ({ stores: [] }))]);
+    const byId = Object.fromEntries(cfg.stores.map((x) => [x.id, x]));
+    // Gộp cấu hình (thu tiền qua POS, bảo vệ cổng ra) vào danh sách chi nhánh để các trang dùng chung.
+    setSession({ me: r.user, stores: r.stores.map((x) => ({ ...x, address: byId[x.id]?.address, config: byId[x.id]?.config || {} })), permissions: r.permissions });
   }, []);
   const start = useCallback(async () => {
     const t = store.get(TOKEN_KEY);

@@ -17,6 +17,8 @@ Phần A là các quyết định đã chốt với khách hàng trong quá trì
 | D-07 | Xây trọn ứng dụng (khách, thu ngân, cổng ra, quản trị) trước; các tích hợp (POS, hoá đơn, thanh toán online) xử lý lần lượt sau, hiện dùng bản giả lập | 2026-11-05 | [11](11-ung-dung.md) |
 | D-08 | Giao diện theo mẫu HCRC: tông cam, phông Inter, nút bo tròn, biểu tượng túi xanh có nụ cười, menu bên nét mảnh | 2026-11-05 | public/shared |
 | D-09 | Kiểm tra ngẫu nhiên do máy chủ bốc khi khoá giỏ; làm ở cổng ra, nhân viên quầy có thể đối chiếu sớm tại quầy; không có nút bỏ qua | 2026-11-05 | 02, 07 |
+| D-10 | **Thu tiền qua POS (theo từng chi nhánh):** POS quét mã giỏ, gọi API của BRG lấy món, thu tiền và xuất hoá đơn trên POS, rồi báo thanh toán về BRG; BRG **tự xác nhận**, thu ngân không xác nhận nữa. Huỷ đơn do POS làm và báo về. Giữ chế độ tự thu trong BRG làm dự phòng | 2026-11-05 | [api-pos](api-pos.md), 14 |
+| D-11 | **Bỏ bước bảo vệ (theo từng chi nhánh):** chi nhánh không có bảo vệ tắt bước kiểm tra ở cổng: không QR ra cổng, không kiểm tra ngẫu nhiên, thanh toán xong khách ra luôn | 2026-11-05 | 02, 05 |
 
 ## B. Câu hỏi mở từ tài liệu gốc (cập nhật)
 

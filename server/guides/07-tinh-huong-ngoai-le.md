@@ -56,6 +56,19 @@ Cột **Ứng dụng** cho biết việc đó có công cụ trong ứng dụng 
 
 > **Cần xác nhận:** Hai dòng "Thủ công" ở cổng ra (QR hết hạn, khách mất điện thoại) là rủi ro vận hành thực tế. Đề xuất bổ sung chức năng cho qua thủ công có quản lý duyệt và ghi lý do. Xem "Điểm cần chốt".
 
+## Khi thu tiền qua POS
+
+| Tình huống | Cách xử lý | Ứng dụng |
+|-----------|-----------|---------|
+| Thu ngân quét mã giỏ trong POS mà POS báo không nhận được | Kiểm tra mã giỏ còn hiệu lực (khách có thể đã sửa giỏ, mã mới). Mời khách mở lại màn hình mã giỏ. POS báo "đã bị đơn khác nhận" thì hỏi quản lý | Có |
+| POS nhận giỏ nhưng sập, khách đứng chờ, không sửa được giỏ | Quản lý **Nhả giỏ** trong Đơn POS (ghi lý do). Thu ngân tạo đơn lại sau khi POS hoạt động | Có |
+| POS ngừng hoạt động nhiều giờ | Quản trị chuỗi chuyển chi nhánh về **Tự thu trong BRG** (cần hết giỏ chờ), thu ngân thu thủ công, chuyển lại khi POS sẵn sàng | Có |
+| POS thu tiền xong nhưng chưa báo về (mất mạng giữa POS và BRG) | POS tự thử lại. Nếu không được, quản lý đối chiếu đơn POS với giỏ trong BRG và nhờ nhà cung cấp POS gửi lại thông báo | Một phần |
+| Khách đã trả trên POS nhưng màn hình khách chưa chuyển | Chờ vài giây (màn khách tự làm mới). Quá lâu thì kiểm tra Đơn POS xem BRG đã nhận báo chưa | Có |
+| Số tiền POS khác tạm tính | Bình thường nếu có khuyến mãi theo hoá đơn. Thu theo POS. Đơn được đánh dấu lệch tiền để quản lý xem lại | Có |
+| POS huỷ đơn sau khi khách đã thanh toán và ra | BRG ghi nhận và loại khỏi doanh thu. Hàng hoá đã ra, cửa hàng xử lý theo quy định | Một phần |
+| Hoá đơn công ty: khách quên nhập thông tin trước khi khoá giỏ | Khách báo thu ngân **trước khi thanh toán**; thu ngân nhập thông tin hoá đơn ngay trên POS (BRG không sửa được sau khi giỏ đã được POS nhận) | Một phần |
+
 ## Sự cố hệ thống
 
 | Tình huống | Cách xử lý | Ứng dụng |
@@ -66,6 +79,14 @@ Cột **Ứng dụng** cho biết việc đó có công cụ trong ứng dụng 
 | Thiếu nhân viên ca (không có thu ngân hoặc cổng ra) | Lịch ca hiện cảnh báo. Điều người hỗ trợ hoặc tạm tắt chi nhánh | Có |
 | Máy cầm tay hỏng | Dùng điện thoại khác đăng nhập app nhân viên bằng tài khoản của mình | Có |
 | Nghi ngờ tài khoản bị lộ | Quản lý khoá tài khoản và đặt lại PIN. Quản trị chuỗi đặt lại mật khẩu | Có |
+
+## Chi nhánh không có bảo vệ
+
+| Tình huống | Cách xử lý | Ứng dụng |
+|-----------|-----------|---------|
+| Khách hỏi mã QR ra cổng | Chi nhánh không dùng QR ra cổng, thanh toán xong là ra | Có |
+| Nghi ngờ lấy hàng không quét | Không có kiểm tra ở cổng. Xem số liệu tồn kho và chênh lệch với POS, bố trí biện pháp bù (camera, nhân viên quầy xem giỏ) | Thủ công |
+| Cần kiểm tra giỏ của một khách | Nhân viên quầy đối chiếu hàng thật với màn hình giỏ ngay khi khách thanh toán (không ghi nhận trong BRG) | Thủ công |
 
 ## Nguyên tắc chung khi gặp tình huống chưa có hướng dẫn
 

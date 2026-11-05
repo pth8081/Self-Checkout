@@ -1,9 +1,9 @@
 // Các trang quản trị: tổng quan, chi nhánh, tích hợp, báo cáo, tài khoản, nhật ký.
 import { html, useState, useEffect, useMemo, useAsync, fmt, go, toast, Sheet, Switch, Field, Spinner, QR, copyText, saveBlob, todayStr } from '/shared/lib.js';
-import { api, ROLE_VI, STAFF_ROLES, BIN_NOTE, PageHead, Tile, Async, BarChart, StoreBar, useBusy, useDebounced, dm, addDays, actionLabel, ACTOR_VI, auditDetail, Icon, Pill, Banner, Empty, Confirm, ErrorBox } from '/a/common.js';
+import { api, ROLE_VI, STAFF_ROLES, BIN_NOTE, PAY_SOURCE, isPos, noGuard, cfgOf, PageHead, Tile, Async, BarChart, StoreBar, useBusy, useDebounced, dm, addDays, actionLabel, ACTOR_VI, auditDetail, Icon, Pill, Banner, Empty, Confirm, ErrorBox } from '/a/common.js';
 
 // ============================== A01 Tổng quan chuỗi ==============================
-export function Overview({ setStoreId }) {
+export function Overview({ stores, setStoreId }) {
   const st = useAsync(() => api.get('/overview'), []);
   return html`<div class="stack-lg">
     <${PageHead} title="Tổng quan chuỗi" sub=${st.data ? `Hôm nay, ${fmt.dateFull(st.data.date)}` : ' '}>
@@ -26,7 +26,7 @@ export function Overview({ setStoreId }) {
       <div class="card"><h2>Chi nhánh</h2>
         <div class="tblwrap"><table class="tbl"><thead><tr><th>Chi nhánh</th><th>Trạng thái</th><th class="r">Giao dịch</th><th class="r">Doanh thu</th><th class="r">Tỷ lệ lệch</th><th>Độ trễ POS</th></tr></thead>
           <tbody>${d.stores.map((s) => html`<tr class="click" key=${s.id} tabindex="0" onClick=${() => { setStoreId(s.id); go('/today'); }} onKeyDown=${(e) => e.key === 'Enter' && (setStoreId(s.id), go('/today'))}>
-            <td><b>${s.name}</b><div class="sub">${s.id}</div></td>
+            <td><b>${s.name}</b><div class="sub">${s.id}</div>${(isPos(cfgOf(stores, s.id)) || noGuard(cfgOf(stores, s.id))) && html`<div class="tags">${isPos(cfgOf(stores, s.id)) && html`<span class="tag">POS</span>`}${noGuard(cfgOf(stores, s.id)) && html`<span class="tag warn">Không bảo vệ</span>`}</div>`}</td>
             <td>${s.enabled ? html`<${Pill} tone="ok">Đang bật<//>` : html`<${Pill}>Đang tắt<//>`}</td>
             <td class="r">${fmt.num(s.tx)}</td><td class="r">${fmt.money(s.revenue)}</td>
             <td class="r">${s.mismatchRate == null ? '–' : fmt.pct(s.mismatchRate)}</td>
@@ -72,37 +72,69 @@ function AddStore({ onClose, onDone }) {
     <button class="btn txt" type="button" onClick=${onClose}>Huỷ</button></form><//>`;
 }
 
-export function Stores({ reloadStores }) {
+export function Stores({ me, reloadStores, setStoreId }) {
+  const chain = me.role === 'chain_admin';
   const st = useAsync(() => api.get('/stores'), []);
   const [busyKey, setBusyKey] = useState('');
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState(null); // { code, message, store }
   const [qr, setQr] = useState(null);
   const [adding, setAdding] = useState(false);
-  const toggle = async (key, path, body) => {
-    if (busyKey) return;
-    setBusyKey(key); setMsg('');
-    try { await api.put(path, body); toast('Đã lưu', 'ok'); await st.reload(); reloadStores(); }
-    catch (e) { setMsg(e.message); toast(e.message, 'err'); }
+  const [ask, setAsk] = useState(null); // { kind: 'source'|'guard', s, value }
+  const refresh = async () => { await st.reload(); reloadStores(); };
+  const toggle = async (key, path, body, okMsg = 'Đã lưu') => {
+    if (busyKey) return false;
+    setBusyKey(key); setMsg(null);
+    try { await api.put(path, body); toast(okMsg, 'ok'); await refresh(); return true; }
+    catch (e) { setMsg({ code: e.code, message: e.message }); toast(e.message, 'err'); return false; }
     finally { setBusyKey(''); }
   };
+  const confirmAsk = async () => {
+    const a = ask;
+    const path = `/stores/${a.s.id}/config`;
+    const ok = a.kind === 'source' ? await toggle(`${a.s.id}src`, path, { paymentSource: a.value }, a.value === 'pos' ? 'Đã chuyển sang thu tiền qua POS' : 'Đã chuyển về tự thu trong BRG')
+      : await toggle(`${a.s.id}guard`, path, { guardCheck: a.value }, a.value ? 'Đã bật bảo vệ cổng ra' : 'Đã tắt bảo vệ cổng ra');
+    setAsk(null);
+    return ok;
+  };
+  const onGuard = (s, v) => {
+    if (!v) return setAsk({ kind: 'guard', s, value: false });
+    toggle(`${s.id}guard`, `/stores/${s.id}/config`, { guardCheck: true }, 'Đã bật bảo vệ cổng ra. Áp dụng cho các giao dịch mới.');
+  };
   return html`<div class="stack-lg">
-    <${PageHead} title="Chi nhánh & tính năng" sub="Bật hoặc tắt Self Checkout và từng cách thanh toán cho từng chi nhánh. Thay đổi có hiệu lực ngay.">
-      <button class="btn sm primary" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${18}/>Thêm chi nhánh</button><//>
-    ${msg && html`<${Banner} tone="err" title="Chưa lưu được"><span role="alert">${msg}</span><//>`}
+    <${PageHead} title="Chi nhánh & tính năng" sub=${chain ? 'Bật hoặc tắt Self Checkout, cách thu tiền, bảo vệ cổng ra và từng cách thanh toán cho từng chi nhánh. Thay đổi có hiệu lực ngay.' : 'Cấu hình hiện tại của chi nhánh. Chỉ quản trị chuỗi mới được thay đổi.'}>
+      ${chain && html`<button class="btn sm primary" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${18}/>Thêm chi nhánh</button>`}<//>
+    ${!chain && html`<${Banner} tone="info" icon="lock" title="Chỉ xem">Các nút bên dưới bị khoá. Hãy nhờ quản trị chuỗi nếu cần đổi cách thu tiền hoặc bảo vệ cổng ra.<//>`}
+    ${msg && html`<${Banner} tone="err" title="Chưa lưu được"><span role="alert">${msg.message}</span>
+      ${msg.code === 'NO_POS_KEY' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => go('/integrations')}><${Icon} name="link" size=${18}/>Đi tới mục Tích hợp để tạo khoá</button></div>`}
+      ${msg.code === 'CARTS_PENDING' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => { if (msg.storeId) setStoreId(msg.storeId); go('/transactions'); }}>Xem giao dịch</button></div>`}<//>`}
     <${Async} state=${st}>${(d) => html`<div class="card"><div class="tblwrap"><table class="tbl">
-      <thead><tr><th>Chi nhánh</th><th class="tc">Self Checkout</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Online</th><th></th></tr></thead>
+      <thead><tr><th>Chi nhánh</th><th class="tc">Self Checkout</th><th>Thu tiền</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Bảo vệ cổng ra</th><th class="tc">Online</th><th></th></tr></thead>
       <tbody>${d.stores.map((s) => {
-        const sw = (key, checked, path, body, label) => html`<${Switch} checked=${checked} disabled=${!!busyKey} label=${`${label} ${s.name}`} onChange=${(v) => toggle(`${s.id}${key}`, path, body(v))}/>`;
+        const pos = isPos(s.config);
+        const dis = !chain || !!busyKey;
+        const sw = (key, checked, path, body, label, extra = {}) => html`<${Switch} checked=${checked} disabled=${dis || extra.off} label=${`${label} ${s.name}`} onChange=${(v) => toggle(`${s.id}${key}`, path, body(v))}/>`;
+        const mute = (node) => (pos ? html`<span class="soon">${node}Dùng POS</span>` : node);
         return html`<tr key=${s.id}><td><b>${s.name}</b><div class="sub">${s.id} · ${s.address || 'Chưa có địa chỉ'}</div></td>
           <td class="tc">${sw('e', s.enabled, `/stores/${s.id}`, (v) => ({ enabled: v }), 'Bật Self Checkout')}</td>
-          <td class="tc">${sw('c', s.config.payCash, `/stores/${s.id}/config`, (v) => ({ payCash: v }), 'Tiền mặt')}</td>
-          <td class="tc">${sw('q', s.config.payQr, `/stores/${s.id}/config`, (v) => ({ payQr: v }), 'Chuyển khoản QR')}</td>
+          <td><select class="input sm" style="width:auto;min-width:150px" value=${s.config.paymentSource || 'manual'} disabled=${dis} aria-label=${`Thu tiền ${s.name}`}
+            onChange=${(e) => { const v = e.target.value; e.target.value = s.config.paymentSource || 'manual'; if (v !== (s.config.paymentSource || 'manual')) { setMsg(null); setAsk({ kind: 'source', s, value: v }); } }}>
+            ${Object.entries(PAY_SOURCE).map(([k, l]) => html`<option value=${k} key=${k}>${l}</option>`)}</select>
+            ${!chain && html`<div class="xs muted" style="margin-top:4px"><${Icon} name="lock" size=${12}/> Chỉ quản trị chuỗi đổi</div>`}</td>
+          <td class="tc">${mute(sw('c', s.config.payCash, `/stores/${s.id}/config`, (v) => ({ payCash: v }), 'Tiền mặt', { off: pos }))}</td>
+          <td class="tc">${mute(sw('q', s.config.payQr, `/stores/${s.id}/config`, (v) => ({ payQr: v }), 'Chuyển khoản QR', { off: pos }))}</td>
+          <td class="tc"><${Switch} checked=${s.config.guardCheck !== false} disabled=${dis} label=${`Bảo vệ cổng ra ${s.name}`} onChange=${(v) => onGuard(s, v)}/></td>
           <td class="tc"><span class="soon"><${Switch} checked=${false} disabled=${true} label=${`Thanh toán online ${s.name}`} onChange=${() => {}}/>Sắp có</span></td>
           <td><button class="btn sm line" onClick=${() => setQr(s)}><${Icon} name="qr" size=${18}/>Mã QR dán cổng vào</button></td></tr>`;
       })}</tbody></table></div>
-      <div class="hint">Chi nhánh chỉ bật được khi có ít nhất một cách thanh toán dùng được và đã có dữ liệu sản phẩm từ POS.</div></div>`}<//>
+      <div class="hint">Chi nhánh chỉ bật được khi có ít nhất một cách thanh toán dùng được và đã có dữ liệu sản phẩm từ POS. Đổi cách thu tiền cần có khoá API cho POS (mục Tích hợp) và không còn giỏ chờ thu.</div></div>`}<//>
+    ${ask && ask.kind === 'source' && html`<${Confirm} title=${ask.value === 'pos' ? `Chuyển ${ask.s.name} sang thu tiền qua POS?` : `Chuyển ${ask.s.name} về tự thu trong BRG?`}
+      text=${ask.value === 'pos' ? 'Khách chọn "Thanh toán tại quầy" và nhận mã giỏ hàng. Thu ngân quét mã trong phần mềm POS, thu tiền trên POS (QR, tiền mặt, hoá đơn điện tử do POS xuất). POS báo về BRG và BRG tự xác nhận. Tiền mặt và chuyển khoản QR trong BRG tạm dừng.' : 'Khách chọn tiền mặt hoặc chuyển khoản QR, thu ngân xác nhận thu tiền trong ứng dụng thu ngân của BRG. POS không còn nhận giỏ hàng nữa.'}
+      ok=${ask.value === 'pos' ? 'Chuyển sang POS' : 'Chuyển về BRG'} cancel="Giữ nguyên" busy=${!!busyKey} onOk=${confirmAsk} onCancel=${() => setAsk(null)}/>`}
+    ${ask && ask.kind === 'guard' && html`<${Confirm} title=${`Tắt bảo vệ cổng ra ở ${ask.s.name}?`} danger ok="Tắt bảo vệ" cancel="Giữ bật" busy=${!!busyKey} onOk=${confirmAsk} onCancel=${() => setAsk(null)}>
+      <ul class="bullets"><li>Không còn mã QR ra cổng và không kiểm tra ngẫu nhiên.</li><li>Thu tiền xong, khách ra luôn.</li><li>Khách đã thanh toán mà chưa ra cổng được coi như đã ra.</li></ul>
+      <p class="small muted">Bật lại sau này sẽ chỉ áp dụng cho các giao dịch mới.</p><//>`}
     ${qr && html`<${GateQr} s=${qr} onClose=${() => setQr(null)}/>`}
-    ${adding && html`<${AddStore} onClose=${() => setAdding(false)} onDone=${() => { st.reload(); reloadStores(); }}/>`}
+    ${adding && html`<${AddStore} onClose=${() => setAdding(false)} onDone=${refresh}/>`}
   </div>`;
 }
 
@@ -176,6 +208,97 @@ function InvoiceCard({ d, reload }) {
   </div>`;
 }
 
+function NewKey({ stores, onClose, onDone }) {
+  const [name, setName] = useState('');
+  const [sid, setSid] = useState('');
+  const [err, setErr] = useState('');
+  const [made, setMade] = useState(null);
+  const [busy, run] = useBusy();
+  const submit = async (e) => {
+    e.preventDefault(); setErr('');
+    if (!name.trim()) return setErr('Đặt tên cho khoá (ví dụ tên phần mềm POS)');
+    const r = await run(async () => { try { return await api.post('/pos/keys', { name: name.trim(), storeId: sid || undefined }); } catch (x) { setErr(x.message); throw x; } }, null);
+    if (r) { setMade(r); onDone(); }
+  };
+  if (made) return html`<${Sheet} center><div class="stack">
+    <h2>Khoá API đã tạo</h2>
+    <${Banner} tone="" title="Khoá chỉ hiện một lần">Hãy sao chép và gửi cho nhà cung cấp POS ngay. Đóng hộp này là không xem lại được; nếu mất, hãy thu hồi và tạo khoá mới.<//>
+    <div class="secret" id="new-key" aria-label="Khoá API đầy đủ">${made.key}</div>
+    <button class="btn line" onClick=${() => copyText(made.key)}><${Icon} name="copy"/>Sao chép khoá</button>
+    <button class="btn primary" onClick=${onClose}>Tôi đã lưu khoá</button></div><//>`;
+  return html`<${Sheet} center onClose=${onClose}><form class="stack" onSubmit=${submit}>
+    <h2>Tạo khoá API cho POS</h2>
+    <${Field} label="Tên khoá" hint="Ví dụ: KiotViet quầy Q7"><input class="input" value=${name} maxlength="60" onInput=${(e) => setName(e.target.value)} autofocus aria-label="Tên khoá"/><//>
+    <${Field} label="Phạm vi" hint="Khoá theo chi nhánh chỉ nhận được giỏ hàng của chi nhánh đó"><select class="input" value=${sid} onChange=${(e) => setSid(e.target.value)} aria-label="Phạm vi khoá"><option value="">Tất cả chi nhánh</option>${stores.map((s) => html`<option value=${s.id} key=${s.id}>${s.name}</option>`)}</select><//>
+    ${err && html`<div class="errtext" role="alert">${err}</div>`}
+    <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : 'Tạo khoá'}</button>
+    <button class="btn txt" type="button" onClick=${onClose}>Huỷ</button></form><//>`;
+}
+
+function PosApiCard({ d, stores, reload }) {
+  const keys = useAsync(() => api.get('/pos/keys'), []);
+  const guides = useAsync(() => api.get('/guides').catch(() => ({ guides: [] })), []);
+  const [adding, setAdding] = useState(false);
+  const [revoke, setRevoke] = useState(null);
+  const [busy, run] = useBusy();
+  const base = `${location.origin}/api/pos/v1`;
+  const a = d.posApi || { keys: 0, last24h: {} };
+  const t = a.last24h || {};
+  const hasGuide = (guides.data?.guides || []).some((g) => g.id === '13-ket-noi-pos');
+  const sname = (id) => (id ? stores.find((x) => x.id === id)?.name || id : 'Tất cả chi nhánh');
+  const doRevoke = async () => { const r = await run(async () => { await api.del(`/pos/keys/${revoke.id}`); await keys.reload(); await reload(); }, 'Đã thu hồi khoá'); if (r) setRevoke(null); };
+  return html`<div class="card" id="pos-api">
+    <div class="cardhead"><div class="ico-tile green"><${Icon} name="link"/></div><div class="grow"><h2>POS gọi vào BRG</h2>
+      <div class="small muted">Phần mềm POS dùng khoá API để nhận giỏ hàng, báo đã thanh toán hoặc báo huỷ. BRG tự xác nhận khi POS báo.</div></div>
+      <button class="btn sm primary" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${18}/>Tạo khoá</button></div>
+    <div class="field"><label for="pos-base">Địa chỉ API cơ sở</label><div class="row"><input id="pos-base" class="input grow" readonly value=${base} onFocus=${(e) => e.target.select()}/>
+      <button class="btn sm line" onClick=${() => copyText(base)} aria-label="Sao chép địa chỉ API"><${Icon} name="copy" size=${18}/>Sao chép</button></div></div>
+    <div class="tiles">
+      <${Tile} k="Đã nhận giỏ (24 giờ)" v=${fmt.num(t.claimed)}/><${Tile} k="Đã thanh toán" v=${fmt.num(t.paid)}/><${Tile} k="Đã huỷ" v=${fmt.num(t.cancelled)}/>
+      <${Tile} k="Lệch tiền" v=${fmt.num(t.differs)} tone=${t.differs ? 'err' : ''}/><${Tile} k="Đang chờ thanh toán" v=${fmt.num(t.waiting)} tone=${t.waiting ? 'warn' : ''}/></div>
+    <${Async} state=${keys}>${(k) => k.keys.length === 0 ? html`<div class="muted">Chưa có khoá API nào. Bấm "Tạo khoá" để cấp cho nhà cung cấp POS.</div>` : html`
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>Tên</th><th>Tiền tố khoá</th><th>Phạm vi</th><th>Dùng gần nhất</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody>${k.keys.map((x) => html`<tr key=${x.id} class=${x.active ? '' : 'dim'}><td><b>${x.name}</b><div class="sub">Tạo ${fmt.when(x.createdAt)}${x.createdBy ? ` · ${x.createdBy}` : ''}</div></td>
+          <td><code>${x.prefix}…</code></td><td>${sname(x.storeId)}</td><td>${x.lastUsedAt ? fmt.when(x.lastUsedAt) : 'Chưa dùng'}</td>
+          <td>${x.active ? html`<${Pill} tone="ok">Đang dùng<//>` : html`<${Pill}>Đã thu hồi<//>`}</td>
+          <td>${x.active && html`<button class="btn sm danger-line" onClick=${() => setRevoke(x)} aria-label=${`Thu hồi khoá ${x.name}`}>Thu hồi</button>`}</td></tr>`)}</tbody></table></div>`}<//>
+    <div class="hint">${hasGuide ? html`Xem hướng dẫn <a href="#/huong-dan/13-ket-noi-pos">Kết nối POS</a> trong mục Hướng dẫn hệ thống.` : 'Hướng dẫn "Kết nối POS" sẽ có trong mục Hướng dẫn hệ thống.'} Bật chế độ thu tiền qua POS cho từng chi nhánh ở mục Chi nhánh.</div>
+    ${adding && html`<${NewKey} stores=${stores} onClose=${() => setAdding(false)} onDone=${() => { keys.reload(); reload(); }}/>`}
+    ${revoke && html`<${Confirm} title="Thu hồi khoá này?" text=${`Khoá "${revoke.name}" sẽ ngừng dùng được ngay. POS đang dùng khoá này sẽ không gọi được vào BRG nữa. Không thể hoàn tác.`} ok="Thu hồi" cancel="Giữ lại" danger busy=${busy} onOk=${doRevoke} onCancel=${() => setRevoke(null)}/>`}
+  </div>`;
+}
+
+const SIM_METHODS = [['cash', 'Tiền mặt'], ['qr_transfer', 'Chuyển khoản QR'], ['card', 'Thẻ'], ['ewallet', 'Ví điện tử'], ['other', 'Khác']];
+const newRef = () => `POS-${Date.now().toString(36).toUpperCase()}`;
+function PosSimCard() {
+  const [f, setF] = useState({ code: '', ref: newRef(), amount: '', method: 'cash', invoiceNo: '', cashier: 'Thu ngân thử' });
+  const [res, setRes] = useState(null); // { action, ok, data }
+  const [busy, run] = useBusy();
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const call = (action) => run(async () => {
+    const body = { action, code: f.code.trim() || undefined, ref: f.ref.trim() || undefined, cashier: f.cashier || undefined };
+    if (action === 'paid') Object.assign(body, { amount: Number(f.amount), method: f.method, invoiceNo: f.invoiceNo || undefined });
+    try {
+      const r = await api.post('/dev/pos-simulate', body);
+      setRes({ action, ok: true, data: r });
+      const total = r.cart?.total ?? r.result?.total;
+      if (total != null && !f.amount) setF((x) => ({ ...x, amount: String(total) }));
+    } catch (x) { setRes({ action, ok: false, data: x.data && Object.keys(x.data).length ? x.data : { error: x.code, message: x.message }, message: x.message }); }
+  });
+  const LABEL = { preview: 'Xem trước', claim: 'Nhận giỏ', paid: 'Báo đã thanh toán', cancelled: 'Báo huỷ', status: 'Hỏi trạng thái' };
+  return html`<div class="card"><div class="cardhead"><div class="ico-tile warn"><${Icon} name="card"/></div><div class="grow"><h2>Giả lập POS</h2><div class="small muted">Đóng vai phần mềm POS gọi API của BRG (không cần khoá). Chi nhánh phải ở chế độ thu tiền qua POS.</div></div></div>
+    <div class="formgrid c2">
+      <${Field} label="Mã giỏ hàng" hint="Khách thấy mã này sau khi chọn Thanh toán tại quầy"><input class="input" value=${f.code} onInput=${set('code')} placeholder="Ví dụ SG-Q7-0001" aria-label="Mã giỏ hàng"/><//>
+      <${Field} label="Mã đơn POS"><div class="row"><input class="input grow" value=${f.ref} onInput=${set('ref')} aria-label="Mã đơn POS"/><button class="btn sm line" type="button" onClick=${() => setF({ ...f, ref: newRef() })}>Mã mới</button></div><//>
+      <${Field} label="Số tiền POS (₫)"><input class="input" type="number" min="0" value=${f.amount} onInput=${set('amount')} aria-label="Số tiền POS"/><//>
+      <${Field} label="Cách trả"><select class="input" value=${f.method} onChange=${set('method')} aria-label="Cách trả">${SIM_METHODS.map(([k, l]) => html`<option value=${k} key=${k}>${l}</option>`)}</select><//>
+      <${Field} label="Số hoá đơn POS"><input class="input" value=${f.invoiceNo} onInput=${set('invoiceNo')} aria-label="Số hoá đơn POS"/><//>
+      <${Field} label="Thu ngân"><input class="input" value=${f.cashier} onInput=${set('cashier')} aria-label="Thu ngân POS"/><//></div>
+    <div class="row wrap">${Object.entries(LABEL).map(([k, l]) => html`<button key=${k} class=${`btn sm ${k === 'claim' || k === 'paid' ? 'primary' : 'line'} auto`} disabled=${busy} onClick=${() => call(k)}>${l}</button>`)}</div>
+    ${res && html`<div class="stack" id="sim-result"><${Banner} tone=${res.ok ? 'ok' : 'err'} icon=${res.ok ? 'check' : 'alert'} title=${`${LABEL[res.action]}: ${res.ok ? 'thành công' : 'bị từ chối'}`}>${res.ok ? (res.data.duplicate ? 'Đã nhận trước đó (gọi lại cùng mã đơn).' : 'BRG đã xử lý yêu cầu.') : html`<span role="alert">${res.message}${res.data?.error ? ` (${res.data.error})` : ''}</span>`}<//>
+      <pre class="jsonbox">${JSON.stringify(res.data)}</pre></div>`}</div>`;
+}
+
 function DevTools({ stores }) {
   const [id, setId] = useState(stores[0]?.id || '');
   const st = useAsync(() => api.get(`/dev/pos-products?storeId=${id}`), [id]);
@@ -188,14 +311,14 @@ function DevTools({ stores }) {
   useEffect(() => { if (cur) setF({ price: String(cur.price), stock: String(cur.stock), active: !!cur.active }); }, [sku, st.data]);
   if (st.error && !st.data && ['DEV_ONLY', 'FORBIDDEN'].includes(st.error.code || '') || st.error?.status === 403) return null;
   const apply = () => run(async () => { await api.post('/dev/pos-product', { storeId: id, sku, price: Number(f.price), stock: Number(f.stock), active: f.active, sync: true }); await st.reload(); }, 'POS giả lập đã đổi và đồng bộ xong');
-  return html`<div class="card"><div class="cardhead"><div class="ico-tile warn"><${Icon} name="settings"/></div><div class="grow"><h2>Công cụ thử nghiệm</h2><div class="small muted">Chỉ có ở môi trường thử: giả lập POS đổi giá, tồn kho, ngừng bán rồi đồng bộ ngay.</div></div></div>
+  return html`<div class="stack-lg"><div class="card"><div class="cardhead"><div class="ico-tile warn"><${Icon} name="settings"/></div><div class="grow"><h2>Công cụ thử nghiệm</h2><div class="small muted">Chỉ có ở môi trường thử: giả lập POS đổi giá, tồn kho, ngừng bán rồi đồng bộ ngay.</div></div></div>
     <div class="formgrid c2">
       <${Field} label="Chi nhánh"><select class="input" value=${id} onChange=${(e) => setId(e.target.value)} aria-label="Chi nhánh thử nghiệm">${stores.map((x) => html`<option value=${x.id} key=${x.id}>${x.name}</option>`)}</select><//>
       <${Field} label="Sản phẩm"><select class="input" value=${sku} onChange=${(e) => setSku(e.target.value)} aria-label="Sản phẩm thử nghiệm">${list.map((p) => html`<option value=${p.sku} key=${p.sku}>${p.name}${p.active ? '' : ' (ngừng bán)'}</option>`)}</select><//>
       <${Field} label="Giá (₫)"><input class="input" type="number" min="0" value=${f.price} onInput=${(e) => setF({ ...f, price: e.target.value })} aria-label="Giá"/><//>
       <${Field} label="Tồn kho"><input class="input" type="number" min="0" value=${f.stock} onInput=${(e) => setF({ ...f, stock: e.target.value })} aria-label="Tồn kho"/><//></div>
     <div class="row"><${Switch} checked=${f.active} onChange=${(v) => setF({ ...f, active: v })} label="Đang bán"/><span>${f.active ? 'Đang bán' : 'Ngừng bán'}</span><button class="btn primary auto end" disabled=${busy || !cur} onClick=${apply}>${busy ? html`<${Spinner} sm/>` : 'Áp dụng & đồng bộ'}</button></div>
-    ${cur && html`<div class="hint">Mã vạch ${cur.barcode} · mã hàng ${cur.sku}</div>`}</div>`;
+    ${cur && html`<div class="hint">Mã vạch ${cur.barcode} · mã hàng ${cur.sku}</div>`}</div><${PosSimCard}/></div>`;
 }
 
 export function Integrations({ stores }) {
@@ -204,6 +327,7 @@ export function Integrations({ stores }) {
     <${Async} state=${st}>${(d) => html`
       <${Banner} tone="info" icon="info" title="Đang chạy bản giả lập">${d.note}<//>
       <${PosCard} d=${d} reload=${st.reload}/>
+      <${PosApiCard} d=${d} stores=${stores} reload=${st.reload}/>
       <div class="two"><${TransferCard} stores=${stores}/><${InvoiceCard} d=${d} reload=${st.reload}/></div>
       <${DevTools} stores=${stores}/>`}<//></div>`;
 }
@@ -227,13 +351,20 @@ export function Reports({ me, stores }) {
       <div class="chips"><button class=${`chip ${days === 7 && to === todayStr() ? 'on' : ''}`} onClick=${() => quick(7)}>7 ngày</button><button class=${`chip ${days === 30 && to === todayStr() ? 'on' : ''}`} onClick=${() => quick(30)}>30 ngày</button></div>
       ${chain && html`<div class="field"><label for="r-store">Chi nhánh</label><select id="r-store" class="input" value=${sid} onChange=${(e) => setSid(e.target.value)}><option value="all">Toàn chuỗi</option>${stores.map((s) => html`<option value=${s.id} key=${s.id}>${s.name}</option>`)}</select></div>`}
     </div></div>
-    <${Async} state=${st}>${(d) => html`
-      <div class="tiles"><${Tile} k="Giao dịch" v=${fmt.num(d.totals.tx)}/><${Tile} k="Doanh thu" v=${fmt.money(d.totals.revenue)}/><${Tile} k="Lượt kiểm tra" v=${fmt.num(d.totals.checks)}/><${Tile} k="Chênh lệch" v=${fmt.num(d.totals.mismatches)}/><${Tile} k="Tỷ lệ chênh lệch" v=${fmt.pct(d.totals.mismatchRate)}/></div>
+    <${Async} state=${st}>${(d) => {
+      const sel = chain ? sid : me.storeId;
+      const ng = sel !== 'all' && noGuard(cfgOf(stores, sel));
+      const NA = html`<span class="muted">Không áp dụng</span>`;
+      const other = d.totals.other > 0;
+      return html`
+      <div class="tiles"><${Tile} k="Giao dịch" v=${fmt.num(d.totals.tx)}/><${Tile} k="Doanh thu" v=${fmt.money(d.totals.revenue)}/>${other && html`<${Tile} k="Thu khác (thẻ, ví…)" v=${fmt.money(d.totals.other)}/>`}
+        <${Tile} k="Lượt kiểm tra" v=${ng ? NA : fmt.num(d.totals.checks)} small=${ng}/><${Tile} k="Chênh lệch" v=${ng ? NA : fmt.num(d.totals.mismatches)} small=${ng}/><${Tile} k="Tỷ lệ chênh lệch" v=${ng ? NA : fmt.pct(d.totals.mismatchRate)} small=${ng}/></div>
       <div class="card"><h2>Doanh thu theo ngày</h2><${BarChart} data=${d.rows.map((r) => ({ label: dm(r.date), value: r.revenue, hl: r.date === todayStr() }))}/></div>
-      <div class="card"><h2>Chi tiết theo ngày</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Ngày</th><th class="r">Giao dịch</th><th class="r">Doanh thu</th><th class="r">Tiền mặt</th><th class="r">Chuyển khoản</th><th class="r">Lượt kiểm tra</th><th class="r">Chênh lệch</th></tr></thead>
-        <tbody>${d.rows.map((r) => html`<tr key=${r.date}><td>${fmt.dateFull(`${r.date}T12:00:00Z`)}</td><td class="r">${fmt.num(r.tx)}</td><td class="r">${fmt.money(r.revenue)}</td><td class="r">${fmt.money(r.cash)}</td><td class="r">${fmt.money(r.transfer)}</td><td class="r">${fmt.num(r.checks)}</td><td class="r">${fmt.num(r.mismatches)}</td></tr>`)}</tbody>
-        <tfoot><tr><td>Tổng</td><td class="r">${fmt.num(d.totals.tx)}</td><td class="r">${fmt.money(d.totals.revenue)}</td><td class="r">${fmt.money(d.totals.cash)}</td><td class="r">${fmt.money(d.totals.transfer)}</td><td class="r">${fmt.num(d.totals.checks)}</td><td class="r">${fmt.num(d.totals.mismatches)}</td></tr></tfoot></table></div>
-        <div class="hint">Tỷ lệ chênh lệch = số lần chênh lệch / số giao dịch trong kỳ: ${fmt.pct(d.totals.mismatchRate)}.</div></div>`}<//></div>`;
+      <div class="card"><h2>Chi tiết theo ngày</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Ngày</th><th class="r">Giao dịch</th><th class="r">Doanh thu</th><th class="r">Tiền mặt</th><th class="r">Chuyển khoản</th>${other && html`<th class="r">Khác</th>`}<th class="r">Lượt kiểm tra</th><th class="r">Chênh lệch</th></tr></thead>
+        <tbody>${d.rows.map((r) => html`<tr key=${r.date}><td>${fmt.dateFull(`${r.date}T12:00:00Z`)}</td><td class="r">${fmt.num(r.tx)}</td><td class="r">${fmt.money(r.revenue)}</td><td class="r">${fmt.money(r.cash)}</td><td class="r">${fmt.money(r.transfer)}</td>${other && html`<td class="r">${fmt.money(r.other)}</td>`}<td class="r">${ng ? '–' : fmt.num(r.checks)}</td><td class="r">${ng ? '–' : fmt.num(r.mismatches)}</td></tr>`)}</tbody>
+        <tfoot><tr><td>Tổng</td><td class="r">${fmt.num(d.totals.tx)}</td><td class="r">${fmt.money(d.totals.revenue)}</td><td class="r">${fmt.money(d.totals.cash)}</td><td class="r">${fmt.money(d.totals.transfer)}</td>${other && html`<td class="r">${fmt.money(d.totals.other)}</td>`}<td class="r">${ng ? '–' : fmt.num(d.totals.checks)}</td><td class="r">${ng ? '–' : fmt.num(d.totals.mismatches)}</td></tr></tfoot></table></div>
+        <div class="hint">${ng ? 'Chi nhánh này không dùng bảo vệ ở cổng ra nên không có kiểm tra ngẫu nhiên (Không áp dụng).' : `Tỷ lệ chênh lệch = số lần chênh lệch / số giao dịch trong kỳ: ${fmt.pct(d.totals.mismatchRate)}.`}${other ? ' "Khác" là tiền thu bằng thẻ, ví điện tử… do POS ghi nhận.' : ''}</div></div>`;
+    }}<//></div>`;
 }
 
 // ============================== A05 Tài khoản & phân quyền ==============================

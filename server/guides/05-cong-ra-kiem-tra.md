@@ -135,6 +135,18 @@ Quản lý (đăng nhập app nhân viên hoặc web quản trị) mở mục **
 - Khi bị giữ chờ quản lý: **"Nhân viên đang xử lý"**. Khi bị từ chối: **"Vui lòng gặp quản lý"**.
 - Khi hoàn tất: **"Cảm ơn bạn đã mua sắm"** và đánh giá nhanh một chạm (bỏ qua được).
 
+## Chi nhánh không có bảo vệ
+
+Chi nhánh không có người ở cổng ra được quản trị chuỗi **tắt bước bảo vệ** (Chi nhánh và tính năng, cột "Bảo vệ cổng ra"). Khi tắt:
+
+- Thanh toán xong khách **ra luôn**. Giao dịch được tự ghi nhận là đã ra (do hệ thống, không có người quét).
+- **Không có mã QR ra cổng.** Màn hình khách chuyển thẳng sang "Cảm ơn bạn", không hiện mã.
+- **Không có kiểm tra ngẫu nhiên** (hệ thống không bốc giỏ nào, vì việc kiểm tra thuộc bước ở cổng).
+- App nhân viên ẩn mục Kiểm tra cổng ra; máy chủ từ chối quét QR ở cổng.
+- Khi **tắt** cho chi nhánh đang chạy: các khách đã thanh toán mà chưa ra cổng được coi là **đã ra**. Khi **bật lại**: chỉ áp dụng cho giao dịch mới.
+
+> **Quan trọng:** Tắt bảo vệ nghĩa là **không còn lớp kiểm soát hàng ở cổng**. Cần có biện pháp bù: tỷ lệ thất thoát được theo dõi qua đối soát tồn kho, camera, hoặc nhân viên quầy chủ động xem giỏ (đối chiếu) với khách giá trị cao. Xem "Điểm cần chốt".
+
 ## Danh sách kiểm tra cho nhân viên cổng ra
 
 - Đã chọn đúng cổng (Cổng 1 hoặc Cổng 2) để nhật ký ghi đúng.

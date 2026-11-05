@@ -17,7 +17,8 @@ Cách đọc: đi từ trên xuống. Mỗi tài liệu có **trạng thái** (`
 | 11 | [Ứng dụng đã xây & cách gắn tích hợp](11-ung-dung.md) | Chức năng đã làm, quy tắc, gắn POS/hoá đơn/thanh toán online, hạn chế | Mới |
 | 12 | [Hướng dẫn nghiệp vụ trong ứng dụng](12-huong-dan-nghiep-vu.md) | Nội dung tài liệu quy trình cho quản trị, cách sửa, cú pháp sơ đồ | Mới |
 | 13 | [Hướng dẫn triển khai](13-trien-khai.md) | Fork hay cluster, cài đặt, Nginx, PM2, sao lưu, cập nhật, giám sát, sự cố | Mới |
-| 14 | [Phương án tích hợp POS](14-phuong-an-tich-hop-pos.md) | Giỏ hàng tự vào POS, thu tiền và hoá đơn tại POS: 3 phương án, khuyến nghị, câu hỏi cho bên POS | Đề xuất |
+| 14 | [Phương án tích hợp POS](14-phuong-an-tich-hop-pos.md) | Phân tích 3 phương án và hướng đã chọn (POS gọi API của BRG) | Đã chọn hướng |
+| 15 | [API cho POS gọi vào BRG](api-pos.md) | Tài liệu cho nhà cung cấp POS: nhận giỏ, báo thanh toán, báo huỷ, mã lỗi, ví dụ | Mới |
 | — | [Bản thiết kế giao diện](thiet-ke/man-hinh.html) | Mở bằng trình duyệt để xem 52 màn hình | Nháp |
 | — | [Thuật ngữ](thuat-ngu.md) | | |
 | — | [ADR](adr/) | Các quyết định kiến trúc | |
