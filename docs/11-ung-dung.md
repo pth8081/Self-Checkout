@@ -27,6 +27,8 @@
 
 Từ 2026-11-05 chế độ mặc định của chi nhánh là **giỏ QR** (`checkout_mode = basket`). Khách quét món, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng ([api-qr-gio-hang](api-qr-gio-hang.md)); POS quét, tạo đơn, tính lại giá, thu tiền. Chế độ này bật sẵn thu tiền qua POS và tắt bước cổng ra; luồng cũ bị khoá, không xoá: quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở A02 để dùng lại (không còn giỏ chờ). Tồn kho không dùng.
 
+POS báo thanh toán theo mã giỏ (`POST /api/pos/v1/baskets/{mã}/paid`, kèm `lines` và `invoiceUrl`), tự thử lại 3–4 lần tới khi thành công; khách thấy "Đã hoàn thành thanh toán", xem bill và tải PDF (`pdfkit`, phông DejaVu Sans trong `server/assets/fonts`). Chưa có kết quả từ POS thì khách bấm "Đã thanh toán xong", giao dịch ở trạng thái `handed_off`.
+
 ## 2b. Chế độ POS và bỏ bước bảo vệ (cờ theo chi nhánh)
 
 - **`paymentSource = pos`:** POS gọi API `/api/pos/v1` của BRG (nhận giỏ, báo thanh toán, báo huỷ), xem [api-pos.md](api-pos.md). BRG tự xác nhận khi POS báo thanh toán; thu tiền thủ công trong BRG bị chặn ở chi nhánh này.

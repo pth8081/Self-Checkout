@@ -4,6 +4,7 @@ import {
   getStoreConfig, storeView, createOrResumeSession, sessionView, applyOps, lockSession, lockBasket, finishBasket, unlockSession, abandonSession, txView
 } from '../services/core.js';
 import { issueInvoice } from '../services/invoice.js';
+import { billOf, billPdf } from '../services/bill.js';
 import { audit } from '../services/audit.js';
 import { normalizeBarcode } from '../services/barcode.js';
 import { promoLabel } from '../services/pricing.js';
@@ -19,12 +20,13 @@ export default async function customerRoutes(app) {
     const id = req.headers['x-device-id'];
     if (req.url.includes('/store') && req.method === 'GET') { req.deviceId = typeof id === 'string' ? id : ''; return; }
     const okId = (v) => typeof v === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(v);
-    if (!okId(id)) throw bad('NO_DEVICE', 'Thiếu mã thiết bị');
+    const hasCookie = /(?:^|;\s*)brgd=[A-Za-z0-9_-]{16,64}/.test(req.headers.cookie || '');
+    if (!okId(id) && !hasCookie) throw bad('NO_DEVICE', 'Thiếu mã thiết bị');
     // Bản sao lưu mã thiết bị trong cookie do máy chủ đặt (iOS Safari xoá localStorage sau 7 ngày không dùng,
     // còn cookie của máy chủ thì không bị giới hạn đó). Còn cookie thì cookie là chuẩn, để giỏ không mất khi bộ nhớ trang bị xoá.
     const saved = /(?:^|;\s*)brgd=([A-Za-z0-9_-]{16,64})/.exec(req.headers.cookie || '')?.[1];
     req.deviceId = saved || id;
-    if (!saved) req.cookieToSet = id;
+    if (!saved && okId(id)) req.cookieToSet = id;
   });
   app.addHook('onSend', async (req, reply) => {
     if (req.cookieToSet) reply.header('set-cookie', `brgd=${req.cookieToSet}; Path=/api/c; Max-Age=31536000; HttpOnly; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
@@ -105,6 +107,20 @@ export default async function customerRoutes(app) {
     return { session: sessionView(ctx, s.id) };
   });
   app.post('/sessions/:id/abandon', async (req) => { abandonSession(ctx, session(req)); return { ok: true }; });
+
+  // ---- Bill: xem và tải PDF (mở được bằng đường dẫn trực tiếp nhờ cookie thiết bị) ----
+  const paidTx = (req) => {
+    const tx = ownTx(req);
+    if (tx.status !== 'paid') throw conflict('NOT_PAID', 'Đơn hàng chưa thanh toán nên chưa có bill');
+    return tx;
+  };
+  app.get('/transactions/:id/bill', async (req) => ({ bill: billOf(ctx, paidTx(req)) }));
+  app.get('/transactions/:id/bill.pdf', async (req, reply) => {
+    const b = billOf(ctx, paidTx(req));
+    const pdf = await billPdf(b);
+    reply.header('content-type', 'application/pdf').header('content-disposition', `inline; filename="bill-${b.code}.pdf"`).header('cache-control', 'private, no-store');
+    return reply.send(pdf);
+  });
 
   // ---- Hoá đơn & đánh giá ----
   app.post('/transactions/:id/invoice', async (req) => {

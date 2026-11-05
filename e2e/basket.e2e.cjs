@@ -39,8 +39,21 @@ async function api(method,url,body,headers={}){const r=await fetch(BASE+url,{met
  await p.click('text=Sửa giỏ hàng');await p.waitForURL(/#\/cart/);await sleep(500);
  await p.click('.bar-bottom .btn.primary');await p.waitForURL(/#\/basket/);await sleep(800);
  ok('mã giỏ mới sau khi sửa',(await p.innerText('.code'))!==qr.split('|')[2]);
- // 5. xong
- await p.click('text=Đã thanh toán xong');await sleep(900);
+ // 5. POS báo thanh toán kèm bill thật -> khách thấy hoàn thành, xem bill, tải PDF
+ const key=(await api('POST','/api/a/pos/keys',{name:'POS e2e'},AH)).body.key;const code=await p.innerText('.code');
+ await sleep(1500); // chờ giỏ đồng bộ lên máy chủ
+ const total=await p.evaluate(()=>JSON.parse(localStorage.getItem('brg.c.v1')).basket.total);
+ const paid=await api('POST',`/api/pos/v1/baskets/${code}/paid`,{posOrderRef:'POS-E2E-1',amount:total,method:'cash',invoiceNo:'C26-9',cashier:'Lan',lines:[{name:'Sữa tươi 1L',qty:2,unitPrice:Math.round(total/2),discount:0,lineTotal:total}]},{authorization:'Bearer '+key});
+ ok('POS báo thanh toán thành công',paid.status===200);
+ await p.waitForSelector('text=Đã hoàn thành thanh toán',{timeout:15000}).catch(()=>{});
+ ok('khách thấy "Đã hoàn thành thanh toán"',await p.isVisible('text=Đã hoàn thành thanh toán'));
+ await p.click('text=Xem bill');await p.waitForURL(/#\/bill\//);await sleep(800);
+ ok('bill hiện dòng và tổng',(await p.innerText('body')).includes('Sữa tươi 1L')&&(await p.innerText('body')).includes('Bill từ máy tính tiền'));
+ const [dl]=await Promise.all([p.waitForEvent('download',{timeout:8000}).catch(()=>null),p.click('text=Tải bill PDF')]);
+ ok('tải được bill PDF',!!dl&&/\.pdf$/.test(dl.suggestedFilename()));
+ await p.goBack();await sleep(500);
+ // 6. xong
+ await p.click('.bar-bottom >> text=Xong');await sleep(900);
  ok('xong: về trang đầu',!(await p.isVisible('.qrbox')));
  ok('không lỗi JS',errs.length===0);if(errs.length)console.log(errs);
  await b.close();

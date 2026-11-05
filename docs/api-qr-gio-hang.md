@@ -37,9 +37,61 @@ BRG1|SP-0107|Q7-LM3K2AB|1762330000|8936036123456*2,8934567890123*1|T95000|3F2A
 5. POS tính giá và khuyến mãi theo quy tắc của POS. Số tiền thu là số tiền của POS.
 6. Thu tiền, xuất hoá đơn như đơn thường. POS tự trừ tồn kho. **BRG không quản lý tồn kho.**
 
-## 3. Báo kết quả về BRG (không bắt buộc)
+## 3. Báo kết quả thanh toán về BRG (POS gọi tự động)
 
-BRG vẫn nhận báo thanh toán và huỷ theo [api-pos.md](api-pos.md), lấy **mã giỏ** làm mã tra. Làm phần này thì màn hình khách tự chuyển sang "Đã thanh toán", và BRG ghi số tiền thật, số hoá đơn. Không làm thì khách tự bấm "Đã thanh toán xong" trên điện thoại.
+Sau khi thu tiền xong, POS **tự động** gọi BRG. BRG ghi nhận, màn hình khách chuyển sang **"Đã hoàn thành thanh toán"** và khách có nút **Xem bill** và **Tải bill PDF**. Xác thực như [api-pos.md](api-pos.md) (khoá API trong `Authorization: Bearer <khoá>`).
+
+`POST /api/pos/v1/baskets/{mã giỏ}/paid`
+
+```json
+{
+  "posOrderRef": "POS-20261105-000123",
+  "amount": 93800,
+  "method": "qr_transfer",
+  "invoiceNo": "C26TAA-123",
+  "invoiceUrl": "https://hddt.example.vn/tra-cuu/abc",
+  "cashier": "Lan",
+  "terminal": "QUAY-02",
+  "lines": [
+    { "barcode": "8936036123456", "name": "Sữa tươi 1L", "qty": 2, "unitPrice": 29000, "discount": 0, "lineTotal": 58000 },
+    { "barcode": "8934567890123", "name": "Mì ăn liền tôm", "qty": 1, "unitPrice": 4800, "discount": 2000, "lineTotal": 2800 }
+  ]
+}
+```
+
+| Trường | Bắt buộc | Ý nghĩa |
+|--------|----------|---------|
+| `posOrderRef` | Có | Mã đơn trên POS. **Khoá chống trùng**: gửi lại cùng mã giỏ với cùng `posOrderRef` thì BRG không ghi lần hai |
+| `amount` | Có | Số tiền thực thu, VND, số nguyên |
+| `method` | Có | `cash`, `qr_transfer`, `card`, `ewallet` |
+| `lines` | Nên có | Các dòng của bill POS (giá và khuyến mãi thật). Có thì khách thấy bill thật; không có thì khách thấy bản tạm tính, ghi rõ "chưa có bill chính thức" |
+| `invoiceNo`, `invoiceUrl` | Nên có | Số và đường dẫn (https) tới hoá đơn điện tử của POS |
+| `cashier`, `terminal` | Không | Hiện trong bill và báo cáo |
+
+Các lệnh khác: `GET /api/pos/v1/baskets/{mã giỏ}` (trạng thái, để POS kiểm tra) và `POST .../cancelled` (POS huỷ đơn, body `posOrderRef`, `reason`).
+
+### Quy tắc thử lại (POS thực hiện)
+
+Mạng có thể chập chờn nên **POS phải thử lại cho tới khi BRG trả thành công**. BRG xử lý gửi trùng an toàn, nên thử lại không gây thu hai lần.
+
+| Phản hồi của BRG | POS làm |
+|------------------|---------|
+| `200` (kể cả `duplicate: true`) | Thành công, dừng |
+| Không có phản hồi, timeout, `5xx`, `429` | Thử lại |
+| `404 BASKET_NOT_FOUND` | Thử lại: điện thoại khách có thể đang mất mạng nên giỏ chưa lên hệ thống |
+| `400`, `401`, `403`, `409 REF_IN_USE`, `409 ORDER_CANCELLED` | **Không** thử lại; ghi lỗi để người quản lý xử lý |
+
+Lịch thử lại đề xuất: lần 1 ngay lập tức, rồi sau 5 giây, 30 giây, 2 phút (tổng 4 lần). Hết 4 lần vẫn chưa được thì POS **giữ đơn trong hàng đợi và thử lại mỗi 5 phút**, tối đa 24 giờ, và báo cho quản lý cửa hàng. Gửi cùng nội dung ở mọi lần thử.
+
+### Khi POS chưa báo được
+
+Khách vẫn bấm được **"Đã thanh toán xong"** trên điện thoại để kết thúc giỏ. Giao dịch này BRG ghi là *đã chuyển POS, chưa được POS xác nhận*, khác với giao dịch POS đã báo. Khi POS báo muộn, BRG cập nhật thành đã thanh toán, kèm số tiền thật và bill.
+
+### Bill khách xem và tải
+
+- Khách xem bill ngay trong ứng dụng web, và tải bản **PDF** để lưu. Bill lưu trên điện thoại để xem lại khi mất mạng (PDF cần mạng để tải).
+- Khách xem lại bill trong mục Lịch sử mua sắm.
+- Hiện bill chỉ có trên ứng dụng và PDF; không in giấy.
 
 ## 4. Mã QR còn khi khách mất mạng
 

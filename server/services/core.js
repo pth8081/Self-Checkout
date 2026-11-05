@@ -205,6 +205,7 @@ export function txView(ctx, tx, { staff = false } = {}) {
     posStatus: tx.pos_status, posOrderRef: tx.pos_order_ref, posAmount: tx.pos_amount, posInvoiceNo: tx.pos_invoice_no,
     posClaimedAt: tx.pos_claimed_at, posCashier: tx.pos_cashier, posTerminal: tx.pos_terminal,
     buyer: tx.buyer_json ? JSON.parse(tx.buyer_json) : null,
+    bill: tx.status === 'paid' ? { source: tx.pos_bill_json ? 'pos' : 'brg', invoiceNo: tx.pos_invoice_no, invoiceUrl: tx.pos_invoice_url, total: tx.pos_amount ?? tx.total } : null,
     // Chi nhánh không có bảo vệ: khách ra thẳng, không có mã QR ra cổng.
     receipt: paid && !tx.guard_skipped ? { token: makeReceiptToken(tx.id, tx.receipt_expires_at), expiresAt: tx.receipt_expires_at, expired: !!expired } : null,
     invoice: inv ? { type: inv.type, status: inv.status, number: inv.number, email: inv.email } : null

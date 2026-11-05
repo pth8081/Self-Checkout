@@ -1,5 +1,5 @@
 import { nowIso, unauthorized } from '../util.js';
-import { hashKey, previewCart, claimCart, orderStatus, orderPaid, orderCancelled } from '../services/pos-api.js';
+import { hashKey, previewCart, claimCart, orderStatus, orderPaid, orderCancelled, basketPaid, basketCancelled, basketStatus } from '../services/pos-api.js';
 
 /** API cho POS gọi. Xác thực bằng khoá API (Authorization: Bearer <khoá> hoặc X-Api-Key). Chỉ dùng qua HTTPS. */
 export default async function posRoutes(app) {
@@ -19,6 +19,10 @@ export default async function posRoutes(app) {
   app.get('/v1/health', async (req) => ({ ok: true, key: req.scope.name, storeScope: req.scope.storeId || 'all' }));
   app.get('/v1/carts/:code', async (req) => ({ cart: previewCart(ctx, req.scope, req.params.code) }));
   app.post('/v1/carts/:code/claim', async (req) => claimCart(ctx, req.scope, req.params.code, req.body || {}));
+  // Giỏ QR: POS báo theo mã giỏ có trong mã QR
+  app.get('/v1/baskets/:code', async (req) => basketStatus(ctx, req.scope, req.params.code));
+  app.post('/v1/baskets/:code/paid', async (req) => basketPaid(ctx, req.scope, req.params.code, req.body || {}));
+  app.post('/v1/baskets/:code/cancelled', async (req) => basketCancelled(ctx, req.scope, req.params.code, req.body || {}));
   app.get('/v1/orders/:ref', async (req) => orderStatus(ctx, req.scope, req.params.ref));
   app.post('/v1/orders/:ref/paid', async (req) => orderPaid(ctx, req.scope, req.params.ref, req.body || {}));
   app.post('/v1/orders/:ref/cancelled', async (req) => orderCancelled(ctx, req.scope, req.params.ref, req.body || {}));

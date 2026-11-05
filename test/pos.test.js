@@ -332,3 +332,70 @@ test('mã QR giỏ: sai chữ ký hoặc sai định dạng thì từ chối', a
   assert.equal(decodeBasket(t.replace('*3', '*9')).error, 'CRC');
   assert.equal(decodeBasket('hello').error, 'FORMAT');
 });
+
+test('giỏ QR: POS báo thanh toán theo mã giỏ kèm bill thật; báo lại nhiều lần an toàn; khách xem bill và tải PDF', async () => {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  const id = s.body.session.id;
+  await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [
+    { id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }, { id: 'b', type: 'scan', barcode: barcodeOf(app, 'Q7', 'MI01') }] } });
+  const code = 'Q7-ABCDEF2K';
+  // chưa đồng bộ giỏ: POS nhận 404 và thử lại sau
+  const early = await pos(app, key, 'POST', `/baskets/${code}/paid`, { posOrderRef: 'POS-1', amount: 1000, method: 'cash' });
+  assert.equal(early.status, 404);
+  assert.equal(early.body.error, 'BASKET_NOT_FOUND');
+  const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: code } })).body.transaction;
+  const body = { posOrderRef: 'POS-1', amount: tx.total - 2000, method: 'qr_transfer', invoiceNo: 'C26TAA-123', cashier: 'Lan',
+    invoiceUrl: 'https://hddt.example.vn/tra-cuu/abc',
+    lines: [{ barcode: '1', name: 'Sữa tươi 1L', qty: 1, unitPrice: 29000, discount: 0, lineTotal: 29000 }, { name: 'Mì tôm', qty: 1, unitPrice: 4800, discount: 2000, lineTotal: 2800 }] };
+  // dữ liệu sai bị từ chối
+  assert.equal((await pos(app, key, 'POST', `/baskets/${code}/paid`, { ...body, lines: [{ name: '', qty: 1 }] })).status, 400);
+  assert.equal((await pos(app, key, 'POST', `/baskets/${code}/paid`, { ...body, posOrderRef: undefined })).status, 400);
+  assert.equal((await pos(app, key, 'POST', `/baskets/${code}/paid`, { ...body, invoiceUrl: 'http://x' })).status, 400);
+  const ok = await pos(app, key, 'POST', `/baskets/${code}/paid`, body);
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal(ok.body.duplicate, false);
+  // POS thử lại (ví dụ không nhận được phản hồi): không thu hai lần
+  const retry = await pos(app, key, 'POST', `/baskets/${code}/paid`, body);
+  assert.equal(retry.body.duplicate, true);
+  assert.equal(app.ctx.db.prepare('SELECT COUNT(*) n FROM payments').get().n, 1);
+  // đơn POS khác cho cùng giỏ: từ chối
+  assert.equal((await pos(app, key, 'POST', `/baskets/${code}/paid`, { ...body, posOrderRef: 'POS-2' })).status, 409);
+  const st = await pos(app, key, 'GET', `/baskets/${code}`);
+  assert.equal(st.body.status, 'paid'); assert.equal(st.body.billStored, true);
+  // khách thấy hoàn tất, xem bill thật
+  const sv = await call(app, 'GET', `/api/c/sessions/${id}`);
+  assert.equal(sv.body.session.transaction.status, 'paid');
+  assert.equal(sv.body.session.transaction.bill.source, 'pos');
+  const bill = (await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill;
+  assert.equal(bill.provisional, false);
+  assert.equal(bill.total, tx.total - 2000);
+  assert.equal(bill.invoiceNo, 'C26TAA-123');
+  assert.equal(bill.lines.length, 2);
+  const pdf = await app.inject({ method: 'GET', url: `/api/c/transactions/${tx.id}/bill.pdf`, headers: { 'x-device-id': DEVICE } });
+  assert.equal(pdf.statusCode, 200);
+  assert.match(pdf.headers['content-type'], /pdf/);
+  assert.equal(pdf.rawPayload.subarray(0, 4).toString(), '%PDF');
+  // chỉ chủ giỏ xem được
+  assert.equal((await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`, { device: 'stranger-1234567890abcdef' })).status, 404);
+  // mở thẳng đường dẫn PDF bằng cookie thiết bị (không có header)
+  const viaCookie = await app.inject({ method: 'GET', url: `/api/c/transactions/${tx.id}/bill.pdf`, headers: { cookie: `brgd=${DEVICE}` } });
+  assert.equal(viaCookie.statusCode, 200);
+  await app.close();
+});
+
+test('giỏ QR: POS chưa gửi bill thì bill là tạm tính; gửi bổ sung ở lần báo lại thì thành bill thật', async () => {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  await call(app, 'POST', `/api/c/sessions/${s.body.session.id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }] } });
+  const tx = (await call(app, 'POST', `/api/c/sessions/${s.body.session.id}/basket`, { body: { ref: 'Q7-ZZZZ2345' } })).body.transaction;
+  await pos(app, key, 'POST', `/baskets/Q7-ZZZZ2345/paid`, { posOrderRef: 'P9', amount: tx.total, method: 'cash' });
+  assert.equal((await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill.provisional, true);
+  await pos(app, key, 'POST', `/baskets/Q7-ZZZZ2345/paid`, { posOrderRef: 'P9', amount: tx.total, method: 'cash', lines: [{ name: 'Sữa tươi 1L', qty: 1, unitPrice: tx.total, discount: 0, lineTotal: tx.total }] });
+  assert.equal((await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill.provisional, false);
+  await app.close();
+});

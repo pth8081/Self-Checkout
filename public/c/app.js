@@ -3,7 +3,7 @@ import { html, render, useRoute, go, useEffect, useState, useRef, Toasts, Offlin
 import { useStore, lastUnlockAt, loadStore, setStoreCode, openSession, refreshSession, resetSession, getState, local, setState, syncBasket } from './store.js';
 import { Welcome, Guide, CameraPermission, CameraBlocked, StoreDisabled, Stores, WebviewNotice, Resume, isWebview } from './screens-start.js';
 import { Scan, Manual, Cart } from './screens-scan.js';
-import { Basket } from './screens-basket.js';
+import { Basket, Bill } from './screens-basket.js';
 import { PayMethod, Transfer, Wait, Receipt, Done, Invoice, History, Order } from './screens-pay.js';
 
 // Thanh toán xong là ra luôn: chi nhánh không có bảo vệ, hoặc khách đã ra cổng.
@@ -119,6 +119,7 @@ function App() {
     case path === '/scan' && !!s.session && !!store: return html`<${Scan} s=${s} store=${store} onBlocked=${() => go('/blocked', true)}/><${Toasts}/>`;
     case path === '/manual' && !!s.session && !!store: return html`<${Manual} s=${s} store=${store}/><${Toasts}/>`;
     case path === '/cart' && !!s.session && !!store: return html`<${OfflineBar}/><${Cart} s=${s} store=${store}/><${Toasts}/>`;
+    case path.startsWith('/bill/'): return html`<${OfflineBar}/><${Bill} id=${path.slice(6)}/><${Toasts}/>`;
     case path === '/basket' && !!s.basket && !!store: return html`<${OfflineBar}/><${Basket} s=${s} store=${store}/><${Toasts}/>`;
     case path === '/pay' && !!s.session && !!store: return html`<${OfflineBar}/><${PayMethod} s=${s} store=${store}/><${Toasts}/>`;
     case path === '/transfer' && !!s.session: return html`<${OfflineBar}/><${Transfer} s=${s}/><${Toasts}/>`;

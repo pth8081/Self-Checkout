@@ -71,6 +71,29 @@ export function orderStatus(ctx, scope, ref) {
     paidAmount: tx.pos_amount, exitStatus: tx.exit_status, guardCheck: !tx.guard_skipped };
 }
 
+/** Bill thật của POS: danh sách dòng đã tính giá và khuyến mãi, kèm đường dẫn hoá đơn điện tử (không bắt buộc). */
+function cleanBill(body) {
+  let lines = null;
+  if (body.lines !== undefined && body.lines !== null) {
+    if (!Array.isArray(body.lines) || !body.lines.length || body.lines.length > 300) throw bad('BAD_LINES', 'lines là danh sách 1 đến 300 dòng');
+    lines = body.lines.map((l, i) => {
+      const name = String(l?.name || '').trim().slice(0, 200);
+      const qty = Number(l?.qty);
+      const unitPrice = Number(l?.unitPrice), lineTotal = Number(l?.lineTotal), discount = Number(l?.discount ?? 0);
+      if (!name || !(qty > 0 && qty < 100000) || ![unitPrice, lineTotal, discount].every((x) => Number.isInteger(x) && x >= 0)) {
+        throw bad('BAD_LINES', `Dòng ${i + 1} không hợp lệ: cần name, qty > 0, unitPrice, lineTotal (số nguyên đồng), discount (nếu có)`);
+      }
+      return { barcode: l.barcode ? String(l.barcode).slice(0, 32) : null, name, qty, unitPrice, discount, lineTotal };
+    });
+  }
+  let invoiceUrl = null;
+  if (body.invoiceUrl) {
+    invoiceUrl = String(body.invoiceUrl).slice(0, 500);
+    if (!/^https:\/\/[^\s]+$/.test(invoiceUrl)) throw bad('BAD_INVOICE_URL', 'invoiceUrl phải là đường dẫn https');
+  }
+  return { lines, invoiceUrl };
+}
+
 export function orderPaid(ctx, scope, ref, body = {}) {
   const { db } = ctx;
   const tx = byRef(db, ref);
@@ -78,13 +101,20 @@ export function orderPaid(ctx, scope, ref, body = {}) {
   inScope(scope, tx);
   const result = (dup) => ({ ok: true, duplicate: dup, transactionId: tx.id, status: 'paid', guardCheck: !tx.guard_skipped,
     exitStatus: db.prepare('SELECT exit_status FROM transactions WHERE id = ?').get(tx.id).exit_status, amountMatches: money(tx.pos_amount) === tx.total });
-  if (tx.status === 'paid') return result(true); // báo lại: không tạo thêm khoản thu
+  if (tx.status === 'paid') {
+    // Báo lại: không tạo thêm khoản thu, nhưng nhận bill nếu lần trước chưa gửi.
+    const { lines, invoiceUrl } = cleanBill(body);
+    if (lines && !tx.pos_bill_json) db.prepare('UPDATE transactions SET pos_bill_json = ?, pos_invoice_url = COALESCE(?, pos_invoice_url) WHERE id = ?').run(JSON.stringify(lines), invoiceUrl, tx.id);
+    else if (invoiceUrl && !tx.pos_invoice_url) db.prepare('UPDATE transactions SET pos_invoice_url = ? WHERE id = ?').run(invoiceUrl, tx.id);
+    return result(true);
+  }
   if (tx.status === 'cancelled' || tx.status === 'voided') throw conflict('ORDER_CANCELLED', 'Đơn này đã bị huỷ');
   if (!['awaiting_counter', 'handed_off'].includes(tx.status)) throw conflict('NOT_PAYABLE', 'Đơn không ở trạng thái chờ thanh toán');
   const amount = body.amount;
   if (!Number.isInteger(amount) || amount <= 0) throw bad('BAD_AMOUNT', 'amount là số nguyên dương, đơn vị đồng');
   if (!POS_METHODS.includes(body.method)) throw bad('BAD_METHOD', `method phải là một trong: ${POS_METHODS.join(', ')}`);
   const invoiceNo = body.invoiceNo ? String(body.invoiceNo).slice(0, 64) : null;
+  const { lines, invoiceUrl } = cleanBill(body);
   const cashier = body.cashier ? String(body.cashier).slice(0, 40) : tx.pos_cashier;
   const ts = nowIso();
   const differs = amount !== tx.total;
@@ -94,7 +124,7 @@ export function orderPaid(ctx, scope, ref, body = {}) {
       VALUES(?,?,'main',?,?,?,?,'pos',?,?)`).run(tx.id, tx.store_id, body.method, amount, `POS:${cashier || scope.name}`, ts, ref,
       JSON.stringify({ paidAt: body.paidAt || null, terminal: body.terminal || tx.pos_terminal || null, note: body.note || null }));
     db.prepare(`UPDATE transactions SET status='paid', method=?, paid_at=?, receipt_expires_at=?, extra_due=0, pos_status='paid', pos_amount=?,
-      pos_invoice_no=?, pos_cashier=? WHERE id=?`).run(body.method, ts, exp, amount, invoiceNo, cashier || null, tx.id);
+      pos_invoice_no=?, pos_cashier=?, pos_bill_json=?, pos_invoice_url=? WHERE id=?`).run(body.method, ts, exp, amount, invoiceNo, cashier || null, lines ? JSON.stringify(lines) : null, invoiceUrl, tx.id);
     db.prepare(`UPDATE scan_sessions SET status='paid', ended_at=? WHERE id=?`).run(ts, tx.session_id);
     if (invoiceNo) {
       const buyer = tx.buyer_json ? JSON.parse(tx.buyer_json) : {};
@@ -147,3 +177,35 @@ export function orderCancelled(ctx, scope, ref, body = {}) {
 }
 
 export { txView };
+
+// ====================== Chế độ giỏ QR: POS báo theo mã giỏ ======================
+/**
+ * POS không gọi "nhận giỏ" trước (mã QR đã chứa món), nên kết quả được báo thẳng theo mã giỏ.
+ * `posOrderRef` (mã đơn bên POS) bắt buộc và là khoá chống trùng. Chưa thấy giỏ (điện thoại chưa đồng bộ vì mất mạng)
+ * thì trả 404 BASKET_NOT_FOUND, POS thử lại sau.
+ */
+function basketByCode(ctx, scope, code, body) {
+  const { db } = ctx;
+  const tx = db.prepare('SELECT * FROM transactions WHERE cart_code = ? AND method = ?').get(String(code).toUpperCase(), 'basket')
+    || db.prepare(`SELECT * FROM transactions WHERE cart_code = ? AND pos_order_ref IS NOT NULL`).get(String(code).toUpperCase());
+  if (!tx) throw notFound('BASKET_NOT_FOUND', 'Chưa thấy giỏ này. Điện thoại khách có thể đang mất mạng, hãy thử lại sau');
+  inScope(scope, tx);
+  const ref = String(body.posOrderRef || '').trim().slice(0, 64);
+  if (!ref) throw bad('REF_REQUIRED', 'posOrderRef (mã đơn trên POS) là bắt buộc');
+  if (tx.pos_order_ref && tx.pos_order_ref !== ref) throw conflict('REF_IN_USE', 'Giỏ này đã gắn với đơn POS khác', { posOrderRef: tx.pos_order_ref });
+  if (!tx.pos_order_ref) {
+    const other = byRef(db, ref);
+    if (other && other.id !== tx.id) throw conflict('REF_IN_USE', 'Mã đơn POS này đã gắn với giỏ khác', { transactionId: other.id });
+    db.prepare(`UPDATE transactions SET pos_order_ref=?, pos_status='claimed', pos_claimed_at=?, pos_cashier=COALESCE(?, pos_cashier), pos_terminal=COALESCE(?, pos_terminal) WHERE id=?`)
+      .run(ref, nowIso(), body.cashier ? String(body.cashier).slice(0, 40) : null, body.terminal ? String(body.terminal).slice(0, 40) : null, tx.id);
+  }
+  return ref;
+}
+export const basketPaid = (ctx, scope, code, body = {}) => orderPaid(ctx, scope, basketByCode(ctx, scope, code, body), body);
+export const basketCancelled = (ctx, scope, code, body = {}) => orderCancelled(ctx, scope, basketByCode(ctx, scope, code, body), body);
+export function basketStatus(ctx, scope, code) {
+  const tx = ctx.db.prepare('SELECT * FROM transactions WHERE cart_code = ?').get(String(code).toUpperCase());
+  if (!tx) throw notFound('BASKET_NOT_FOUND', 'Chưa thấy giỏ này');
+  inScope(scope, tx);
+  return { code: tx.cart_code, transactionId: tx.id, status: tx.status, posOrderRef: tx.pos_order_ref, total: tx.total, paidAmount: tx.pos_amount, billStored: !!tx.pos_bill_json };
+}

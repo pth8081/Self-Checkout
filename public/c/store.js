@@ -183,6 +183,30 @@ export async function syncBasket() {
   return syncing;
 }
 
+// ---------- Bill ----------
+const BILLS = 'brg.c.bills';
+const cachedBills = () => LS.get(BILLS, {}) || {};
+export const cachedBill = (id) => cachedBills()[id] || null;
+/** Lấy bill: có mạng thì lấy mới và lưu lại trên máy để xem được khi mất mạng. */
+export async function loadBill(id) {
+  try {
+    const r = await api.get(`/transactions/${encodeURIComponent(id)}/bill`);
+    const all = cachedBills(); all[id] = r.bill;
+    const keys = Object.keys(all); for (const k of keys.slice(0, Math.max(0, keys.length - 20))) delete all[k];
+    LS.set(BILLS, all);
+    return r.bill;
+  } catch (e) { const c = cachedBill(id); if (c && e.status === 0) return c; throw e; }
+}
+/** Tải bill PDF về máy (iOS có thể mở ra tab mới, khách dùng nút Chia sẻ để lưu). */
+export async function downloadBillPdf(id, code) {
+  const res = await fetch(`/api/c/transactions/${encodeURIComponent(id)}/bill.pdf`, { headers: { 'x-device-id': deviceId } });
+  if (!res.ok) throw new Error(res.status === 0 ? 'Cần có mạng để tải PDF' : 'Không tải được bill PDF');
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a'); a.href = url; a.download = `bill-${code || id}.pdf`; a.rel = 'noopener'; a.target = '_blank';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 /** Sửa giỏ: bỏ mã QR hiện tại, mở khoá giỏ trên máy chủ nếu có thể. */
 export async function editBasket() {
   const synced = state.basket?.synced;
