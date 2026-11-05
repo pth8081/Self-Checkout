@@ -24,13 +24,15 @@
 | A. 1 PWA, nhiều vùng (`/c` khách, `/g` cổng, `/admin`) | Ít repo, dùng chung thành phần | Bundle khách phải tách chặt để nhẹ; phạm vi service worker lẫn lộn |
 | B. **PWA khách** + **PWA nhân viên** + **web quản trị** tách riêng | Khách nhẹ nhất; quyền & cache tách rõ | Nhiều dự án hơn |
 
-Đề xuất tạm: **B**, thống nhất qua ADR. Khách vào bằng URL công khai (link/QR); nhân viên và quản trị cần đăng nhập.
+**Quyết định (thiết kế hiện tại): B.** PWA khách (URL công khai qua link/QR), PWA nhân viên (đăng nhập bằng mã nhân viên + PIN, dùng trên điện thoại hoặc máy cầm tay), web quản trị (máy tính, vẫn dùng được trên điện thoại). Ghi thành ADR khi bắt đầu code.
 
 ## 3. Danh sách màn hình (khung)
 
-**Khách:** Chào/nhận diện chi nhánh → Hướng dẫn nhanh → Quét → Giỏ hàng → Thanh toán → Kết quả + QR biên nhận → Hoá đơn / lịch sử.
-**Nhân viên:** Đăng nhập → Quét QR → Kết quả (hợp lệ / đã dùng / chưa thanh toán) → Kiểm tra ngẫu nhiên → Ghi chênh lệch.
-**Quản trị:** Đăng nhập → Báo cáo → Chi nhánh/cờ tính năng → Tích hợp → Nhân viên & ca.
+Danh sách đầy đủ 49 màn hình ở [10](10-man-hinh.md); bản vẽ ở [thiet-ke/man-hinh.html](thiet-ke/man-hinh.html).
+
+**Khách (M01–M24):** Chào/nhận diện chi nhánh → Hướng dẫn nhanh → Quét → Giỏ hàng → Chọn cách trả → Chuyển khoản QR hoặc mã giỏ hàng → QR biên nhận → Hoá đơn.
+**Nhân viên (N01–N14):** Đăng nhập → Quét mã giỏ hàng và thu tiền → Quét QR ra cổng → Kiểm tra ngẫu nhiên → Ghi chênh lệch → Đối soát cuối ca.
+**Quản trị (A01–A11):** Tổng quan, chi nhánh và cờ tính năng, tích hợp, báo cáo, phân quyền; trong ngày, truy vết, ca, tỷ lệ kiểm tra, đối soát, mã không tìm thấy.
 
 TODO: wireframe, luồng lỗi (không có quyền camera, mã không đọc được, hết mạng, thanh toán thất bại).
 
@@ -42,7 +44,8 @@ TODO: wireframe, luồng lỗi (không có quyền camera, mã không đọc đ�
 | Background Sync không có trên iOS | Không tự đồng bộ nền | Đồng bộ khi mở lại app / có mạng trở lại (foreground) |
 | Trình duyệt có thể xoá dữ liệu cục bộ khi thiếu bộ nhớ hoặc ít dùng (đặc biệt iOS) | Mất giỏ | Xin lưu trữ bền (`storage.persist`), giỏ cũng ghi lên backend khi có mạng |
 | Trình duyệt trong app (Zalo, Facebook, camera hệ điều hành mở link) có thể chặn camera/service worker | Link QR mở trong webview bị lỗi | Phát hiện webview, hướng dẫn mở bằng Safari/Chrome |
-| Thanh toán ví điện tử chuyển sang app khác rồi quay lại | Mất ngữ cảnh trang | Trạng thái giao dịch lưu ở backend; trang kết quả tra theo `transactionId` |
+| GĐ1: khách đổi app giữa chừng (mở app ngân hàng để chuyển khoản) rồi quay lại | Mất ngữ cảnh trang | Trạng thái giỏ và giao dịch lưu ở backend; mở lại thì vào M07/M18 |
+| GĐ2: thanh toán ví chuyển sang app khác rồi quay lại | Mất ngữ cảnh trang | Trạng thái giao dịch lưu ở backend; trang kết quả tra theo `transactionId` |
 | Camera tối/mờ, mã vạch nhàu | Nhiều lần quét thất bại | Đèn flash (`torch` nếu có), nhập tay mã, hướng dẫn |
 
 ## 5. Hiệu năng PWA (TODO đặt ngân sách)

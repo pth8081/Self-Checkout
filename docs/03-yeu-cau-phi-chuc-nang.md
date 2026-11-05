@@ -7,7 +7,7 @@
 | NFR-01 | Hiệu năng quét | Nhận diện mã vạch < 1 s ở ánh sáng siêu thị tiêu chuẩn | Bộ test thiết bị thật (iOS/Android, máy tầm thấp) | Danh sách thiết bị chuẩn; định nghĩa "ánh sáng tiêu chuẩn" (lux) |
 | NFR-02 | API | < 500 ms cho tra cứu sản phẩm/giỏ ở tải bình thường | Load test p95 | Định nghĩa "tải bình thường" |
 | NFR-03 | Đồng thời | Tất cả chi nhánh chạy cùng lúc | Load test theo mô hình bên dưới | **Số chi nhánh × khách đồng thời cao điểm** (Q-03) |
-| NFR-04 | Bảo mật thanh toán | Theo chuẩn của cổng thanh toán; không lưu thẻ | Rà soát thiết kế, không có PAN trong log/DB | Cổng thanh toán nào (Q-02) |
+| NFR-04 | Bảo mật thanh toán | GĐ1: không xử lý dữ liệu thẻ (chỉ tiền mặt và chuyển khoản). GĐ2: theo chuẩn của cổng thanh toán, không lưu thẻ | Rà soát thiết kế, không có số thẻ trong log/DB | Cổng thanh toán GĐ2 (Q-02) |
 | NFR-05 | Hoá đơn điện tử | Mọi giao dịch xuất hoá đơn hợp lệ theo quy định | Đối soát số giao dịch = số hoá đơn | Nhà cung cấp (Q-04) |
 | NFR-06 | Offline tạm thời | Giỏ lưu cục bộ, đồng bộ lại; backend gián đoạn thì báo rõ, không lỗi âm thầm | Test chế độ máy bay, mạng chập chờn | Xem [05](05-kien-truc-pwa.md) |
 | NFR-07 | Audit log | Lưu toàn bộ phiên quét, giao dịch, lượt kiểm tra | Truy vết 1 giao dịch từ đầu đến cuối | **Thời gian lưu tối thiểu** (Q-06) |
@@ -20,16 +20,18 @@
 | NFR-09 | Bảo mật dữ liệu cá nhân | Tuân thủ quy định bảo vệ dữ liệu cá nhân (Nghị định 13/2023/NĐ-CP): đồng ý thu thập, mục đích, thời hạn lưu |
 | NFR-10 | Phân quyền & tách dữ liệu | Quản trị chi nhánh chỉ thấy `storeId` của mình; kiểm thử chống truy cập chéo chi nhánh |
 | NFR-11 | Khả dụng | Mục tiêu uptime (đặc biệt giờ mở cửa), RTO/RPO |
-| NFR-12 | Chống gian lận QR | QR biên nhận ký số, dùng một lần, có hạn |
+| NFR-12 | Chống gian lận QR | QR biên nhận ký số, dùng một lần, có hạn. Mã giỏ hàng chỉ có tác dụng với tài khoản nhân viên đúng chi nhánh |
 | NFR-13 | Truy cập được | Cỡ chữ, tương phản, hướng dẫn tiếng Việt rõ ràng, dùng một tay |
 | NFR-14 | Tương thích | Ma trận trình duyệt/thiết bị hỗ trợ (xem PWA-10) |
 | NFR-15 | Khả năng quan sát | Log, metric, cảnh báo cho độ trễ đồng bộ POS và tỷ lệ lỗi thanh toán |
+| NFR-16 | Kiểm soát xác nhận thủ công | Mọi xác nhận thu tiền ghi người, cách thu, thời điểm; không sửa/xoá sau khi ghi; đối soát tiền mặt theo ca và chuyển khoản với sao kê hằng ngày (FR-PAY-07, FR-ADM-08) |
+| NFR-17 | Tính bền của QR biên nhận | QR do máy chủ ký, dùng một lần, có hạn; xác nhận ở cổng đánh dấu đã dùng ngay (chặn chụp lại ảnh) |
 
 ## Mô hình ước lượng tải (điền khi có số)
 
 ```
-đồng_thời_cao_điểm = Σ_chi_nhánh ( khách_trong_cửa_hàng_cao_điểm × % dùng_Scan&Go )
+đồng_thời_cao_điểm = Σ_chi_nhánh ( khách_trong_cửa_hàng_cao_điểm × % dùng_Self_Checkout )
 quét/giây          = đồng_thời × (số_món_trung_bình / thời_gian_mua_sắm)
 ```
 
-TODO: chi nhánh = ?, khách cao điểm/chi nhánh = ?, % dùng Scan & Go = ?, món/giỏ = ?, phút/lượt = ?
+TODO: chi nhánh = ?, khách cao điểm/chi nhánh = ?, % dùng Self Checkout = ?, món/giỏ = ?, phút/lượt = ?

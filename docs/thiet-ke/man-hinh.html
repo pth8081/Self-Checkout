@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BRG Self Checkout</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: lưới điện thoại theo từng nhóm luồng; mỗi màn có mã M01.. để trao đổi. App dùng bộ token --a-* riêng, tách khỏi giao diện trang. */
+:root{
+  --bg:#EDF1F1; --fg:#0F1A2A; --muted:#5A6877; --line:#D3DCDE; --card:#FFFFFF; --accent:#0E7C86; --frame:#0F1A2A;
+  --font:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0A1117;--fg:#E8EEF2;--muted:#8D9DAD;--line:#1F2B36;--card:#111B24;--accent:#3CC0CB;--frame:#2B3947;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0A1117;--fg:#E8EEF2;--muted:#8D9DAD;--line:#1F2B36;--card:#111B24;--accent:#3CC0CB;--frame:#2B3947;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));line-height:1.5}
+.wrap{max-width:1280px;margin:0 auto}
+header.top{display:grid;gap:14px;max-width:760px;margin-bottom:36px}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:clamp(28px,5vw,44px);line-height:1.1;margin:0;font-weight:800;letter-spacing:-.02em;text-wrap:balance}
+.lead{color:var(--muted);font-size:16px;margin:0;max-width:62ch}
+.principles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:6px}
+.principles div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px;min-width:0}
+.principles b{display:block;font-size:14px;margin-bottom:2px}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:4px}
+.ctl button{font:inherit;font-size:13px;font-weight:600;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
+.ctl button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.ctl button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+section.grp{margin-top:56px}
+section.grp>h2{font-size:22px;margin:0;font-weight:700;letter-spacing:-.01em}
+section.grp>p{color:var(--muted);margin:4px 0 24px;max-width:70ch;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(296px,1fr));gap:44px 24px;justify-items:center}
+figure{margin:0;width:296px;max-width:100%;display:grid;gap:14px;align-content:start}
+figcaption{display:grid;gap:4px;font-size:13px;min-width:0}
+figcaption .t{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+figcaption b{font-size:14px}
+.id{font-size:11px;font-weight:700;background:var(--fg);color:var(--bg);padding:2px 7px;border-radius:6px;letter-spacing:.03em}
+.fr{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:1px 6px;border-radius:6px}
+figcaption p{margin:0;color:var(--muted)}
+
+/* ---------- App tokens ---------- */
+.phone{
+  --a-bg:#FFFFFF;--a-surface:#F2F5F7;--a-line:#E3E8EC;--a-ink:#0F1A2A;--a-muted:#667384;
+  --a-primary:#0E7C86;--a-on:#FFFFFF;--a-soft:#E3F3F4;--a-accent:#FF9F1C;
+  --a-ok:#1E9E5A;--a-ok-bg:#E4F5EB;--a-warn:#B45F06;--a-warn-bg:#FFF1DC;--a-err:#D6393A;--a-err-bg:#FDE9E9;
+  position:relative;width:296px;height:612px;border-radius:40px;border:8px solid var(--frame);background:var(--a-bg);color:var(--a-ink);
+  overflow:hidden;display:flex;flex-direction:column;font-size:13px;line-height:1.45;box-shadow:0 18px 40px -22px rgba(10,20,30,.45)
+}
+.app-dark .phone{--a-bg:#0C141C;--a-surface:#16212C;--a-line:#243241;--a-ink:#EEF3F7;--a-muted:#93A1B1;--a-primary:#35B7C2;--a-on:#04262A;--a-soft:#12313A;
+  --a-ok:#4BC989;--a-ok-bg:#12301F;--a-warn:#F0A650;--a-warn-bg:#35260F;--a-err:#F26B6C;--a-err-bg:#3A1819}
+.sb{height:30px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:6px 20px 0;font-size:11px;font-weight:700;position:relative;z-index:3}
+.sb i{width:20px;height:9px;border:1.5px solid currentColor;border-radius:3px;position:relative;opacity:.85}
+.sb i::after{content:"";position:absolute;inset:1px;right:5px;background:currentColor;border-radius:1px}
+.scr{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
+.pad{padding:0 18px}
+.top-app{display:flex;align-items:center;gap:8px;padding:6px 14px 10px}
+.store{flex:1;min-width:0;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;background:var(--a-surface);border-radius:999px;padding:6px 12px}
+.store span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--a-ok);flex:none}
+.circ{width:34px;height:34px;border-radius:50%;background:var(--a-surface);display:grid;place-items:center;flex:none;border:0;color:inherit}
+.ic{width:20px;height:20px;display:inline-block;flex:none}
+.ic svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.h1{font-size:25px;font-weight:800;line-height:1.18;letter-spacing:-.015em;margin:0;text-wrap:balance}
+.h2{font-size:18px;font-weight:700;line-height:1.25;margin:0;text-wrap:balance}
+.p{color:var(--a-muted);font-size:13px;margin:0}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:14px;background:var(--a-primary);color:var(--a-on);font:inherit;font-weight:700;font-size:15px;border:0;width:100%;padding:0 14px}
+.btn.ghost{background:var(--a-surface);color:var(--a-ink)}
+.btn.line{background:transparent;border:1.5px solid var(--a-line);color:var(--a-ink)}
+.btn.txt{background:transparent;color:var(--a-primary);height:36px;font-size:13px}
+.btn.off{background:var(--a-surface);color:var(--a-muted)}
+.btn.sm{height:38px;font-size:13px;border-radius:11px}
+.foot{margin-top:auto;padding:10px 18px 20px;display:grid;gap:8px}
+.hero{display:grid;place-items:center;margin:14px 0 18px}
+.badge{width:96px;height:96px;border-radius:30px;background:var(--a-soft);color:var(--a-primary);display:grid;place-items:center}
+.badge .ic{width:44px;height:44px}
+.badge.ok{background:var(--a-ok-bg);color:var(--a-ok)}.badge.err{background:var(--a-err-bg);color:var(--a-err)}.badge.warn{background:var(--a-warn-bg);color:var(--a-warn)}
+.stack{display:grid;gap:12px}
+.card{background:var(--a-surface);border-radius:16px;padding:12px 14px}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.sp{flex:1;min-width:0}
+.mut{color:var(--a-muted)}.sm-t{font-size:12px}.b{font-weight:700}
+.num{font-variant-numeric:tabular-nums}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;border-radius:999px;padding:3px 9px;background:var(--a-ok-bg);color:var(--a-ok)}
+.pill.warn{background:var(--a-warn-bg);color:var(--a-warn)}.pill.err{background:var(--a-err-bg);color:var(--a-err)}
+.steps{display:flex;gap:6px;justify-content:center;margin:6px 0 4px}
+.steps i{width:7px;height:7px;border-radius:50%;background:var(--a-line)}.steps i.on{width:22px;border-radius:4px;background:var(--a-primary)}
+.list{display:grid;gap:0}
+.it{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--a-line)}
+.it:last-child{border-bottom:0}
+.tile{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:16px;flex:none;background:hsl(var(--h) 70% 50%/.16);color:hsl(var(--h) 65% 42%)}
+.app-dark .tile{color:hsl(var(--h) 70% 65%)}
+.it .nm{font-weight:600;font-size:13px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.it .pr{font-size:12px;color:var(--a-muted)}
+.step{display:flex;align-items:center;gap:2px;background:var(--a-surface);border-radius:999px;padding:2px;flex:none}
+.step button{width:26px;height:26px;border-radius:50%;border:0;background:var(--a-bg);color:var(--a-ink);display:grid;place-items:center;padding:0}
+.step button .ic{width:14px;height:14px}
+.step span{min-width:22px;text-align:center;font-weight:700;font-size:13px}
+.amt{font-weight:700;font-size:13px;min-width:58px;text-align:right}
+.sum{display:grid;gap:6px;padding:12px 0}
+.sum div{display:flex;justify-content:space-between}
+.sum .tot{font-size:17px;font-weight:800;padding-top:8px;border-top:1px dashed var(--a-line)}
+.bar{margin:0 12px 12px;border-radius:18px;background:var(--a-ink);color:var(--a-bg);padding:8px 8px 8px 14px;display:flex;align-items:center;gap:10px}
+.bar .sp b{display:block;font-size:15px}.bar .sp span{font-size:11px;opacity:.75}
+.bar .go{background:var(--a-primary);color:var(--a-on);border-radius:12px;padding:10px 14px;font-weight:700;font-size:13px;display:flex;gap:6px;align-items:center}
+.banner{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:var(--a-warn-bg);color:var(--a-warn);font-size:12px;font-weight:500}
+.banner.err{background:var(--a-err-bg);color:var(--a-err)}.banner.ok{background:var(--a-ok-bg);color:var(--a-ok)}
+.banner b{display:block;font-size:13px}
+.field{display:grid;gap:5px;font-size:12px;font-weight:600}
+.field .in{height:46px;border-radius:12px;border:1.5px solid var(--a-line);background:var(--a-bg);display:flex;align-items:center;padding:0 12px;font-size:15px;font-weight:500;color:var(--a-ink)}
+.field .in.focus{border-color:var(--a-primary);box-shadow:0 0 0 3px var(--a-soft)}
+.field .in.ph{color:var(--a-muted)}
+.radio{display:flex;align-items:center;gap:12px;padding:12px;border:1.5px solid var(--a-line);border-radius:14px}
+.radio.on{border-color:var(--a-primary);background:var(--a-soft)}
+.radio .r{width:18px;height:18px;border-radius:50%;border:2px solid var(--a-line);margin-left:auto;flex:none}
+.radio.on .r{border:5px solid var(--a-primary);background:var(--a-on)}
+.logo{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;flex:none}
+.sw{display:inline-block;vertical-align:middle;width:42px;height:24px;border-radius:999px;background:var(--a-line);position:relative;flex:none}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff}
+.sw.on{background:var(--a-primary)}.sw.on::after{left:21px}
+.spin{width:64px;height:64px;border-radius:50%;border:5px solid var(--a-line);border-top-color:var(--a-primary);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.qrbox{background:#fff;border-radius:20px;padding:14px;display:grid;place-items:center;border:1px solid var(--a-line)}
+.qrbox svg{width:176px;height:176px;display:block}
+.code{font-size:12px;letter-spacing:.06em;font-weight:600;color:#3b4654;margin-top:8px;font-variant-numeric:tabular-nums}
+.sheetbg{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:4}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:5;background:var(--a-bg);border-radius:24px 24px 0 0;padding:10px 18px 20px;display:grid;gap:12px}
+.sheet::before{content:"";width:36px;height:4px;border-radius:2px;background:var(--a-line);margin:0 auto 4px}
+.nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.nums span{height:38px;border-radius:10px;background:var(--a-surface);display:grid;place-items:center;font-weight:700;font-size:16px}
+.stars{display:flex;gap:6px;justify-content:center;color:var(--a-accent)}.stars .ic{width:30px;height:30px}.stars .ic svg{fill:currentColor}.stars .off{color:var(--a-line)}
+.ol{margin:0;padding-left:0;list-style:none;display:grid;gap:12px}
+.ol li{display:flex;gap:12px;align-items:flex-start}
+.ol .n{width:24px;height:24px;border-radius:50%;background:var(--a-soft);color:var(--a-primary);display:grid;place-items:center;font-weight:800;font-size:12px;flex:none}
+.old{text-decoration:line-through;color:var(--a-muted)}
+
+/* ---------- Camera ---------- */
+.cam{background:linear-gradient(165deg,#34444d 0%,#1a252c 45%,#0d1418 100%);color:#fff;
+  --a-bg:#0d1418;--a-surface:rgba(255,255,255,.14);--a-line:rgba(255,255,255,.2);--a-ink:#fff;--a-muted:rgba(255,255,255,.7)}
+.cam::before{content:"";position:absolute;inset:0;background:
+  linear-gradient(0deg,rgba(255,255,255,.06) 0 2px,transparent 2px 70px),
+  radial-gradient(60% 30% at 50% 38%,rgba(255,255,255,.12),transparent)}
+.cam .circ,.cam .store{background:rgba(255,255,255,.16);color:#fff;backdrop-filter:blur(6px)}
+.reticle{position:absolute;left:50%;top:44%;width:224px;height:136px;transform:translate(-50%,-50%)}
+.reticle b{position:absolute;width:30px;height:30px;border:4px solid #fff;border-radius:6px}
+.reticle b:nth-child(1){left:0;top:0;border-right:0;border-bottom:0}.reticle b:nth-child(2){right:0;top:0;border-left:0;border-bottom:0}
+.reticle b:nth-child(3){left:0;bottom:0;border-right:0;border-top:0}.reticle b:nth-child(4){right:0;bottom:0;border-left:0;border-top:0}
+.reticle.ok b{border-color:#4BE08D}.reticle.err b{border-color:#FF6B6B}
+.laser{position:absolute;left:12px;right:12px;top:50%;height:2px;background:linear-gradient(90deg,transparent,#FF5A4F,transparent);box-shadow:0 0 12px #FF5A4F;animation:ls 2.2s ease-in-out infinite alternate}
+@keyframes ls{from{top:16%}to{top:84%}}
+.bc{position:absolute;left:50%;top:44%;width:150px;height:72px;transform:translate(-50%,-50%) rotate(-4deg);border-radius:6px;opacity:.95;
+  background:#fff repeating-linear-gradient(90deg,#111 0 2px,#fff 2px 4px,#111 4px 5px,#fff 5px 8px,#111 8px 11px,#fff 11px 12px,#111 12px 13px,#fff 13px 15px);background-size:100% 100%}
+.hint{position:absolute;left:0;right:0;top:calc(44% + 96px);text-align:center;font-size:13px;font-weight:600;text-shadow:0 1px 6px rgba(0,0,0,.5)}
+.tools{position:absolute;left:0;right:0;bottom:84px;display:flex;justify-content:center;gap:10px}
+.tools span{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);backdrop-filter:blur(6px);padding:8px 14px;border-radius:999px;font-weight:600;font-size:12px}
+.camfoot{position:absolute;left:0;right:0;bottom:0}
+.camtop{position:relative;z-index:2}
+@media (prefers-reduced-motion:reduce){.laser,.spin{animation:none}}
+
+/* ---------- Nhân viên ---------- */
+.p-ok{background:#14804A;color:#fff}.p-err{background:#C42B2D;color:#fff}.p-warn{background:#A85A06;color:#fff}
+.p-ok .sb,.p-err .sb,.p-warn .sb{color:#fff}
+.res{flex:1;display:flex;flex-direction:column;padding:0 20px 20px}
+.res .big{width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.18);display:grid;place-items:center;margin:34px auto 20px}
+.res .big .ic{width:54px;height:54px}
+.res h2{font-size:26px;font-weight:800;line-height:1.15;text-align:center;margin:0;text-wrap:balance}
+.res p{text-align:center;opacity:.92;margin:8px 0 0;font-size:13px}
+.res .glass{background:rgba(255,255,255,.16);border-radius:16px;padding:12px 14px;margin-top:20px;display:grid;gap:7px;font-size:12px}
+.res .glass div{display:flex;justify-content:space-between;gap:10px}
+.res .glass b{text-align:right}
+.res .btn{background:#fff;color:#0F1A2A}.res .btn.ghost{background:rgba(255,255,255,.18);color:#fff}
+.cb{width:24px;height:24px;border-radius:50%;border:2px solid var(--a-line);display:grid;place-items:center;flex:none;color:#fff}
+.cb.on{background:var(--a-ok);border-color:var(--a-ok)}.cb .ic{width:14px;height:14px}
+.compact .it{padding:6px 0}.compact .tile{width:34px;height:34px;border-radius:10px;font-size:14px}
+.seg{display:flex;gap:6px}.seg span{flex:1;text-align:center;padding:9px 6px;border-radius:11px;background:var(--a-surface);font-weight:600;font-size:12px}
+.seg span.on{background:var(--a-primary);color:var(--a-on)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chips span{padding:7px 12px;border-radius:999px;background:var(--a-surface);font-weight:600;font-size:12px}
+.chips span.on{background:var(--a-primary);color:var(--a-on)}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tiles>div{background:var(--a-surface);border-radius:14px;padding:10px 12px;min-width:0}
+.tiles .k{font-size:11px;color:var(--a-muted)}.tiles .v{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums}
+.act{display:flex;align-items:center;gap:12px;padding:14px;border-radius:18px;background:var(--a-primary);color:var(--a-on)}
+.act.alt{background:var(--a-surface);color:var(--a-ink)}
+.act .badge{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.2);color:inherit}.act.alt .badge{background:var(--a-soft);color:var(--a-primary)}
+.act .badge .ic{width:24px;height:24px}
+.act b{font-size:15px;display:block}.act span.s{font-size:12px;opacity:.85}
+
+/* ---------- Quản trị (màn hình máy tính) ---------- */
+.grid.gw{grid-template-columns:repeat(auto-fill,minmax(min(600px,100%),1fr))}
+figure.wide{width:600px;max-width:100%}
+.deskwrap{width:100%;overflow-x:auto;border-radius:14px}
+.desk{
+  --a-bg:#FFFFFF;--a-surface:#F2F5F7;--a-line:#E3E8EC;--a-ink:#0F1A2A;--a-muted:#667384;
+  --a-primary:#0E7C86;--a-on:#FFFFFF;--a-soft:#E3F3F4;--a-accent:#FF9F1C;
+  --a-ok:#1E9E5A;--a-ok-bg:#E4F5EB;--a-warn:#B45F06;--a-warn-bg:#FFF1DC;--a-err:#D6393A;--a-err-bg:#FDE9E9;
+  width:600px;min-width:600px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--a-bg);color:var(--a-ink);font-size:11.5px;line-height:1.45
+}
+.app-dark .desk{--a-bg:#0C141C;--a-surface:#16212C;--a-line:#243241;--a-ink:#EEF3F7;--a-muted:#93A1B1;--a-primary:#35B7C2;--a-on:#04262A;--a-soft:#12313A;
+  --a-ok:#4BC989;--a-ok-bg:#12301F;--a-warn:#F0A650;--a-warn-bg:#35260F;--a-err:#F26B6C;--a-err-bg:#3A1819}
+.dbar{height:30px;background:var(--a-surface);display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid var(--a-line)}
+.dbar i{width:9px;height:9px;border-radius:50%;background:var(--a-line)}
+.dbar .url{flex:1;margin-left:8px;background:var(--a-bg);border-radius:6px;padding:2px 10px;color:var(--a-muted);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbody{display:grid;grid-template-columns:132px minmax(0,1fr)}
+.side{background:var(--a-surface);padding:14px 10px;display:flex;flex-direction:column;gap:2px;min-height:400px}
+.side .brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:12px;margin-bottom:2px}
+.side .brand .logo{width:26px;height:26px;border-radius:8px;font-size:9px;background:var(--a-primary);color:var(--a-on)}
+.side .role{font-size:10.5px;color:var(--a-muted);margin:0 0 10px 2px}
+.side a{display:block;padding:7px 9px;border-radius:9px;font-weight:600;color:var(--a-muted)}
+.side a.on{background:var(--a-bg);color:var(--a-ink);box-shadow:0 1px 3px rgba(15,26,42,.12)}
+.side .me{margin-top:auto;font-size:10.5px;color:var(--a-muted)}
+.main{padding:16px 18px 20px;display:grid;gap:14px;align-content:start;min-width:0}
+.main h3{margin:0;font-size:18px;font-weight:800;letter-spacing:-.01em}
+.head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.dbtn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:9px;background:var(--a-primary);color:var(--a-on);font:inherit;font-weight:700;font-size:11.5px;border:0}
+.dbtn.line{background:transparent;color:var(--a-ink);border:1.5px solid var(--a-line)}
+.panel{border:1px solid var(--a-line);border-radius:14px;padding:12px 14px;display:grid;gap:8px;min-width:0}
+.panel>b{font-size:12.5px}
+.tbw{overflow-x:auto}
+.tb{width:100%;border-collapse:collapse;font-size:11.5px;font-variant-numeric:tabular-nums}
+.tb th{text-align:left;font-size:10.5px;color:var(--a-muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--a-line);white-space:nowrap}
+.tb td{padding:8px;border-bottom:1px solid var(--a-line);white-space:nowrap}
+.tb tr:last-child td{border-bottom:0}
+.tb.tight th,.tb.tight td{padding-left:3px;padding-right:3px}.tb .r{text-align:right}.tb .tot td{font-weight:800;border-top:1.5px solid var(--a-line)}
+.desk .tiles.c4{grid-template-columns:repeat(4,1fr)}.desk .tiles .v{font-size:14px}
+.desk .pill{font-size:10.5px;padding:2px 8px}
+.desk .banner{font-size:11.5px}
+.desk .radio{padding:9px 10px;border-radius:11px}
+.desk .field .in{height:34px;font-size:12px;border-radius:9px}
+.bars svg{width:100%;height:auto;display:block}
+.tl{display:grid;gap:0}
+.tl>div{display:grid;grid-template-columns:44px 14px 1fr;gap:8px;padding-bottom:12px;position:relative}
+.tl>div::before{content:"";position:absolute;left:51px;top:14px;bottom:-2px;width:2px;background:var(--a-line)}
+.tl>div:last-child::before{display:none}
+.tl .tm{color:var(--a-muted);font-variant-numeric:tabular-nums}
+.tl .pt{width:12px;height:12px;border-radius:50%;background:var(--a-primary);margin-top:3px;z-index:1}
+.tl .pt.ok{background:var(--a-ok)}.tl .pt.wr{background:var(--a-warn)}
+.sh{display:inline-block;min-width:26px;text-align:center;border-radius:7px;padding:2px 0;font-weight:700;font-size:10.5px;background:var(--a-soft);color:var(--a-primary)}
+.sh.c{background:var(--a-warn-bg);color:var(--a-warn)}.sh.o{background:transparent;color:var(--a-line)}
+.rng{height:8px;border-radius:4px;background:var(--a-line);position:relative}
+.rng i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--a-primary)}
+.rng b{position:absolute;top:50%;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid var(--a-primary);transform:translate(-50%,-50%)}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Bản thiết kế giao diện khách hàng</div>
+  <h1>BRG Self Checkout</h1>
+  <p class="lead">24 màn hình dành cho khách (M01–M24), từ lúc quét QR vào cửa hàng đến lúc nhận QR ra cổng, 14 màn hình dành cho nhân viên (N01–N14): thu tiền tại quầy, kiểm tra cổng ra, đối soát cuối ca, và 11 màn hình quản trị (A01–A11) cho toàn chuỗi và từng chi nhánh. Nội dung (tên siêu thị, sản phẩm, giá) là dữ liệu mẫu để minh hoạ.</p>
+  <div class="principles">
+    <div><b>Một việc mỗi màn</b>Quét, xem giỏ, thanh toán, ra cổng. Không menu rườm rà.</div>
+    <div><b>Nút chính dưới ngón cái</b>Hành động chính luôn nằm cuối màn hình.</div>
+    <div><b>Số tiền luôn thấy</b>Tổng giỏ hàng hiện suốt lúc quét và lúc thanh toán.</div>
+    <div><b>Lỗi nói rõ cách xử lý</b>Mỗi lỗi có một việc tiếp theo và đường gọi nhân viên.</div>
+  </div>
+  <div class="ctl" role="group" aria-label="Giao diện của app">
+    <span style="font-size:13px;color:var(--muted)">Xem app ở chế độ</span>
+    <button type="button" id="mLight" aria-pressed="true">Sáng</button>
+    <button type="button" id="mDark" aria-pressed="false">Tối</button>
+  </div>
+</header>
+
+<!-- ============ A. VÀO CỬA HÀNG ============ -->
+<section class="grp" id="vao">
+  <h2>Vào cửa hàng</h2>
+  <p>Khách quét QR dán ở cổng vào, mở thẳng trên trình duyệt. Hệ thống tự biết chi nhánh, khách không phải chọn gì.</p>
+  <div class="grid">
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="pad stack" style="margin-top:8px">
+      <div class="row"><span class="logo" style="background:var(--a-primary)">BRG</span><b>BRG Self Checkout</b></div>
+      <h1 class="h1" style="margin-top:14px">Mua sắm không phải xếp hàng</h1>
+      <p class="p">Quét mã từng món, thanh toán ngay trên điện thoại, rồi ra cổng.</p>
+    </div>
+    <div class="pad" style="margin-top:20px"><div class="card stack">
+      <div class="row"><span class="ic" data-i="store"></span><div class="sp"><b>Chi nhánh Quận 7</b><div class="sm-t mut">Mở cửa 7:00 – 22:00</div></div></div>
+      <span class="pill" style="justify-self:start"><span class="dot"></span>Self Checkout đang hoạt động</span>
+    </div></div>
+    <div class="foot"><button class="btn" type="button">Bắt đầu mua sắm</button><div class="p sm-t" style="text-align:center">Tiếp tục nghĩa là bạn đồng ý với <u>Điều khoản</u> và <u>Chính sách dữ liệu</u>.</div></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M01</span><b>Chào &amp; nhận diện chi nhánh</b><span class="fr">FR-CUS-01</span></div><p>Tên chi nhánh lấy từ mã QR. Chi nhánh chưa bật thì chuyển sang M05.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="pad" style="text-align:right"><button class="btn txt" type="button" style="width:auto">Bỏ qua</button></div>
+    <div class="hero" style="margin-top:20px"><div class="badge" style="width:150px;height:150px;border-radius:44px"><span class="ic" data-i="barcode" style="width:72px;height:72px"></span></div></div>
+    <div class="pad stack" style="text-align:center"><h2 class="h1" style="font-size:22px">Quét mã vạch từng món</h2><p class="p">Đưa mã vạch trên sản phẩm vào khung camera. Món được thêm vào giỏ ngay.</p>
+      <div class="steps"><i class="on"></i><i></i><i></i></div></div>
+    <div class="foot"><button class="btn" type="button">Tiếp tục</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M02</span><b>Hướng dẫn nhanh (1/3)</b><span class="fr">R3</span></div><p>Ba thẻ: quét món, kiểm tra giỏ, thanh toán và ra cổng. Chỉ hiện lần đầu, có nút Bỏ qua.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="hero" style="margin-top:56px"><div class="badge"><span class="ic" data-i="cam"></span></div></div>
+    <div class="pad stack" style="text-align:center"><h2 class="h1" style="font-size:22px">Cho phép dùng camera</h2><p class="p">Camera chỉ dùng để đọc mã vạch. Ứng dụng không chụp và không lưu ảnh hay video.</p></div>
+    <div class="pad" style="margin-top:22px"><div class="card row"><span class="ic" data-i="shield" style="color:var(--a-ok)"></span><span class="sm-t">Hình ảnh được xử lý ngay trên máy của bạn.</span></div></div>
+    <div class="foot"><button class="btn" type="button">Cho phép camera</button><button class="btn txt" type="button">Nhập mã bằng tay</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M03</span><b>Xin quyền camera</b><span class="fr">PWA-01</span></div><p>Màn giải thích hiện trước hộp thoại của trình duyệt, để khách không bấm từ chối vì bất ngờ.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="pad stack" style="margin-top:20px"><span class="badge warn" style="width:64px;height:64px;border-radius:20px"><span class="ic" data-i="cam" style="width:30px;height:30px"></span></span>
+      <h2 class="h1" style="font-size:22px">Camera đang bị chặn</h2><p class="p">Bật lại quyền camera cho trang này để tiếp tục quét.</p></div>
+    <ol class="ol pad" style="margin-top:20px">
+      <li><span class="n">1</span><span>Chạm biểu tượng khoá hoặc <b>aA</b> cạnh thanh địa chỉ.</span></li>
+      <li><span class="n">2</span><span>Chọn <b>Cài đặt trang web</b>, rồi <b>Camera</b>.</span></li>
+      <li><span class="n">3</span><span>Chọn <b>Cho phép</b> và tải lại trang.</span></li>
+    </ol>
+    <div class="foot"><button class="btn" type="button">Tôi đã bật, thử lại</button><button class="btn ghost" type="button">Nhập mã bằng tay</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M04</span><b>Camera bị chặn</b><span class="fr">PWA-01</span></div><p>Hướng dẫn theo từng trình duyệt. Luôn có lối nhập mã tay, nên khách không bị kẹt.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="hero" style="margin-top:60px"><div class="badge warn"><span class="ic" data-i="store"></span></div></div>
+    <div class="pad stack" style="text-align:center"><h2 class="h1" style="font-size:22px">Chi nhánh này chưa có Self Checkout</h2><p class="p">Chi nhánh Quận 7 chưa bật tính năng này. Bạn vẫn mua sắm bình thường và thanh toán tại quầy.</p></div>
+    <div class="foot"><button class="btn" type="button">Xem chi nhánh đang hỗ trợ</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M05</span><b>Chi nhánh chưa bật</b><span class="fr">FR-ADM-01</span></div><p>Hiện khi cờ tính năng của chi nhánh đang tắt (giai đoạn thí điểm chỉ 2–3 chi nhánh bật).</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="pad stack" style="margin-top:20px"><span class="badge warn" style="width:64px;height:64px;border-radius:20px"><span class="ic" data-i="globe" style="width:30px;height:30px"></span></span>
+      <h2 class="h1" style="font-size:22px">Mở bằng trình duyệt để quét mã</h2><p class="p">Trình duyệt trong Zalo hoặc Facebook không cho dùng camera ổn định.</p></div>
+    <ol class="ol pad" style="margin-top:20px">
+      <li><span class="n">1</span><span>Chạm <b>⋯</b> ở góc phải màn hình.</span></li>
+      <li><span class="n">2</span><span>Chọn <b>Mở bằng trình duyệt</b> (Safari hoặc Chrome).</span></li>
+    </ol>
+    <div class="foot"><button class="btn" type="button"><span class="ic" data-i="copy"></span>Sao chép liên kết</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M06</span><b>Mở trong app khác</b><span class="fr">R6</span></div><p>Hệ thống nhận ra trình duyệt nhúng và hướng khách sang Safari/Chrome trước khi xin camera.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="hero" style="margin-top:50px"><div class="badge"><span class="ic" data-i="bag"></span></div></div>
+    <div class="pad stack" style="text-align:center"><h2 class="h1" style="font-size:22px">Bạn có giỏ hàng đang dở</h2><p class="p">10 món · 130.000₫<br>Bắt đầu lúc 18:32 tại Chi nhánh Quận 7.</p></div>
+    <div class="foot"><button class="btn" type="button">Tiếp tục mua sắm</button><button class="btn line" type="button">Bắt đầu giỏ mới</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M07</span><b>Quay lại giỏ đang dở</b><span class="fr">FR-CUS-09</span></div><p>Khách tải lại trang hoặc quay lại sau khi chuyển app. Giỏ không mất. Chọn giỏ mới sẽ hỏi xác nhận.</p></figcaption></figure>
+
+  </div>
+</section>
+
+<!-- ============ B. QUÉT ============ -->
+<section class="grp" id="quet">
+  <h2>Quét sản phẩm</h2>
+  <p>Màn hình dùng nhiều nhất. Camera chiếm toàn bộ, tổng tiền luôn nằm dưới. Mỗi lần quét có rung nhẹ và dấu xác nhận.</p>
+  <div class="grid">
+
+  <figure><div class="phone cam"><div class="sb camtop"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app camtop"><span class="circ"><span class="ic" data-i="x"></span></span><div class="store"><span class="dot"></span><span>Chi nhánh Quận 7</span></div><span class="circ"><span class="ic" data-i="flash"></span></span></div>
+    <div class="bc"></div><div class="reticle"><b></b><b></b><b></b><b></b><div class="laser"></div></div>
+    <div class="hint">Đưa mã vạch vào khung</div>
+    <div class="tools"><span><span class="ic" data-i="kbd" style="width:16px;height:16px"></span>Nhập mã</span><span><span class="ic" data-i="help" style="width:16px;height:16px"></span>Cần giúp</span></div>
+    <div class="camfoot"><div class="bar" style="background:#fff;color:#0F1A2A"><span class="ic" data-i="bag"></span><div class="sp"><b class="num">130.000₫</b><span>10 món trong giỏ</span></div><div class="go">Xem giỏ <span class="ic" data-i="chev" style="width:14px;height:14px"></span></div></div></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M08</span><b>Quét mã vạch</b><span class="fr">FR-CUS-02</span><span class="fr">NFR-01</span></div><p>Mục tiêu nhận mã dưới 1 giây. Đèn flash cho chỗ thiếu sáng, Nhập mã khi mã nhàu hoặc mờ.</p></figcaption></figure>
+
+  <figure><div class="phone cam"><div class="sb camtop"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app camtop"><span class="circ"><span class="ic" data-i="x"></span></span><div class="store"><span class="dot"></span><span>Chi nhánh Quận 7</span></div><span class="circ"><span class="ic" data-i="flash"></span></span></div>
+    <div class="bc"></div><div class="reticle ok"><b></b><b></b><b></b><b></b></div>
+    <div class="sheet" style="--a-bg:#fff;--a-ink:#0F1A2A;--a-surface:#F2F5F7;--a-line:#E3E8EC;--a-muted:#667384;--a-primary:#0E7C86;--a-on:#fff;--a-ok:#1E9E5A;--a-ok-bg:#E4F5EB;background:#fff;color:#0F1A2A">
+      <span class="pill" style="justify-self:start"><span class="ic" data-i="check" style="width:13px;height:13px"></span>Đã thêm vào giỏ</span>
+      <div class="row"><span class="tile" style="--h:40;width:52px;height:52px">D</span><div class="sp"><b>Dầu ăn đậu nành 1L</b><div class="mut sm-t">52.000₫</div></div>
+        <div class="step"><button type="button"><span class="ic" data-i="minus"></span></button><span class="num">1</span><button type="button"><span class="ic" data-i="plus"></span></button></div></div>
+      <div class="row" style="justify-content:space-between"><span class="mut">Tổng giỏ hàng · 11 món</span><b class="num" style="font-size:17px">182.000₫</b></div>
+      <button class="btn" type="button">Quét món tiếp theo</button>
+    </div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M09</span><b>Vừa quét xong</b><span class="fr">FR-CUS-03</span></div><p>Thẻ trượt lên 2 giây rồi tự thu lại. Sửa số lượng ngay tại đây, giá và tổng cập nhật tức thì.</p></figcaption></figure>
+
+  <figure><div class="phone cam"><div class="sb camtop"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app camtop"><span class="circ"><span class="ic" data-i="x"></span></span><div class="store"><span class="dot"></span><span>Chi nhánh Quận 7</span></div><span class="circ"><span class="ic" data-i="flash"></span></span></div>
+    <div class="bc"></div><div class="reticle err"><b></b><b></b><b></b><b></b></div>
+    <div class="sheet" style="--a-bg:#fff;--a-ink:#0F1A2A;--a-surface:#F2F5F7;--a-line:#E3E8EC;--a-muted:#667384;--a-primary:#0E7C86;--a-on:#fff;--a-err:#D6393A;--a-err-bg:#FDE9E9;background:#fff;color:#0F1A2A">
+      <div class="row"><span class="badge err" style="width:44px;height:44px;border-radius:14px"><span class="ic" data-i="alert" style="width:22px;height:22px"></span></span><div class="sp"><b>Không tìm thấy sản phẩm</b><div class="mut sm-t num">Mã 8934 5678 9012 3</div></div></div>
+      <p class="p">Sản phẩm này chưa có trong hệ thống của chi nhánh. Bạn có thể thử lại hoặc gọi nhân viên hỗ trợ.</p>
+      <button class="btn" type="button">Quét lại</button>
+      <div class="row"><button class="btn ghost sm" type="button">Nhập mã tay</button><button class="btn ghost sm" type="button"><span class="ic" data-i="phone" style="width:16px;height:16px"></span>Gọi nhân viên</button></div>
+    </div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M10</span><b>Mã không có trong hệ thống</b><span class="fr">FR-CUS-05</span></div><p>Phân biệt hai lỗi: “không đọc được mã” (quét lại) và “không có trong hệ thống” (gọi nhân viên).</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><b class="sp">Nhập mã vạch</b></div>
+    <div class="pad stack" style="margin-top:6px"><p class="p">Nhập dãy số in dưới mã vạch (thường 8 hoặc 13 chữ số).</p>
+      <div class="field"><label>Mã vạch</label><div class="in focus num">8936 0361 2345<span style="width:2px;height:20px;background:var(--a-primary);margin-left:2px"></span></div></div>
+      <div class="card row"><span class="tile" style="--h:200">S</span><div class="sp"><b>Sữa tươi ít đường 1L</b><div class="sm-t mut">34.500₫ · tìm thấy</div></div><span class="ic" data-i="check" style="color:var(--a-ok)"></span></div></div>
+    <div class="nums pad" style="margin-top:auto;margin-bottom:6px"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span></span><span>0</span><span>⌫</span></div>
+    <div class="foot" style="padding-top:4px"><button class="btn" type="button">Thêm vào giỏ</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M11</span><b>Nhập mã bằng tay</b><span class="fr">FR-CUS-05</span></div><p>Tra cứu ngay khi gõ đủ số và hiện sản phẩm tìm được để khách xác nhận trước khi thêm.</p></figcaption></figure>
+
+  </div>
+</section>
+
+<!-- ============ C. GIỎ HÀNG ============ -->
+<section class="grp" id="gio">
+  <h2>Giỏ hàng</h2>
+  <p>Khách rà lại những gì đã quét trước khi trả tiền. Giá và số lượng lấy từ dữ liệu tồn kho của chi nhánh.</p>
+  <div class="grid">
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><div class="sp"><b style="font-size:16px">Giỏ hàng</b> <span class="mut sm-t">· 11 món</span></div><span class="pill"><span class="dot"></span>Đã đồng bộ</span></div>
+    <div class="pad list" data-rows="cart" style="overflow:hidden"></div>
+    <div class="pad" style="margin-top:auto"><div class="sum num"><div><span class="mut">Tạm tính</span><span>195.000₫</span></div><div><span class="mut">Khuyến mãi sữa tươi</span><span style="color:var(--a-ok)">−13.000₫</span></div><div class="tot"><span>Tổng cộng</span><span>182.000₫</span></div></div></div>
+    <div class="foot" style="padding-top:0"><div class="row"><button class="btn line" type="button" style="width:auto;padding:0 16px">Quét thêm</button><button class="btn" type="button">Thanh toán</button></div></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M12</span><b>Giỏ hàng</b><span class="fr">FR-CUS-03</span><span class="fr">FR-CUS-04</span></div><p>Tăng giảm số lượng ngay trên dòng, vuốt trái để xoá. Khuyến mãi lấy từ POS hiện thành dòng riêng.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><b class="sp" style="font-size:16px">Giỏ hàng</b></div>
+    <div class="hero" style="margin-top:72px"><div class="badge"><span class="ic" data-i="bag"></span></div></div>
+    <div class="pad stack" style="text-align:center"><h2 class="h1" style="font-size:22px">Giỏ hàng đang trống</h2><p class="p">Quét mã vạch của sản phẩm đầu tiên để bắt đầu.</p></div>
+    <div class="foot"><button class="btn" type="button"><span class="ic" data-i="cam"></span>Mở camera quét</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M13</span><b>Giỏ hàng trống</b></div><p>Khi khách xoá hết món. Một nút duy nhất đưa về màn quét.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><div class="sp"><b style="font-size:16px">Giỏ hàng</b> <span class="mut sm-t">· 11 món</span></div></div>
+    <div class="pad stack" style="margin-bottom:6px"><div class="banner"><span class="ic" data-i="wifioff"></span><div><b>Mất kết nối</b>Giỏ hàng đã được lưu trên máy. Bạn vẫn quét tiếp được. Hệ thống tự đồng bộ khi có mạng.</div></div></div>
+    <div class="pad list" data-rows="cart3" style="overflow:hidden"></div>
+    <div class="pad" style="margin-top:auto"><div class="sum num"><div class="tot" style="border:0;padding:0"><span>Tạm tính</span><span>182.000₫</span></div><div class="sm-t mut"><span>Giá sẽ được kiểm tra lại khi có mạng</span></div></div></div>
+    <div class="foot" style="padding-top:0"><button class="btn off" type="button">Cần có mạng để thanh toán</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M14</span><b>Mất mạng tạm thời</b><span class="fr">FR-CUS-09</span><span class="fr">NFR-06</span></div><p>Giỏ không mất, báo rõ trạng thái, chỉ khoá nút thanh toán. Không có lỗi âm thầm.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><b class="sp" style="font-size:16px">Giỏ hàng</b></div>
+    <div class="pad list" data-rows="cart3" style="overflow:hidden;opacity:.35"></div>
+    <div class="sheetbg"></div>
+    <div class="sheet">
+      <div class="row"><span class="badge warn" style="width:44px;height:44px;border-radius:14px"><span class="ic" data-i="alert" style="width:22px;height:22px"></span></span><div class="sp"><b>Có thay đổi trong giỏ hàng</b><div class="mut sm-t">Cập nhật mới nhất từ cửa hàng</div></div></div>
+      <div class="card stack">
+        <div class="row"><div class="sp"><b>Trứng gà hộp 10 quả</b><div class="sm-t mut">Giá thay đổi</div></div><div style="text-align:right"><span class="old num">38.000₫</span><br><b class="num">41.000₫</b></div></div>
+        <div class="row"><div class="sp"><b>Nước suối 500ml</b><div class="sm-t mut">Chỉ còn 1 sản phẩm</div></div><span class="pill warn">2 → 1</span></div>
+      </div>
+      <button class="btn" type="button">Đồng ý và tiếp tục</button>
+      <button class="btn txt" type="button">Quay lại giỏ hàng</button>
+    </div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M15</span><b>Giá hoặc tồn kho vừa đổi</b><span class="fr">G-03</span></div><p>Hiện khi bấm Thanh toán mà dữ liệu POS đã khác lúc quét. Khách đồng ý rồi mới trả tiền, tránh tranh chấp.</p></figcaption></figure>
+
+  </div>
+</section>
+
+<!-- ============ D. THANH TOÁN ============ -->
+<section class="grp" id="thanhtoan">
+  <h2>Thanh toán</h2>
+  <p>Giai đoạn 1: khách trả tiền mặt hoặc chuyển khoản QR tại quầy Self Checkout, nhân viên bấm xác nhận. Ví, VNPay và thẻ giữ chỗ trong giao diện, đang mờ, bật bằng cấu hình khi đã tích hợp (hai màn M23–M24 chuẩn bị sẵn cho lúc đó).</p>
+  <div class="grid">
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><b class="sp" style="font-size:16px">Thanh toán</b></div>
+    <div class="pad stack">
+      <div class="card"><div class="row"><div class="sp"><div class="mut sm-t">Số tiền cần trả</div><div class="num" style="font-size:28px;font-weight:800;letter-spacing:-.02em">182.000₫</div></div><div class="mut sm-t" style="text-align:right">11 món<br><u>Chi tiết</u></div></div></div>
+      <b style="font-size:13px">Chọn cách thanh toán</b>
+      <div class="radio on"><span class="logo" style="background:#1E9E5A">₫</span><div class="sp"><b>Tiền mặt tại quầy</b><div class="sm-t mut">Đưa mã giỏ hàng cho nhân viên</div></div><span class="r"></span></div>
+      <div class="radio"><span class="logo" style="background:#0E5AA7">QR</span><div class="sp"><b>Chuyển khoản QR</b><div class="sm-t mut">Quét bằng app ngân hàng bất kỳ</div></div><span class="r"></span></div>
+      <div class="card" style="opacity:.6"><div class="row"><span class="logo" style="background:#B0006D">Ví</span><span class="logo" style="background:#0E5AA7">VN</span><span class="logo" style="background:#475467"><span class="ic" data-i="card" style="width:18px;height:18px"></span></span><div class="sp"><b>Ví, VNPay, thẻ</b><div class="sm-t mut">Thanh toán tự động</div></div><span class="pill warn">Sắp có</span></div></div>
+          </div>
+    <div class="foot"><button class="btn" type="button">Tiếp tục</button><div class="p sm-t" style="text-align:center">Giỏ hàng sẽ khoá khi bạn bấm tiếp tục</div></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M16</span><b>Xác nhận &amp; chọn cách trả</b><span class="fr">FR-CUS-06</span></div><p>Hai cách đang dùng được: tiền mặt và chuyển khoản. Nhóm thanh toán tự động hiện mờ, bật bằng cờ cấu hình theo chi nhánh.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><b class="sp" style="font-size:16px">Chuyển khoản</b></div>
+    <div class="pad stack" style="gap:10px">
+      <div class="qrbox" style="padding:10px"><svg class="qr" viewBox="0 0 29 29" style="width:136px;height:136px" role="img" aria-label="Mã QR chuyển khoản mẫu"></svg></div>
+      <div class="card stack sm-t num" style="gap:7px">
+        <div class="row"><span class="mut sp">Ngân hàng</span><b>Ngân hàng ABC</b></div>
+        <div class="row"><span class="mut sp">Số tài khoản</span><b>0123 456 789</b><span class="ic" data-i="copy" style="width:15px;height:15px"></span></div>
+        <div class="row"><span class="mut sp">Số tiền</span><b>182.000₫</b></div>
+        <div class="row"><span class="mut sp">Nội dung</span><b>SG Q7 0384</b><span class="ic" data-i="copy" style="width:15px;height:15px"></span></div>
+      </div>
+      <div class="p sm-t" style="text-align:center">Số tiền và nội dung đã điền sẵn khi quét bằng app ngân hàng. Giữ nguyên, không sửa.</div>
+    </div>
+    <div class="foot"><button class="btn" type="button">Tôi đã chuyển khoản</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M17</span><b>Chuyển khoản QR</b><span class="fr">GĐ1</span></div><p>QR do app tự tạo cho từng giỏ: có sẵn số tiền và nội dung. Khách khó nhập sai, nhân viên dễ đối chiếu. Không cần nối API ngân hàng.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="pad stack" style="text-align:center;margin-top:6px"><span class="pill warn" style="justify-self:center"><span class="dot" style="background:var(--a-warn)"></span>Đang chờ nhân viên xác nhận</span><h2 class="h1" style="font-size:21px">Đưa mã này cho nhân viên tại quầy</h2></div>
+    <div class="pad" style="margin-top:12px"><div class="qrbox"><svg class="qr" viewBox="0 0 29 29" style="width:150px;height:150px" role="img" aria-label="Mã giỏ hàng mẫu"></svg><div class="code">GH-Q7-0384</div></div></div>
+    <div class="pad" style="margin-top:12px"><div class="card row"><div class="sp"><div class="mut sm-t">Cần thanh toán</div><b class="num" style="font-size:18px">182.000₫</b></div><span class="pill">Tiền mặt</span></div></div>
+    <ol class="ol pad sm-t" style="margin-top:12px;gap:6px"><li><span class="n">1</span><span>Nhân viên quét mã và đối chiếu giỏ hàng</span></li><li><span class="n">2</span><span>Bạn trả tiền, nhân viên xác nhận</span></li><li><span class="n">3</span><span>Màn hình hiện mã QR để ra cổng</span></li></ol>
+    <div class="foot"><button class="btn txt" type="button">Đổi cách thanh toán</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M18</span><b>Chờ nhân viên xác nhận</b><span class="fr">GĐ1</span></div><p>Cho cả tiền mặt lẫn chuyển khoản. Khi nhân viên bấm xác nhận, màn này tự chuyển sang M19, khách không phải làm gì thêm.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="hero" style="margin-top:84px"><div class="spin"></div></div>
+    <div class="pad stack" style="text-align:center"><h2 class="h1" style="font-size:22px">Đang chờ xác nhận thanh toán</h2><p class="p">Hoàn tất ở app ví rồi quay lại đây. Đừng đóng trang này.</p></div>
+    <div class="pad" style="margin-top:26px"><div class="card row"><span class="ic" data-i="shield" style="color:var(--a-ok)"></span><span class="sm-t">Nếu bị trừ tiền, bạn vẫn nhận mã ra cổng. Giao dịch được kiểm tra tự động.</span></div></div>
+    <div class="foot"><button class="btn ghost" type="button"><span class="ic" data-i="refresh"></span>Kiểm tra lại</button><button class="btn txt" type="button">Gọi nhân viên hỗ trợ</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M23</span><b>Đang xử lý (thanh toán online)</b><span class="fr">Giai đoạn sau</span></div><p>Tắt ở giai đoạn 1. Dùng khi có ví hoặc VNPay: trạng thái giao dịch nằm ở máy chủ, khách quay lại từ app ví vẫn thấy đúng màn này.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="hero" style="margin-top:56px"><div class="badge err"><span class="ic" data-i="x"></span></div></div>
+    <div class="pad stack" style="text-align:center"><h2 class="h1" style="font-size:22px">Thanh toán chưa thành công</h2><p class="p">Ví báo giao dịch bị từ chối. Giỏ hàng của bạn vẫn còn nguyên.</p></div>
+    <div class="pad" style="margin-top:22px"><div class="banner ok"><span class="ic" data-i="check"></span><div><b>Chưa bị trừ tiền</b>Nếu số dư đã bị trừ, tiền sẽ tự hoàn về trong thời gian ngắn.</div></div></div>
+    <div class="foot"><button class="btn" type="button">Thử lại</button><button class="btn line" type="button">Đổi cách thanh toán</button><button class="btn txt" type="button">Gọi nhân viên hỗ trợ</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M24</span><b>Thanh toán online thất bại</b><span class="fr">Giai đoạn sau</span></div><p>Tắt ở giai đoạn 1. Câu đầu tiên trả lời nỗi lo lớn nhất: có bị trừ tiền không. Giỏ không bị mất.</p></figcaption></figure>
+
+  </div>
+</section>
+
+<!-- ============ E. RA CỔNG ============ -->
+<section class="grp" id="racong">
+  <h2>Ra cổng &amp; sau mua</h2>
+  <p>Mã QR biên nhận là thứ khách cần xuất trình duy nhất. Màn này phải mở được cả khi mất mạng.</p>
+  <div class="grid">
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="pad stack" style="text-align:center;margin-top:6px"><span class="pill" style="justify-self:center"><span class="ic" data-i="check" style="width:13px;height:13px"></span>Đã thanh toán 182.000₫</span><h2 class="h1" style="font-size:21px">Đưa mã này cho nhân viên ở cổng</h2></div>
+    <div class="pad" style="margin-top:14px"><div class="qrbox"><svg class="qr" viewBox="0 0 29 29" role="img" aria-label="Mã QR mẫu"></svg><div class="code">SG-Q7-0384-2611</div></div></div>
+    <div class="pad" style="margin-top:12px;text-align:center"><span class="sm-t mut">Mã dùng một lần · hiệu lực đến 19:20</span></div>
+    <div class="foot" style="padding-top:10px"><button class="btn ghost sm" type="button"><span class="ic" data-i="bag" style="width:16px;height:16px"></span>Xem các món đã mua</button><button class="btn ghost sm" type="button"><span class="ic" data-i="mail" style="width:16px;height:16px"></span>Hoá đơn điện tử</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M19</span><b>QR biên nhận</b><span class="fr">FR-CUS-07</span><span class="fr">PWA-06</span></div><p>Tự tăng độ sáng màn hình, lưu sẵn trên máy. QR do máy chủ ký, dùng một lần.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="hero" style="margin-top:44px"><div class="badge warn"><span class="ic" data-i="shield"></span></div></div>
+    <div class="pad stack" style="text-align:center"><h2 class="h1" style="font-size:22px">Bạn được chọn kiểm tra ngẫu nhiên</h2><p class="p">Nhân viên sẽ cùng bạn đối chiếu giỏ hàng. Việc này chỉ mất khoảng một phút.</p></div>
+    <div class="pad" style="margin-top:18px"><div class="card stack"><div class="row"><b class="sp">Giỏ hàng đã thanh toán</b><span class="mut sm-t">11 món</span></div><div class="row mut sm-t"><span class="ic" data-i="check" style="width:15px;height:15px;color:var(--a-ok)"></span>Sữa tươi ít đường 1L × 2</div><div class="row mut sm-t"><span class="ic" data-i="check" style="width:15px;height:15px;color:var(--a-ok)"></span>Mì ăn liền tôm chua cay × 5</div><div class="row mut sm-t">và 3 sản phẩm khác</div></div></div>
+    <div class="foot"><button class="btn line" type="button">Xem đầy đủ giỏ hàng</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M20</span><b>Kiểm tra ngẫu nhiên</b><span class="fr">FR-GATE-03</span></div><p>Hiện sau khi nhân viên quét QR và hệ thống chọn kiểm tra. Lời lẽ trung tính, không gây cảm giác bị nghi ngờ.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="hero" style="margin-top:46px"><div class="badge ok"><span class="ic" data-i="check"></span></div></div>
+    <div class="pad stack" style="text-align:center"><h2 class="h1" style="font-size:22px">Cảm ơn bạn đã mua sắm!</h2><p class="p">Hoá đơn điện tử đã gửi về email của bạn.</p></div>
+    <div class="pad stack" style="margin-top:26px;text-align:center"><b style="font-size:13px">Trải nghiệm hôm nay thế nào?</b><div class="stars"><span class="ic" data-i="star"></span><span class="ic" data-i="star"></span><span class="ic" data-i="star"></span><span class="ic" data-i="star"></span><span class="ic off" data-i="star"></span></div></div>
+    <div class="foot"><button class="btn" type="button">Xem hoá đơn</button><button class="btn txt" type="button">Đóng</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M21</span><b>Hoàn tất &amp; đánh giá</b><span class="fr">FR-CUS-08</span></div><p>Hiện sau khi nhân viên xác nhận. Đánh giá một chạm, bỏ qua được. Nguồn dữ liệu cho mục tiêu cải thiện trải nghiệm.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><b class="sp" style="font-size:16px">Hoá đơn điện tử</b></div>
+    <div class="pad stack">
+      <div class="field"><label>Email nhận hoá đơn</label><div class="in focus">an.nguyen@email.com</div></div>
+      <div class="row" style="margin-top:2px"><div class="sp"><b>Xuất hoá đơn cho công ty</b><div class="sm-t mut">Điền mã số thuế để tự điền thông tin</div></div><span class="sw on"></span></div>
+      <div class="field"><label>Mã số thuế</label><div class="in num">0312 345 678</div></div>
+      <div class="field"><label>Tên công ty</label><div class="in">Công ty TNHH Ánh Dương</div></div>
+      <div class="field"><label>Địa chỉ</label><div class="in ph">Đã tự điền từ mã số thuế</div></div>
+    </div>
+    <div class="foot"><button class="btn" type="button">Gửi hoá đơn</button><div class="p sm-t" style="text-align:center">Chỉ xuất được trong ngày phát sinh giao dịch</div></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M22</span><b>Hoá đơn điện tử</b><span class="fr">FR-CUS-08</span><span class="fr">G-06</span></div><p>Mặc định hoá đơn bán lẻ. Khách cần hoá đơn công ty điền mã số thuế sau khi thanh toán.</p></figcaption></figure>
+
+  </div>
+</section>
+
+<!-- ============ F. NHÂN VIÊN: QUẦY ============ -->
+<section class="grp" id="nv-quay">
+  <h2>Nhân viên · Thu tiền tại quầy</h2>
+  <p>Giao diện riêng cho nhân viên, cần đăng nhập. Chạy trên điện thoại hoặc máy cầm tay. Nhân viên quét mã giỏ hàng của khách, đối chiếu, thu tiền và bấm xác nhận. Đây là bước biến giỏ ảo thành giao dịch đã thanh toán ở giai đoạn 1.</p>
+  <div class="grid">
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="pad stack" style="margin-top:16px"><div class="row"><span class="logo" style="background:var(--a-primary)">BRG</span><b>BRG Self Checkout</b></div><span class="pill warn" style="justify-self:start">Dành cho nhân viên</span><h1 class="h1">Đăng nhập</h1></div>
+    <div class="pad stack" style="margin-top:16px"><div class="field"><label>Mã nhân viên</label><div class="in focus num">NV0142</div></div><div class="field"><label>Mã PIN</label><div class="in num">• • • •</div></div></div>
+    <div class="nums pad" style="margin-top:auto;margin-bottom:6px"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span></span><span>0</span><span>⌫</span></div>
+    <div class="foot" style="padding-top:4px"><button class="btn" type="button">Đăng nhập</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N01</span><b>Đăng nhập nhân viên</b><span class="fr">FR-ADM-05</span></div><p>Mã nhân viên và PIN. Vai trò và chi nhánh gắn với tài khoản, nhân viên chỉ thấy dữ liệu chi nhánh của mình.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><div class="store"><span class="dot"></span><span>Q7 · Quầy thu tiền 1</span></div><span class="circ" style="font-size:12px;font-weight:700">LT</span></div>
+    <div class="pad stack" style="gap:10px">
+      <div><h2 class="h2">Chào Lan, ca sáng</h2><div class="p sm-t">7:00 – 15:00 · bắt đầu 6:58</div></div>
+      <div class="act"><span class="badge"><span class="ic" data-i="bag"></span></span><div class="sp"><b>Thu tiền giỏ hàng</b><span class="s">Quét mã giỏ hàng</span></div><span class="pill warn" style="flex:none">2 chờ</span></div>
+      <div class="act alt"><span class="badge"><span class="ic" data-i="shield"></span></span><div class="sp"><b>Kiểm tra cổng ra</b><span class="s">Quét QR biên nhận</span></div><span class="ic" data-i="chev"></span></div>
+      <b style="font-size:13px;margin-top:4px">Hôm nay tại quầy này</b>
+      <div class="tiles"><div><div class="k">Giao dịch</div><div class="v">38</div></div><div><div class="k">Kiểm tra ngẫu nhiên</div><div class="v">6</div></div><div><div class="k">Tiền mặt</div><div class="v">4.250.000₫</div></div><div><div class="k">Chuyển khoản</div><div class="v">3.870.000₫</div></div></div>
+    </div>
+    <div class="foot"><button class="btn line" type="button">Đối soát &amp; kết thúc ca</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N02</span><b>Trang chính của ca</b><span class="fr">FR-ADM-05</span></div><p>Hai việc chính cách nhau một chạm. Số khách đang chờ và số tiền thu trong ca luôn hiện sẵn.</p></figcaption></figure>
+
+  <figure><div class="phone cam"><div class="sb camtop"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app camtop"><span class="circ"><span class="ic" data-i="chevl"></span></span><div class="store"><span class="dot"></span><span>Thu tiền · Quầy 1</span></div><span class="circ"><span class="ic" data-i="flash"></span></span></div>
+    <div class="reticle" style="width:180px;height:180px"><b></b><b></b><b></b><b></b><div class="laser"></div></div>
+    <div class="hint" style="top:calc(44% + 112px)">Quét mã giỏ hàng trên điện thoại khách</div>
+    <div class="tools"><span><span class="ic" data-i="kbd" style="width:16px;height:16px"></span>Nhập mã tay</span></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N03</span><b>Quét mã giỏ hàng</b><span class="fr">FR-GATE-01</span></div><p>Mã giỏ GH-… trên màn hình khách (M18). Nhập tay được khi màn hình khách bị chói hoặc nứt.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><div class="sp"><b style="font-size:15px">Giỏ GH-Q7-0384</b><div class="sm-t mut">11 món · khách chọn tiền mặt</div></div></div>
+    <div class="pad"><div class="banner"><span class="ic" data-i="shield"></span><div><b>Cần kiểm tra ngẫu nhiên</b>Đối chiếu hàng thật trước khi thu tiền.</div></div></div>
+    <div class="pad list compact" data-rows="ro" style="margin-top:6px;overflow:hidden"></div>
+    <div class="pad" style="margin-top:auto"><div class="row" style="padding:8px 0"><span class="sp mut">Cần thu</span><b class="num" style="font-size:20px">182.000₫</b></div></div>
+    <div class="foot" style="padding-top:0"><div class="seg"><span class="on">Tiền mặt</span><span>Chuyển khoản</span></div><button class="btn" type="button">Đối chiếu &amp; thu tiền</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N04</span><b>Giỏ hàng cần thu</b><span class="fr">FR-GATE-03</span></div><p>Thấy đủ món, số lượng và tổng. Cờ kiểm tra ngẫu nhiên do máy chủ bốc, nhân viên không tự chọn. Cách trả mặc định theo lựa chọn của khách.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><b class="sp" style="font-size:16px">Thu tiền mặt</b></div>
+    <div class="pad stack" style="gap:12px">
+      <div class="card row"><span class="sp mut">Cần thu</span><b class="num" style="font-size:22px">182.000₫</b></div>
+      <div class="field"><label>Khách đưa</label><div class="in focus num" style="font-size:22px;font-weight:700">200.000₫</div></div>
+      <div class="chips"><span>Đủ tiền</span><span class="on">200.000</span><span>500.000</span><span>Số khác</span></div>
+      <div class="card" style="background:var(--a-ok-bg)"><div class="sm-t" style="color:var(--a-ok);font-weight:600">Tiền thừa trả khách</div><div class="num" style="font-size:30px;font-weight:800;color:var(--a-ok)">18.000₫</div></div>
+    </div>
+    <div class="foot"><button class="btn" type="button">Đã thu tiền</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N05</span><b>Thu tiền mặt</b><span class="fr">GĐ1</span></div><p>Chọn nhanh mệnh giá khách đưa, máy tính tiền thừa. Số tiền thừa to và rõ để tránh trả nhầm.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><b class="sp" style="font-size:16px">Xác nhận chuyển khoản</b></div>
+    <div class="pad stack" style="gap:12px">
+      <p class="p">Mở app ngân hàng hoặc loa báo tiền, tìm giao dịch khớp với thông tin dưới đây.</p>
+      <div class="card stack sm-t num" style="gap:8px"><div class="row"><span class="mut sp">Số tiền phải khớp</span><b style="font-size:16px">182.000₫</b></div><div class="row"><span class="mut sp">Nội dung phải có</span><b style="font-size:16px">SG Q7 0384</b></div><div class="row"><span class="mut sp">Tài khoản nhận</span><b>…6789</b></div></div>
+      <div class="row"><span class="cb on"><i class="ic" data-i="check"></i></span><span class="sp">Số tiền đúng</span></div>
+      <div class="row"><span class="cb on"><i class="ic" data-i="check"></i></span><span class="sp">Nội dung đúng mã giao dịch</span></div>
+      <div class="row"><span class="cb on"><i class="ic" data-i="check"></i></span><span class="sp">Tiền đã vào tài khoản của công ty</span></div>
+      <div class="banner"><span class="ic" data-i="alert"></span><div>Không xác nhận theo ảnh chụp màn hình trên điện thoại khách.</div></div>
+    </div>
+    <div class="foot"><button class="btn" type="button">Xác nhận đã nhận tiền</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N06</span><b>Xác nhận chuyển khoản</b><span class="fr">GĐ1</span></div><p>Ba ô phải tick đủ mới bấm được. Số tiền và mã giao dịch hiện to để đối chiếu với thông báo ngân hàng.</p></figcaption></figure>
+
+  <figure><div class="phone p-ok"><div class="sb"><b>9:41</b><i></i></div><div class="scr res">
+    <div class="big"><span class="ic" data-i="check"></span></div>
+    <h2>Đã thu 182.000₫</h2><p>Khách đã nhận mã QR để ra cổng</p>
+    <div class="glass"><div><span>Giỏ hàng</span><b>GH-Q7-0384</b></div><div><span>Cách trả</span><b>Tiền mặt</b></div><div><span>Lúc</span><b>18:47</b></div><div><span>Nhân viên</span><b>NV0142</b></div></div>
+    <div style="margin-top:auto" class="stack"><button class="btn" type="button">Khách tiếp theo</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N07</span><b>Đã thu tiền</b><span class="fr">GĐ1</span></div><p>Hệ thống ghi người thu, cách thu, thời điểm. Cùng lúc đó màn hình khách tự chuyển sang QR biên nhận (M19).</p></figcaption></figure>
+
+  </div>
+</section>
+
+<!-- ============ G. NHÂN VIÊN: CỔNG ============ -->
+<section class="grp" id="nv-cong">
+  <h2>Nhân viên · Cổng ra &amp; cuối ca</h2>
+  <p>Nhân viên quét QR biên nhận của khách (M19) để cho qua. Màu toàn màn hình nói ngay kết quả: xanh cho qua, cam phải kiểm tra, đỏ giữ lại. Nhân viên đứng ở cổng, tay cầm máy, liếc một lần là biết.</p>
+  <div class="grid">
+
+  <figure><div class="phone cam"><div class="sb camtop"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app camtop"><span class="circ"><span class="ic" data-i="chevl"></span></span><div class="store"><span class="dot"></span><span>Cổng ra 1 · Q7</span></div><span class="circ"><span class="ic" data-i="flash"></span></span></div>
+    <div class="reticle" style="width:180px;height:180px"><b></b><b></b><b></b><b></b><div class="laser"></div></div>
+    <div class="hint" style="top:calc(44% + 112px)">Quét QR biên nhận của khách</div>
+    <div class="camfoot"><div class="bar" style="background:#fff;color:#0F1A2A"><div class="sp"><b class="num">24 khách</b><span>đã qua cổng trong ca này</span></div><div class="go">Lịch sử</div></div></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N08</span><b>Quét QR ra cổng</b><span class="fr">FR-GATE-01</span></div><p>Mở là quét luôn, không bấm thêm. Tự nhận mã và gửi lên máy chủ kiểm tra.</p></figcaption></figure>
+
+  <figure><div class="phone p-ok"><div class="sb"><b>9:41</b><i></i></div><div class="scr res">
+    <div class="big"><span class="ic" data-i="check"></span></div>
+    <h2>Cho khách qua</h2><p>Đã thanh toán, mã chưa dùng</p>
+    <div class="glass"><div><span>Giao dịch</span><b>SG-Q7-0384</b></div><div><span>Số món</span><b>11 món</b></div><div><span>Số tiền</span><b>182.000₫</b></div><div><span>Thanh toán lúc</span><b>18:47 · tiền mặt</b></div></div>
+    <div style="margin-top:auto"><button class="btn" type="button">Quét khách tiếp theo</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N09</span><b>Hợp lệ, cho qua</b><span class="fr">FR-GATE-02</span></div><p>Máy chủ đánh dấu mã đã dùng ngay lúc này, nên chụp lại ảnh QR để vào lần hai sẽ bị chặn.</p></figcaption></figure>
+
+  <figure><div class="phone p-warn"><div class="sb"><b>9:41</b><i></i></div><div class="scr res">
+    <div class="big"><span class="ic" data-i="shield"></span></div>
+    <h2>Cần kiểm tra giỏ hàng</h2><p>Giao dịch hợp lệ, được chọn kiểm tra ngẫu nhiên</p>
+    <div class="glass"><div><span>Giao dịch</span><b>SG-Q7-0384</b></div><div><span>Số món</span><b>11 món</b></div><div><span>Tỷ lệ kiểm tra</span><b>1 trên 10 khách</b></div></div>
+    <div style="margin-top:auto" class="stack"><button class="btn" type="button">Bắt đầu kiểm tra</button><button class="btn ghost" type="button">Khách từ chối · gọi quản lý</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N10</span><b>Được chọn kiểm tra ngẫu nhiên</b><span class="fr">FR-GATE-03</span></div><p>Cùng lúc, máy khách hiện M20. Không có nút bỏ qua: tỷ lệ kiểm tra do quản trị chi nhánh đặt (FR-ADM-06).</p></figcaption></figure>
+
+  <figure><div class="phone p-err"><div class="sb"><b>9:41</b><i></i></div><div class="scr res">
+    <div class="big"><span class="ic" data-i="x"></span></div>
+    <h2>Không cho qua</h2><p>QR này đã được dùng</p>
+    <div class="glass"><div><span>Giao dịch</span><b>SG-Q7-0361</b></div><div><span>Đã quét lúc</span><b>19:02 · Cổng ra 1</b></div><div><span>Nhân viên</span><b>NV0142</b></div></div>
+    <div style="margin-top:auto" class="stack"><button class="btn" type="button">Gọi quản lý</button><button class="btn ghost" type="button">Quét lại</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N11</span><b>QR đã dùng · chưa thanh toán · không hợp lệ</b><span class="fr">FR-GATE-02</span></div><p>Ba lỗi dùng chung khung đỏ, chỉ đổi dòng lý do. Mọi lần bị từ chối đều được ghi log.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><div class="sp"><b style="font-size:15px">Kiểm tra ngẫu nhiên</b><div class="sm-t mut">Tick từng dòng khi đã thấy đúng hàng</div></div></div>
+    <div class="pad"><div class="row sm-t"><b>4 / 5 dòng</b><div class="sp" style="height:6px;border-radius:3px;background:var(--a-line);overflow:hidden"><div style="width:80%;height:100%;background:var(--a-ok)"></div></div></div></div>
+    <div class="pad list compact" data-rows="chk" style="margin-top:4px;overflow:hidden"></div>
+    <div class="foot"><button class="btn" type="button">Khớp, cho qua</button><button class="btn line" type="button" style="color:var(--a-err);border-color:var(--a-err)">Có chênh lệch</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N12</span><b>Đối chiếu giỏ hàng</b><span class="fr">FR-GATE-03</span><span class="fr">FR-GATE-05</span></div><p>Chỉ cần số lượng, không hiện giá để nhân viên tập trung đếm hàng. Kết quả ghi vào nhật ký kiểm tra.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><b class="sp" style="font-size:16px">Ghi chênh lệch</b></div>
+    <div class="pad stack" style="gap:12px">
+      <div class="field"><label>Loại chênh lệch</label><div class="chips"><span class="on">Có hàng chưa quét</span><span>Sai số lượng</span><span>Khác</span></div></div>
+      <div class="field"><label>Sản phẩm</label><div class="in" style="font-size:13px">Dầu ăn đậu nành 1L × 1</div></div>
+      <div class="card row"><span class="sp mut">Chênh lệch</span><b class="num" style="font-size:20px;color:var(--a-err)">+52.000₫</b></div>
+      <div class="field"><label>Ghi chú</label><div class="in ph" style="font-size:13px">Khách quên quét chai thứ hai</div></div>
+      <div class="radio on"><div class="sp"><b>Khách thanh toán bổ sung</b><div class="sm-t mut">Thu thêm tại quầy rồi cho qua</div></div><span class="r"></span></div>
+      <div class="radio"><div class="sp"><b>Báo quản lý</b></div><span class="r"></span></div>
+    </div>
+    <div class="foot"><button class="btn" type="button">Lưu &amp; xử lý</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N13</span><b>Xử lý chênh lệch</b><span class="fr">FR-GATE-04</span></div><p>Hai hướng xử lý rõ ràng như tài liệu yêu cầu. Mọi ca chênh lệch tính vào tỷ lệ phát hiện trên báo cáo quản trị.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><b class="sp" style="font-size:16px">Kết thúc ca</b></div>
+    <div class="pad stack" style="gap:10px">
+      <div class="tiles"><div><div class="k">Giao dịch</div><div class="v">38</div></div><div><div class="k">Kiểm tra / lệch</div><div class="v">6 / 1</div></div><div><div class="k">Tiền mặt phải nộp</div><div class="v">4.250.000₫</div></div><div><div class="k">Chuyển khoản</div><div class="v">3.870.000₫</div></div></div>
+      <div class="field"><label>Tiền mặt đếm thực tế</label><div class="in focus num" style="font-size:20px;font-weight:700">4.250.000₫</div></div>
+      <div class="banner ok"><span class="ic" data-i="check"></span><div><b>Khớp với hệ thống</b>Không chênh lệch tiền mặt.</div></div>
+      <div class="p sm-t">Chuyển khoản được đối chiếu với sao kê ngân hàng ở trang quản trị.</div>
+    </div>
+    <div class="foot"><button class="btn" type="button">Kết thúc ca &amp; bàn giao</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">N14</span><b>Đối soát cuối ca</b><span class="fr">G-05</span></div><p>Nhân viên nhập số tiền mặt đếm thực tế. Lệch thì bắt buộc ghi lý do trước khi kết thúc ca.</p></figcaption></figure>
+
+  </div>
+</section>
+
+<!-- ============ H. QUẢN TRỊ CHUỖI ============ -->
+<section class="grp" id="qt-chuoi">
+  <h2>Quản trị · Toàn chuỗi</h2>
+  <p>Trang web quản trị dùng trên máy tính (vẫn mở được trên điện thoại). Người quản trị chuỗi bật/tắt từng chi nhánh, cấu hình tích hợp, xem báo cáo tổng và phân quyền. Số liệu trên các màn là dữ liệu mẫu.</p>
+  <div class="grid gw">
+
+  <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / tong-quan</span></div>
+   <div class="dbody"><aside class="side" data-nav="chuoi" data-active="0"></aside>
+   <div class="main">
+    <div class="head"><h3>Tổng quan chuỗi</h3><span class="pill">Hôm nay · cập nhật 18:58</span></div>
+    <div class="tiles c4"><div><div class="k">Giao dịch</div><div class="v">214</div></div><div><div class="k">Doanh thu</div><div class="v">36.420.000₫</div></div><div><div class="k">Tỷ lệ chênh lệch</div><div class="v">2,8%</div></div><div><div class="k">Chi nhánh đang bật</div><div class="v">3 / 12</div></div></div>
+    <div class="panel"><b>Doanh thu 7 ngày <span class="mut" style="font-weight:500">(triệu đồng)</span></b><div class="bars" data-bars="31.2,28.7,33.9,30.4,35.1,41.6,36.4"></div></div>
+    <div class="banner"><span class="ic" data-i="alert"></span><div><b>Thủ Đức: dữ liệu giá chậm 6 phút</b>Quá ngưỡng cảnh báo 5 phút. Kiểm tra kết nối POS.</div></div>
+    <div class="tbw"><table class="tb"><thead><tr><th>Chi nhánh</th><th>Trạng thái</th><th class="r">GD</th><th class="r">Doanh thu</th><th class="r">Lệch</th><th class="r">Đồng bộ POS</th></tr></thead><tbody>
+     <tr><td>Quận 7</td><td><span class="pill">Bật</span></td><td class="r">78</td><td class="r">13.610.000₫</td><td class="r">2,6%</td><td class="r">40 giây</td></tr>
+     <tr><td>Thủ Đức</td><td><span class="pill">Bật</span></td><td class="r">83</td><td class="r">14.320.000₫</td><td class="r">3,6%</td><td class="r"><span class="pill warn">6 phút</span></td></tr>
+     <tr><td>Tân Bình</td><td><span class="pill">Bật</span></td><td class="r">53</td><td class="r">8.490.000₫</td><td class="r">1,9%</td><td class="r">3 phút</td></tr>
+     <tr><td>Gò Vấp</td><td><span class="pill warn">Tắt</span></td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">2 phút</td></tr>
+    </tbody></table></div>
+   </div></div></div></div>
+  <figcaption><div class="t"><span class="id">A01</span><b>Tổng quan chuỗi</b><span class="fr">FR-ADM-02</span></div><p>Số liệu chính ở trên, chi nhánh cần chú ý nổi lên bằng banner và nhãn cảnh báo. Độ trễ đồng bộ POS luôn hiện cạnh doanh thu.</p></figcaption></figure>
+
+  <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / chi-nhanh</span></div>
+   <div class="dbody"><aside class="side" data-nav="chuoi" data-active="1"></aside>
+   <div class="main">
+    <div class="head"><h3>Chi nhánh &amp; tính năng</h3><span class="dbtn">+ Thêm chi nhánh</span></div>
+    <p class="p" style="margin:0">Bật từng chi nhánh độc lập, không ảnh hưởng chi nhánh khác. Mỗi cách thanh toán cũng bật riêng.</p>
+    <div class="tbw"><table class="tb"><thead><tr><th>Chi nhánh</th><th>Self Checkout</th><th>Tiền mặt</th><th>Chuyển khoản QR</th><th>Online</th></tr></thead><tbody>
+     <tr><td><b>Quận 7</b></td><td><span class="sw on"></span></td><td><span class="sw on"></span></td><td><span class="sw on"></span></td><td style="opacity:.5"><span class="sw"></span></td></tr>
+     <tr><td><b>Thủ Đức</b></td><td><span class="sw on"></span></td><td><span class="sw on"></span></td><td><span class="sw on"></span></td><td style="opacity:.5"><span class="sw"></span></td></tr>
+     <tr><td><b>Tân Bình</b></td><td><span class="sw on"></span></td><td><span class="sw on"></span></td><td><span class="sw"></span></td><td style="opacity:.5"><span class="sw"></span></td></tr>
+     <tr><td><b>Gò Vấp</b></td><td><span class="sw"></span></td><td><span class="sw"></span></td><td><span class="sw"></span></td><td style="opacity:.5"><span class="sw"></span></td></tr>
+     <tr><td><b>Quận 1</b></td><td><span class="sw"></span></td><td><span class="sw"></span></td><td><span class="sw"></span></td><td style="opacity:.5"><span class="sw"></span></td></tr>
+    </tbody></table></div>
+    <div class="banner ok"><span class="ic" data-i="shield"></span><div>Cột <b style="display:inline">Online</b> (ví, VNPay, thẻ) đang mờ vì chưa tích hợp. Sẽ mở khoá khi cổng thanh toán sẵn sàng.</div></div>
+   </div></div></div></div>
+  <figcaption><div class="t"><span class="id">A02</span><b>Bật tắt chi nhánh &amp; cách thanh toán</b><span class="fr">FR-ADM-01</span></div><p>Nơi thực hiện kế hoạch thí điểm: chỉ bật 2–3 chi nhánh. Tắt một chi nhánh khi có sự cố, khách ở đó thấy M05.</p></figcaption></figure>
+
+  <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / tich-hop</span></div>
+   <div class="dbody"><aside class="side" data-nav="chuoi" data-active="2"></aside>
+   <div class="main">
+    <div class="head"><h3>Tích hợp</h3></div>
+    <div class="panel"><div class="head"><b>POS / ERP · tồn kho &amp; giá</b><span class="pill"><span class="dot"></span>Đang kết nối</span></div>
+     <div class="row sm-t"><span class="mut sp">Lần đồng bộ gần nhất</span><b>40 giây trước</b></div>
+     <div class="row sm-t"><span class="mut sp">Cảnh báo khi dữ liệu chậm hơn</span><b>5 phút</b></div>
+     <div class="row sm-t"><span class="mut sp">Mã vạch không khớp (24 giờ)</span><b>17</b></div></div>
+    <div class="panel"><div class="head"><b>Chuyển khoản QR</b><span class="pill"><span class="dot"></span>Sẵn sàng</span></div>
+     <div class="row sm-t"><span class="mut sp">Ngân hàng · số tài khoản</span><b>Ngân hàng ABC · 0123 456 789</b></div>
+     <div class="row sm-t"><span class="mut sp">Chủ tài khoản</span><b>Tên công ty (mẫu)</b></div>
+     <b class="sm-t" style="margin-top:2px">Cách tạo mã QR</b>
+     <div class="radio on"><div class="sp"><b>App tự tạo</b><div class="sm-t mut">Đang dùng. Nhân viên xác nhận khi đã thấy tiền vào.</div></div><span class="r"></span></div>
+     <div class="radio" style="opacity:.6"><div class="sp"><b>Lấy từ nhà cung cấp</b><div class="sm-t mut">Chưa cấu hình. Tự biết khi khách đã trả.</div></div><span class="r"></span></div></div>
+    <div class="panel"><div class="head"><b>Hoá đơn điện tử</b><span class="pill warn">Chưa cấu hình</span></div><div class="sm-t mut">Chọn nhà cung cấp và nhập khoá kết nối khi đã chốt.</div></div>
+   </div></div></div></div>
+  <figcaption><div class="t"><span class="id">A03</span><b>Cấu hình tích hợp</b><span class="fr">FR-ADM-03</span></div><p>Công tắc “App tự tạo / Lấy từ nhà cung cấp” là nơi bạn chuyển sang QR của nhà cung cấp khi test xong. Khoá bí mật chỉ nhập một lần, không hiện lại.</p></figcaption></figure>
+
+  <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / bao-cao</span></div>
+   <div class="dbody"><aside class="side" data-nav="chuoi" data-active="3"></aside>
+   <div class="main">
+    <div class="head"><h3>Báo cáo</h3><span class="dbtn line">Xuất Excel</span></div>
+    <div class="row"><span class="pill" style="background:var(--a-surface);color:var(--a-ink)">5 ngày gần nhất</span><span class="pill" style="background:var(--a-surface);color:var(--a-ink)">Tất cả chi nhánh</span></div>
+    <div class="tbw"><table class="tb"><thead><tr><th>Ngày</th><th class="r">GD</th><th class="r">Doanh thu</th><th class="r">Tiền mặt</th><th class="r">Chuyển khoản</th><th class="r">Lệch</th></tr></thead><tbody>
+     <tr><td>T4</td><td class="r">199</td><td class="r">33.900.000</td><td class="r">14.800.000</td><td class="r">19.100.000</td><td class="r">5</td></tr>
+     <tr><td>T5</td><td class="r">179</td><td class="r">30.400.000</td><td class="r">13.100.000</td><td class="r">17.300.000</td><td class="r">4</td></tr>
+     <tr><td>T6</td><td class="r">206</td><td class="r">35.100.000</td><td class="r">15.500.000</td><td class="r">19.600.000</td><td class="r">6</td></tr>
+     <tr><td>T7</td><td class="r">245</td><td class="r">41.600.000</td><td class="r">18.900.000</td><td class="r">22.700.000</td><td class="r">8</td></tr>
+     <tr><td>CN</td><td class="r">214</td><td class="r">36.420.000</td><td class="r">15.700.000</td><td class="r">20.720.000</td><td class="r">6</td></tr>
+     <tr class="tot"><td>Tổng</td><td class="r">1.043</td><td class="r">177.420.000</td><td class="r">78.000.000</td><td class="r">99.420.000</td><td class="r">29</td></tr>
+    </tbody></table></div>
+    <div class="sm-t mut">Tỷ lệ phát hiện chênh lệch: 29 / 1.043 giao dịch = 2,8%. Đơn vị tiền: đồng.</div>
+   </div></div></div></div>
+  <figcaption><div class="t"><span class="id">A04</span><b>Báo cáo tổng hợp</b><span class="fr">FR-ADM-02</span></div><p>Giao dịch, doanh thu theo cách trả và tỷ lệ chênh lệch. Dữ liệu này dùng để quyết định hạ tỷ lệ kiểm tra hoặc chuyển giai đoạn 2.</p></figcaption></figure>
+
+  <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / phan-quyen</span></div>
+   <div class="dbody"><aside class="side" data-nav="chuoi" data-active="4"></aside>
+   <div class="main">
+    <div class="head"><h3>Phân quyền</h3><span class="dbtn">+ Thêm tài khoản</span></div>
+    <div class="tbw"><table class="tb"><thead><tr><th>Mã</th><th>Vai trò</th><th>Chi nhánh</th><th>Trạng thái</th></tr></thead><tbody>
+     <tr><td>QT0001</td><td>Quản trị chuỗi</td><td>Tất cả</td><td><span class="pill">Hoạt động</span></td></tr>
+     <tr><td>QT0007</td><td>Quản trị chi nhánh</td><td>Quận 7</td><td><span class="pill">Hoạt động</span></td></tr>
+     <tr><td>NV0142</td><td>Thu tiền + cổng ra</td><td>Quận 7</td><td><span class="pill">Hoạt động</span></td></tr>
+     <tr><td>NV0157</td><td>Cổng ra</td><td>Quận 7</td><td><span class="pill warn">Khoá</span></td></tr>
+    </tbody></table></div>
+    <div class="panel"><b>Quyền theo vai trò</b><div class="tbw"><table class="tb"><thead><tr><th>Tính năng</th><th class="r">Chuỗi</th><th class="r">Chi nhánh</th><th class="r">Thu tiền</th><th class="r">Cổng</th></tr></thead><tbody>
+     <tr><td>Bật tắt chi nhánh, tích hợp</td><td class="r">✓</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>
+     <tr><td>Báo cáo toàn chuỗi</td><td class="r">✓</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>
+     <tr><td>Báo cáo, ca, tỷ lệ kiểm tra</td><td class="r">✓</td><td class="r">✓</td><td class="r">—</td><td class="r">—</td></tr>
+     <tr><td>Thu tiền</td><td class="r">—</td><td class="r">—</td><td class="r">✓</td><td class="r">—</td></tr>
+     <tr><td>Quét QR ra cổng</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">✓</td></tr>
+    </tbody></table></div></div>
+   </div></div></div></div>
+  <figcaption><div class="t"><span class="id">A05</span><b>Tài khoản &amp; phân quyền</b><span class="fr">FR-ADM-07</span></div><p>Bốn vai trò theo tài liệu. Chi nhánh chỉ thấy dữ liệu chi nhánh của mình. Khoá tài khoản là một chạm.</p></figcaption></figure>
+
+  </div>
+</section>
+
+<!-- ============ I. QUẢN TRỊ CHI NHÁNH ============ -->
+<section class="grp" id="qt-cn">
+  <h2>Quản trị · Chi nhánh</h2>
+  <p>Dành cho quản lý từng chi nhánh: theo dõi trong ngày, xếp ca, đặt tỷ lệ kiểm tra, đối soát tiền và xử lý mã quét không tìm thấy.</p>
+  <div class="grid gw">
+
+  <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / q7 / hom-nay</span></div>
+   <div class="dbody"><aside class="side" data-nav="cn" data-active="0"></aside>
+   <div class="main">
+    <div class="head"><h3>Hôm nay · Quận 7</h3><span class="pill"><span class="dot"></span>17 khách đang mua</span></div>
+    <div class="tiles c4"><div><div class="k">Giao dịch</div><div class="v">78</div></div><div><div class="k">Doanh thu</div><div class="v">13.610.000₫</div></div><div><div class="k">Tiền mặt</div><div class="v">5.980.000₫</div></div><div><div class="k">Chuyển khoản</div><div class="v">7.630.000₫</div></div></div>
+    <div class="panel"><b>Giao dịch gần đây</b><div class="tbw"><table class="tb"><thead><tr><th>Mã</th><th>Giờ</th><th class="r">Số tiền</th><th>Cách trả</th><th>Trạng thái</th></tr></thead><tbody>
+     <tr><td>SG-Q7-0386</td><td>18:55</td><td class="r">241.000₫</td><td>Tiền mặt</td><td><span class="pill err">Chênh lệch</span></td></tr>
+     <tr><td>SG-Q7-0385</td><td>18:51</td><td class="r">96.500₫</td><td>Chuyển khoản</td><td><span class="pill warn">Chờ thu</span></td></tr>
+     <tr><td>SG-Q7-0384</td><td>18:47</td><td class="r">182.000₫</td><td>Tiền mặt</td><td><span class="pill">Đã ra cổng</span></td></tr>
+     <tr><td>SG-Q7-0383</td><td>18:42</td><td class="r">58.000₫</td><td>Chuyển khoản</td><td><span class="pill">Đã ra cổng</span></td></tr>
+    </tbody></table></div></div>
+   </div></div></div></div>
+  <figcaption><div class="t"><span class="id">A06</span><b>Trong ngày của chi nhánh</b><span class="fr">FR-ADM-04</span></div><p>Quản lý thấy ngay giao dịch đang chờ thu và giao dịch có chênh lệch cần xử lý.</p></figcaption></figure>
+
+  <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / q7 / giao-dich / SG-Q7-0384</span></div>
+   <div class="dbody"><aside class="side" data-nav="cn" data-active="1"></aside>
+   <div class="main">
+    <div class="head"><h3>SG-Q7-0384</h3><span class="pill">Đã ra cổng</span></div>
+    <div class="tiles c4"><div><div class="k">Số tiền</div><div class="v">182.000₫</div></div><div><div class="k">Số món</div><div class="v">11</div></div><div><div class="k">Cách trả</div><div class="v">Tiền mặt</div></div><div><div class="k">Hoá đơn</div><div class="v" style="color:var(--a-ok)">Đã xuất</div></div></div>
+    <div class="panel"><b>Dòng thời gian</b><div class="tl">
+     <div><span class="tm">18:31</span><span class="pt"></span><span>Khách bắt đầu phiên mua sắm</span></div>
+     <div><span class="tm">18:44</span><span class="pt"></span><span>Quét 14 lần, giữ 11 món (xoá 1 món, sửa 2 số lượng)</span></div>
+     <div><span class="tm">18:45</span><span class="pt"></span><span>Khoá giỏ, khách chọn tiền mặt, 182.000₫</span></div>
+     <div><span class="tm">18:47</span><span class="pt ok"></span><span>NV0142 thu tiền mặt, khách đưa 200.000₫, thối 18.000₫</span></div>
+     <div><span class="tm">18:47</span><span class="pt ok"></span><span>Hoá đơn điện tử đã gửi về email của khách</span></div>
+     <div><span class="tm">18:49</span><span class="pt ok"></span><span>NV0157 quét QR ở Cổng ra 1, cho qua</span></div>
+     <div><span class="tm">18:50</span><span class="pt wr"></span><span>Kiểm tra ngẫu nhiên: khớp 5 / 5 dòng</span></div>
+    </div></div>
+   </div></div></div></div>
+  <figcaption><div class="t"><span class="id">A07</span><b>Truy vết một giao dịch</b><span class="fr">NFR-07</span></div><p>Toàn bộ vòng đời của một giỏ hàng, từ quét đến ra cổng, ghi rõ ai làm gì lúc nào. Dùng khi khách khiếu nại hoặc khi tiền mặt lệch.</p></figcaption></figure>
+
+  <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / q7 / nhan-vien-ca</span></div>
+   <div class="dbody"><aside class="side" data-nav="cn" data-active="2"></aside>
+   <div class="main">
+    <div class="head"><h3>Nhân viên &amp; ca</h3><span class="dbtn">+ Thêm nhân viên</span></div>
+    <div class="panel"><b>Lịch tuần này</b><div class="tbw"><table class="tb tight"><thead><tr><th>Nhân viên</th><th>Việc</th><th>T2</th><th>T3</th><th>T4</th><th>T5</th><th>T6</th><th>T7</th><th>CN</th></tr></thead><tbody>
+     <tr><td>Lan</td><td>Thu tiền</td><td><span class="sh">S</span></td><td><span class="sh">S</span></td><td><span class="sh o">—</span></td><td><span class="sh">S</span></td><td><span class="sh">S</span></td><td><span class="sh c">C</span></td><td><span class="sh c">C</span></td></tr>
+     <tr><td>Minh</td><td>Cổng ra</td><td><span class="sh c">C</span></td><td><span class="sh c">C</span></td><td><span class="sh c">C</span></td><td><span class="sh o">—</span></td><td><span class="sh c">C</span></td><td><span class="sh">S</span></td><td><span class="sh">S</span></td></tr>
+     <tr><td>Hà</td><td>Thu tiền</td><td><span class="sh o">—</span></td><td><span class="sh c">C</span></td><td><span class="sh">S</span></td><td><span class="sh c">C</span></td><td><span class="sh o">—</span></td><td><span class="sh">S</span></td><td><span class="sh o">—</span></td></tr>
+    </tbody></table></div><div class="sm-t mut">S: sáng 7:00–15:00 · C: chiều 15:00–22:00</div></div>
+    <div class="banner"><span class="ic" data-i="alert"></span><div><b>Thứ Năm sáng thiếu người ở cổng ra</b>Gán thêm nhân viên trước khi mở ca.</div></div>
+   </div></div></div></div>
+  <figcaption><div class="t"><span class="id">A08</span><b>Nhân viên &amp; ca làm việc</b><span class="fr">FR-ADM-05</span></div><p>Mỗi ca cần ít nhất một người thu tiền và một người ở cổng. Hệ thống cảnh báo ca còn thiếu.</p></figcaption></figure>
+
+  <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / q7 / kiem-tra-ngau-nhien</span></div>
+   <div class="dbody"><aside class="side" data-nav="cn" data-active="3"></aside>
+   <div class="main">
+    <div class="head"><h3>Kiểm tra ngẫu nhiên</h3><span class="dbtn">Lưu thay đổi</span></div>
+    <div class="panel"><b>Tỷ lệ kiểm tra mặc định</b>
+     <div class="row"><div class="sp"><div class="rng"><i style="width:20%"></i><b style="left:20%"></b></div></div><b style="font-size:20px">10%</b></div>
+     <div class="sm-t mut">Khoảng 1 trên 10 khách sẽ được yêu cầu đối chiếu giỏ hàng. Máy chủ chọn ngẫu nhiên, nhân viên không tự chọn.</div></div>
+    <div class="panel"><b>Quy tắc tăng kiểm tra</b>
+     <div class="row"><span class="sp">Khách dùng lần đầu</span><b>20%</b></div>
+     <div class="row"><span class="sp">Giỏ hàng trên 500.000₫</span><b>25%</b></div></div>
+    <div class="panel"><b>7 ngày qua tại Quận 7</b><div class="tiles"><div><div class="k">Lượt kiểm tra</div><div class="v">56</div></div><div><div class="k">Phát hiện chênh lệch</div><div class="v">5 (8,9%)</div></div></div>
+     <div class="sm-t mut">Gợi ý theo kế hoạch: bắt đầu cao, giảm dần khi tỷ lệ chênh lệch ổn định ở mức thấp.</div></div>
+   </div></div></div></div>
+  <figcaption><div class="t"><span class="id">A09</span><b>Tỷ lệ kiểm tra ngẫu nhiên</b><span class="fr">FR-ADM-06</span></div><p>Có số liệu 7 ngày ngay cạnh thanh trượt để quản lý quyết định tăng hay giảm tỷ lệ.</p></figcaption></figure>
+
+  <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / q7 / doi-soat</span></div>
+   <div class="dbody"><aside class="side" data-nav="cn" data-active="4"></aside>
+   <div class="main">
+    <div class="head"><h3>Đối soát hôm nay</h3><span class="pill warn">1 ca lệch</span></div>
+    <div class="panel"><b>Tiền mặt theo ca</b><div class="tbw"><table class="tb"><thead><tr><th>Ca</th><th>Nhân viên</th><th class="r">Hệ thống</th><th class="r">Đếm thực tế</th><th class="r">Lệch</th></tr></thead><tbody>
+     <tr><td>Sáng</td><td>NV0142</td><td class="r">4.250.000₫</td><td class="r">4.250.000₫</td><td class="r"><span class="pill">0</span></td></tr>
+     <tr><td>Chiều</td><td>NV0157</td><td class="r">1.730.000₫</td><td class="r">1.680.000₫</td><td class="r"><span class="pill err">−50.000₫</span></td></tr>
+    </tbody></table></div><div class="sm-t mut">Ca chiều lệch cần nhân viên ghi lý do trước khi đóng ca.</div></div>
+    <div class="panel"><b>Chuyển khoản so với sao kê</b>
+     <div class="row"><span class="sp">Hệ thống ghi nhận</span><b class="num">7.630.000₫</b></div>
+     <div class="row"><span class="sp">Sao kê ngân hàng (đã tải lên)</span><b class="num">7.630.000₫</b></div>
+     <div class="banner ok"><span class="ic" data-i="check"></span><div>Khớp. Không có giao dịch chuyển khoản nào chưa đối chiếu.</div></div></div>
+   </div></div></div></div>
+  <figcaption><div class="t"><span class="id">A10</span><b>Đối soát tiền</b><span class="fr">G-05</span></div><p>Vì giai đoạn 1 nhân viên xác nhận thanh toán thủ công, đây là điểm kiểm soát tiền chính. Tiền mặt đối chiếu theo ca, chuyển khoản đối chiếu sao kê.</p></figcaption></figure>
+
+  <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / q7 / ma-khong-tim-thay</span></div>
+   <div class="dbody"><aside class="side" data-nav="cn" data-active="5"></aside>
+   <div class="main">
+    <div class="head"><h3>Mã quét không tìm thấy</h3><span class="dbtn line">Gửi cho bộ phận hàng hoá</span></div>
+    <p class="p" style="margin:0">Mã vạch khách đã quét nhưng không có trong dữ liệu POS. Xử lý để lần sau khách quét được.</p>
+    <div class="tbw"><table class="tb"><thead><tr><th>Mã vạch</th><th class="r">Số lần quét</th><th>Lần cuối</th><th>Xử lý</th></tr></thead><tbody>
+     <tr><td>8934 5678 9012 3</td><td class="r">9</td><td>18:55</td><td><span class="pill warn">Chưa xử lý</span></td></tr>
+     <tr><td>8936 0000 1111 2</td><td class="r">4</td><td>17:20</td><td><span class="pill warn">Chưa xử lý</span></td></tr>
+     <tr><td>8935 2222 3333 4</td><td class="r">2</td><td>14:03</td><td><span class="pill">Đã báo POS</span></td></tr>
+    </tbody></table></div>
+   </div></div></div></div>
+  <figcaption><div class="t"><span class="id">A11</span><b>Mã quét không tìm thấy</b><span class="fr">FR-CUS-05</span></div><p>Hàng khách muốn mua nhưng hệ thống không bán được. Báo cáo này cũng giúp phát hiện dữ liệu POS thiếu.</p></figcaption></figure>
+
+  </div>
+</section>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="s-cam" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+<symbol id="s-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 016 0v2"/></symbol>
+<symbol id="s-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="s-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="s-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 115 .5c0 1.5-2.5 2-2.5 3.5M12 17v.01"/></symbol>
+<symbol id="s-flash" viewBox="0 0 24 24"><path d="M13 3L5 13h6l-1 8 8-10h-6z"/></symbol>
+<symbol id="s-kbd" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></symbol>
+<symbol id="s-wifioff" viewBox="0 0 24 24"><path d="M3 3l18 18M5 10a10 10 0 014-2.5M10 5.2A14 14 0 0122 10M8.5 13.5a6 6 0 013-1.6M16 13.5a6 6 0 00-1.4-1M12 18v.01"/></symbol>
+<symbol id="s-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.01"/></symbol>
+<symbol id="s-card" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></symbol>
+<symbol id="s-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></symbol>
+<symbol id="s-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5L16 9.5"/></symbol>
+<symbol id="s-store" viewBox="0 0 24 24"><path d="M4 9l1-5h14l1 5M4 9v11h16V9M4 9a3 3 0 006 0 3 3 0 006 0 3 3 0 004 0"/></symbol>
+<symbol id="s-barcode" viewBox="0 0 24 24"><path d="M4 6v12M7 6v12M11 6v12M14 6v12M18 6v12M20 6v12"/></symbol>
+<symbol id="s-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="s-chevl" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+<symbol id="s-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="s-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="s-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></symbol>
+<symbol id="s-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 10-2.3 5.7M20 5v6h-6"/></symbol>
+<symbol id="s-phone" viewBox="0 0 24 24"><path d="M6 3h4l2 5-2.5 1.5a11 11 0 005 5L16 12l5 2v4a2 2 0 01-2 2A16 16 0 014 5a2 2 0 012-2z"/></symbol>
+<symbol id="s-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol>
+<symbol id="s-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/></symbol>
+<symbol id="s-star" viewBox="0 0 24 24"><path d="M12 4l2.4 5 5.6.7-4.1 3.8 1.1 5.5L12 16.3 7 19l1.1-5.5L4 9.7 9.6 9z"/></symbol>
+<symbol id="s-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></symbol>
+</defs></svg>
+
+<script>
+(function(){
+  // icons
+  document.querySelectorAll('[data-i]').forEach(function(el){
+    el.classList.add('ic');
+    el.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#s-'+el.getAttribute('data-i')+'"/></svg>';
+  });
+  // money
+  function vnd(n){return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'₫';}
+  var items=[
+    {n:'Sữa tươi ít đường 1L',p:34500,q:2,h:200,l:'S'},
+    {n:'Mì ăn liền tôm chua cay (gói)',p:4800,q:5,h:20,l:'M'},
+    {n:'Trứng gà hộp 10 quả',p:38000,q:1,h:35,l:'T'},
+    {n:'Nước suối 500ml',p:6000,q:2,h:190,l:'N'},
+    {n:'Dầu ăn đậu nành 1L',p:52000,q:1,h:40,l:'D'}
+  ];
+  function row(it){
+    return '<div class="it"><span class="tile" style="--h:'+it.h+'">'+it.l+'</span><div class="sp"><div class="nm">'+it.n+'</div><div class="pr num">'+vnd(it.p)+'</div></div>'+
+      '<div class="step"><button type="button" aria-label="Giảm"><i class="ic">'+svg('minus')+'</i></button><span class="num">'+it.q+'</span><button type="button" aria-label="Tăng"><i class="ic">'+svg('plus')+'</i></button></div>'+
+      '<div class="amt num">'+vnd(it.p*it.q)+'</div></div>';
+  }
+  function rowRo(it){
+    return '<div class="it"><span class="tile" style="--h:'+it.h+'">'+it.l+'</span><div class="sp"><div class="nm">'+it.n+'</div><div class="pr num">'+vnd(it.p)+' × '+it.q+'</div></div><div class="amt num">'+vnd(it.p*it.q)+'</div></div>';
+  }
+  function rowChk(it,i){
+    return '<div class="it"><span class="cb'+(i<4?' on':'')+'"><i class="ic">'+(i<4?svg('check'):'')+'</i></span><div class="sp"><div class="nm">'+it.n+'</div><div class="pr num">Số lượng: '+it.q+'</div></div><div class="amt num">× '+it.q+'</div></div>';
+  }
+  function svg(n){return '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#s-'+n+'"/></svg>';}
+  document.querySelectorAll('[data-rows]').forEach(function(box){
+    var mode=box.getAttribute('data-rows');
+    var list=(mode==='cart3'||mode==='ro3')?items.slice(0,3):items;
+    var fn=mode==='ro'||mode==='ro3'?rowRo:mode==='chk'?rowChk:row;
+    box.innerHTML=list.map(fn).join('');
+  });
+  // QR mẫu (minh hoạ, không đọc được)
+  function rng(s){return function(){s=(s*1664525+1013904223)%4294967296;return s/4294967296;}}
+  document.querySelectorAll('svg.qr').forEach(function(s){
+    var N=29,r=rng(384),g=[],i,j,d='';
+    for(i=0;i<N;i++){g[i]=[];for(j=0;j<N;j++)g[i][j]=r()>.52;}
+    function finder(x,y){
+      for(i=-1;i<8;i++)for(j=-1;j<8;j++){
+        var a=x+i,b=y+j; if(a<0||b<0||a>=N||b>=N)continue;
+        var on=(i>=0&&i<7&&j>=0&&j<7)&&(i===0||i===6||j===0||j===6||(i>=2&&i<=4&&j>=2&&j<=4));
+        g[a][b]=on;
+      }
+    }
+    finder(0,0);finder(N-7,0);finder(0,N-7);
+    for(i=0;i<N;i++)for(j=0;j<N;j++)if(g[i][j])d+='M'+j+' '+i+'h1v1h-1z';
+    s.innerHTML='<path d="'+d+'" fill="#0b0f14"/>';
+  });
+  // thanh điều hướng quản trị
+  var NAV={chuoi:['Tổng quan','Chi nhánh','Tích hợp','Báo cáo','Phân quyền'],cn:['Hôm nay','Giao dịch','Nhân viên &amp; ca','Kiểm tra ngẫu nhiên','Đối soát','Mã không tìm thấy']};
+  document.querySelectorAll('aside.side').forEach(function(a){
+    var k=a.getAttribute('data-nav'),on=+a.getAttribute('data-active');
+    a.innerHTML='<div class="brand"><span class="logo">BRG</span>Self Checkout</div><div class="role">'+(k==='chuoi'?'Quản trị chuỗi':'Chi nhánh Quận 7')+'</div>'+
+      NAV[k].map(function(t,i){return '<a'+(i===on?' class="on"':'')+'>'+t+'</a>';}).join('')+'<div class="me">Thomas<br>Quản trị viên</div>';
+  });
+  // biểu đồ cột
+  document.querySelectorAll('.bars').forEach(function(b){
+    var v=b.getAttribute('data-bars').split(',').map(Number),lb=['T2','T3','T4','T5','T6','T7','CN'],max=45,h=96,w=60,s='';
+    v.forEach(function(x,i){
+      var bh=Math.round(x/max*h),last=i===v.length-1;
+      s+='<rect x="'+(i*w+14)+'" y="'+(h-bh+16)+'" width="32" height="'+bh+'" rx="6" fill="var(--a-primary)" opacity="'+(last?1:.35)+'"/>'+
+         '<text x="'+(i*w+30)+'" y="'+(h-bh+11)+'" text-anchor="middle" font-size="10" font-weight="700" fill="var(--a-ink)">'+String(x).replace('.',',')+'</text>'+
+         '<text x="'+(i*w+30)+'" y="'+(h+30)+'" text-anchor="middle" font-size="10" fill="var(--a-muted)">'+lb[i]+'</text>';
+    });
+    b.innerHTML='<svg viewBox="0 0 420 '+(h+36)+'" role="img" aria-label="Doanh thu 7 ngày">'+s+'</svg>';
+  });
+  // theme app
+  var L=document.getElementById('mLight'),D=document.getElementById('mDark');
+  function set(dark){document.body.classList.toggle('app-dark',dark);L.setAttribute('aria-pressed',String(!dark));D.setAttribute('aria-pressed',String(dark));}
+  L.onclick=function(){set(false)};D.onclick=function(){set(true)};
+})();
+</script>
+
+</body></html>
