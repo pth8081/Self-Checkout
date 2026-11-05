@@ -122,7 +122,7 @@ function runOp(ctx, session, op) {
     if (!p.active) { logScan(db, session, 'scan_fail', n.code, 'inactive'); return { ok: false, code: 'INACTIVE', barcode: n.code, name: p.name, message: 'Sản phẩm này đang ngừng bán' }; }
     const cur = db.prepare('SELECT * FROM cart_items WHERE session_id = ? AND sku = ?').get(session.id, p.sku);
     const want = (cur?.qty || 0) + 1;
-    if (want > p.stock) { logScan(db, session, 'scan_fail', n.code, 'out_of_stock'); return { ok: false, code: 'OUT_OF_STOCK', barcode: n.code, name: p.name, message: 'Sản phẩm đã hết hàng hoặc không đủ số lượng' }; }
+    if (want > 99) return { ok: false, code: 'BAD_QTY', message: 'Số lượng tối đa mỗi món là 99' };
     if (cur) db.prepare('UPDATE cart_items SET qty = ? WHERE id = ?').run(want, cur.id);
     else db.prepare(`INSERT INTO cart_items(session_id,sku,barcode,name,unit_price,qty,promo_min_qty,promo_off,age_restricted,added_at)
       VALUES(?,?,?,?,?,?,?,?,?,?)`).run(session.id, p.sku, p.barcode, p.name, p.price, 1, p.promo_min_qty, p.promo_off, p.age_restricted, nowIso());
@@ -136,8 +136,6 @@ function runOp(ctx, session, op) {
     const qty = Math.floor(Number(op.qty));
     if (!Number.isFinite(qty) || qty < 0 || qty > 99) return { ok: false, code: 'BAD_QTY', message: 'Số lượng không hợp lệ' };
     if (qty === 0) { db.prepare('DELETE FROM cart_items WHERE id = ?').run(it.id); logScan(db, session, 'remove', it.barcode); return { ok: true }; }
-    const p = pos.lookup(session.store_id, [it.barcode]);
-    if (p && qty > p.stock) return { ok: false, code: 'OUT_OF_STOCK', name: it.name, message: `Chỉ còn ${p.stock} sản phẩm`, max: p.stock };
     db.prepare('UPDATE cart_items SET qty = ? WHERE id = ?').run(qty, it.id);
     logScan(db, session, 'qty', it.barcode, String(qty));
     return { ok: true };
@@ -221,7 +219,6 @@ function freshnessChanges(ctx, session, items) {
     if (!c || !c.active) { changes.push({ sku: it.sku, name: it.name, type: 'inactive' }); continue; }
     if (c.price !== it.unit_price) changes.push({ sku: it.sku, name: it.name, type: 'price', old: it.unit_price, new: c.price });
     if (c.promo_min_qty !== it.promo_min_qty || c.promo_off !== it.promo_off) changes.push({ sku: it.sku, name: it.name, type: 'promo' });
-    if (c.stock < it.qty) changes.push({ sku: it.sku, name: it.name, type: 'stock', old: it.qty, new: Math.max(c.stock, 0) });
   }
   return { changes, cur };
 }
@@ -266,13 +263,13 @@ export function lockSession(ctx, session, { method, acceptChanges = false, buyer
   const items = itemsOf(db, session.id);
   if (!items.length) throw bad('EMPTY_CART', 'Giỏ hàng đang trống');
   const { changes, cur } = freshnessChanges(ctx, session, items);
-  if (changes.length && !acceptChanges) throw conflict('CHANGED', 'Giá hoặc tồn kho vừa thay đổi', { changes });
+  if (changes.length && !acceptChanges) throw conflict('CHANGED', 'Giá hoặc khuyến mãi vừa thay đổi', { changes });
 
   return db.transaction(() => {
     for (const it of items) {
       const c = cur.get(it.sku);
-      if (!c || !c.active || c.stock <= 0) { db.prepare('DELETE FROM cart_items WHERE id = ?').run(it.id); continue; }
-      const qty = Math.min(it.qty, c.stock);
+      if (!c || !c.active) { db.prepare('DELETE FROM cart_items WHERE id = ?').run(it.id); continue; }
+      const qty = it.qty;
       db.prepare('UPDATE cart_items SET unit_price=?, promo_min_qty=?, promo_off=?, name=?, qty=? WHERE id=?')
         .run(c.price, c.promo_min_qty, c.promo_off, c.name, qty, it.id);
     }

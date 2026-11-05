@@ -15,7 +15,7 @@
 
 ## 2. Quy tắc nghiệp vụ chính (đã có kiểm thử)
 
-- Giá chốt lúc quét; khi khoá giỏ, hệ thống đối chiếu lại với POS. Giá, khuyến mãi, tồn kho hoặc ngừng bán đổi thì khách phải đồng ý (M15) mới khoá được.
+- Giá chốt lúc quét; khi khoá giỏ, hệ thống đối chiếu lại với POS. Giá, khuyến mãi hoặc ngừng bán đổi thì khách phải đồng ý (M15) mới khoá được. **Tồn kho không bị kiểm tra** (quyết định 2026-11-05): POS tự xử lý tồn kho khi bán.
 - Khoá giỏ sinh `GH-<chi nhánh>-<số>` (mã giỏ) và nội dung chuyển khoản `SG <chi nhánh> <số>`. Chỉ nhân viên đúng chi nhánh tra được.
 - Thu tiền cần nhân viên đã bắt đầu ca. Chuyển khoản chỉ xác nhận khi đủ 3 điều kiện (số tiền, nội dung, tiền đã vào). Tiền mặt ghi số khách đưa và tiền thừa.
 - QR biên nhận `R1.<mã>.<hạn>.<chữ ký>` chỉ hợp lệ khi đã thu tiền, chưa hết hạn, chưa dùng, chưa bị huỷ; quét thành công là đánh dấu đã dùng ngay.

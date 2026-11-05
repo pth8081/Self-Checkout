@@ -25,7 +25,7 @@ test('quét sản phẩm, tính khuyến mãi và tổng tiền', async () => {
   await app.close();
 });
 
-test('mã sai, không có trong hệ thống, ngừng bán, hết hàng', async () => {
+test('mã sai, không có trong hệ thống, ngừng bán; hết hàng không bị chặn', async () => {
   const app = await makeApp();
   const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
   const id = s.body.session.id;
@@ -33,7 +33,7 @@ test('mã sai, không có trong hệ thống, ngừng bán, hết hàng', async 
   assert.equal((await scan('8936036123450', 'a')).code, 'INVALID_BARCODE'); // sai chữ số kiểm tra
   assert.equal((await scan(ean13('893999999999'), 'b')).code, 'NOT_FOUND');
   assert.equal((await scan(barcodeOf(app, 'Q7', 'NGUNG01'), 'c')).code, 'INACTIVE');
-  assert.equal((await scan(barcodeOf(app, 'Q7', 'HET01'), 'd')).code, 'OUT_OF_STOCK');
+  assert.equal((await scan(barcodeOf(app, 'Q7', 'HET01'), 'd')).ok, true); // không chặn theo tồn kho: POS lo
   const unknown = app.ctx.db.prepare('SELECT * FROM unknown_barcodes WHERE store_id=?').all('Q7');
   assert.equal(unknown.length, 1);
   await app.close();
@@ -128,7 +128,7 @@ test('chuyển khoản QR: có payload VietQR, phải tick đủ 3 điều kiệ
   await app.close();
 });
 
-test('giá đổi giữa lúc quét và khoá giỏ: phải báo và khách đồng ý', async () => {
+test('giá đổi giữa lúc quét và khoá giỏ: phải báo và khách đồng ý; tồn kho đổi thì không ảnh hưởng', async () => {
   const app = await makeApp();
   const { id } = await newCart(app, [['TRU01', 1], ['NUOC01', 2]]);
   app.ctx.db.prepare(`UPDATE pos_products SET price = 41000 WHERE store_id='Q7' AND sku='TRU01'`).run();
@@ -136,11 +136,11 @@ test('giá đổi giữa lúc quét và khoá giỏ: phải báo và khách đ�
   const r = await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash' } });
   assert.equal(r.status, 409);
   assert.equal(r.body.error, 'CHANGED');
-  assert.deepEqual(r.body.changes.map((x) => x.type).sort(), ['price', 'stock']);
+  assert.deepEqual(r.body.changes.map((x) => x.type), ['price']);
   const ok = await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash', acceptChanges: true } });
   assert.equal(ok.status, 200);
   assert.equal(ok.body.session.items.find((i) => i.sku === 'TRU01').price, 41000);
-  assert.equal(ok.body.session.items.find((i) => i.sku === 'NUOC01').qty, 1);
+  assert.equal(ok.body.session.items.find((i) => i.sku === 'NUOC01').qty, 2);
   await app.close();
 });
 

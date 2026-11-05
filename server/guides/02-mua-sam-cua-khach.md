@@ -29,7 +29,7 @@ d{Đang bán và còn hàng?}
 e([Thêm vào giỏ, cập nhật tổng])
 f[Báo: không đọc được, quét lại]
 g[Báo: chưa có trong hệ thống, ghi vào danh sách mã lạ]
-h[Báo: ngừng bán hoặc hết hàng]
+h[Báo: ngừng bán]
 a --> b
 b -- Có --> c
 b -- Không --> f
@@ -44,7 +44,7 @@ h --> a
 
 - **Không đọc được:** mã sai chữ số kiểm tra. Khách quét lại hoặc nhập tay.
 - **Chưa có trong hệ thống:** sản phẩm không có ở POS của chi nhánh. Mã được ghi vào mục **Mã không tìm thấy** của quản trị để bộ phận hàng hoá xử lý. Khách được hướng dẫn gọi nhân viên.
-- **Ngừng bán hoặc hết hàng:** không thêm vào giỏ.
+- **Ngừng bán:** không thêm vào giỏ. Tồn kho không bị kiểm tra, POS xử lý khi thu ngân quét giỏ.
 - **Vượt tồn kho:** không cho tăng số lượng quá tồn kho hiện có.
 
 ## Giá thay đổi trước khi khoá giỏ
