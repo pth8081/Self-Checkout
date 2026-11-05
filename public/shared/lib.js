@@ -286,7 +286,7 @@ function loadZxing() {
  * Dùng BarcodeDetector của trình duyệt nếu có, nếu không dùng thư viện ZXing (Safari iOS).
  * onScan(text) được gọi cho mỗi mã đọc được (bỏ qua mã lặp trong 2 giây).
  */
-export function Scanner({ kind = 'barcode', onScan, paused = false, status = '', hint, children, fill = false }) {
+export function Scanner({ kind = 'barcode', onScan, onState, paused = false, status = '', hint, children, fill = false }) {
   const video = useRef(null);
   const [state, setState] = useState('starting'); // starting | running | denied | nocamera | insecure | error
   const [torch, setTorch] = useState({ can: false, on: false });
@@ -294,6 +294,7 @@ export function Scanner({ kind = 'barcode', onScan, paused = false, status = '',
   const stream = useRef(null);
   const cb = useRef(onScan); cb.current = onScan;
   const pausedRef = useRef(paused); pausedRef.current = paused;
+  useEffect(() => { onState?.(state); }, [state]);
 
   useEffect(() => {
     let stopped = false, raf = 0, timer = 0, last = { text: '', at: 0 };

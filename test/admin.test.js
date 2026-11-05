@@ -131,3 +131,13 @@ test('xác nhận email để xem lịch sử trên máy khác', async () => {
   assert.equal(ok.body.linked, true);
   await app.close();
 });
+
+test('tìm giao dịch theo mã giỏ hàng; tạo quản trị không cần PIN', async () => {
+  const app = await makeApp({ demo: true });
+  const t = (await adminLogin(app)).body.token;
+  const r = await call(app, 'GET', '/api/a/transactions?storeId=Q7&q=GH-Q7-D60001', { token: t });
+  assert.ok(r.body.transactions.length >= 1);
+  const u = await call(app, 'POST', '/api/a/users', { token: t, body: { name: 'Quản lý mới', role: 'branch_admin', storeId: 'TB', password: 'Matkhau123' } });
+  assert.equal(u.status, 200, JSON.stringify(u.body));
+  await app.close();
+});

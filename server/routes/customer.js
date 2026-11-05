@@ -1,10 +1,12 @@
 import { config } from '../config.js';
 import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, randomCode } from '../util.js';
 import {
-  storeView, createOrResumeSession, sessionView, applyOps, lockSession, unlockSession, abandonSession, txView
+  getStoreConfig, storeView, createOrResumeSession, sessionView, applyOps, lockSession, unlockSession, abandonSession, txView
 } from '../services/core.js';
 import { issueInvoice } from '../services/invoice.js';
 import { audit } from '../services/audit.js';
+import { normalizeBarcode } from '../services/barcode.js';
+import { promoLabel } from '../services/pricing.js';
 
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
 
@@ -43,6 +45,18 @@ export default async function customerRoutes(app) {
     stores: db.prepare('SELECT id, name, address, enabled FROM stores ORDER BY name').all().map((s) => ({ ...s, enabled: !!s.enabled }))
   }));
   app.get('/store/:id', async (req) => storeView(db, String(req.params.id).toUpperCase()));
+
+  // Tra cứu sản phẩm theo mã (màn nhập mã bằng tay): chỉ trả thông tin công khai, không thêm vào giỏ.
+  app.get('/products/lookup', async (req) => {
+    const storeId = String(req.query.storeId || '').toUpperCase();
+    getStoreConfig(db, storeId);
+    const n = normalizeBarcode(req.query.barcode);
+    if (!n.ok) return { found: false, invalid: true };
+    const p = ctx.pos.lookup(storeId, n.variants);
+    if (!p) return { found: false };
+    return { found: true, product: { name: p.name, barcode: p.barcode, price: p.price, unit: p.unit, active: !!p.active, inStock: p.stock > 0,
+      promo: promoLabel(p.promo_min_qty, p.promo_off) } };
+  });
 
   // ---- Phiên mua sắm ----
   app.post('/sessions', async (req) => {

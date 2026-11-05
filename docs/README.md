@@ -14,6 +14,7 @@ Cách đọc: đi từ trên xuống. Mỗi tài liệu có **trạng thái** (`
 | 08 | [Lộ trình & rủi ro](08-lo-trinh-rui-ro.md) | Các giai đoạn, rủi ro | Nháp |
 | 09 | [Quyết định, khoảng trống & câu hỏi mở](09-phan-tich-khoang-trong.md) | **Quyết định đã chốt** và việc cần chốt | **Đọc đầu tiên** |
 | 10 | [Danh mục màn hình](10-man-hinh.md) | 52 màn hình (khách, nhân viên, quản trị) ánh xạ về yêu cầu | Nháp |
+| 11 | [Ứng dụng đã xây & cách gắn tích hợp](11-ung-dung.md) | Chức năng đã làm, quy tắc, gắn POS/hoá đơn/thanh toán online, hạn chế | Mới |
 | — | [Bản thiết kế giao diện](thiet-ke/man-hinh.html) | Mở bằng trình duyệt để xem 52 màn hình | Nháp |
 | — | [Thuật ngữ](thuat-ngu.md) | | |
 | — | [ADR](adr/) | Các quyết định kiến trúc | |

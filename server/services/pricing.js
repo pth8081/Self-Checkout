@@ -13,3 +13,7 @@ export function totals(items) {
 }
 
 export const itemCount = (items) => items.reduce((s, it) => s + it.qty, 0);
+
+const nf = new Intl.NumberFormat('vi-VN');
+/** Nhãn khuyến mãi dễ đọc, ví dụ "Mua 2 giảm 13.000₫". */
+export const promoLabel = (min, off) => (min && off ? `Mua ${min} giảm ${nf.format(off)}₫` : null);

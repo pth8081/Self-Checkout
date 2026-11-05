@@ -1,0 +1,96 @@
+/* Giao diện quản trị: khung, thanh bên, biểu đồ, in mã QR. Bổ sung cho /shared/ui.css. */
+.shell { display: flex; flex: 1; min-height: 100vh; }
+.side { display: none; width: 264px; flex: none; position: sticky; top: 0; height: 100vh; overflow: auto; background: var(--card); border-right: 1px solid var(--line);
+  padding: 16px 12px; flex-direction: column; gap: 4px; }
+.side .brandrow { display: flex; align-items: center; gap: 10px; padding: 4px 8px 12px; font-weight: 800; font-size: 18px; letter-spacing: -.01em; }
+.side .brandrow small { display: block; font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: 0; }
+.side .navitem { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 0; background: transparent; color: var(--muted);
+  font-weight: 600; font-size: 14.5px; width: 100%; text-align: left; }
+.side .navitem:hover { background: var(--surface); }
+.side .navitem.on { background: var(--orange-soft); color: var(--orange-ink); }
+.side .label { padding: 14px 14px 4px; }
+.side .me { margin-top: auto; padding: 12px 6px 0; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+.mobile-only { display: contents; }
+.mainarea { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.page.wide { padding-bottom: 48px; }
+@media (min-width: 900px) { .side { display: flex; } .mobile-only { display: none !important; } }
+@media (max-width: 899px) { .desk-only { display: none !important; } }
+
+.pagehead { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.pagehead h1 { flex: 1; min-width: 200px; }
+.pagehead .sub { color: var(--muted); font-size: 14px; margin-top: 2px; font-weight: 500; }
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.toolbar .field { min-width: 140px; }
+.toolbar .field.grow { min-width: 180px; }
+.toolbar .input, .toolbar .btn { min-height: 44px; }
+.input.sm { min-height: 40px; font-size: 14px; padding: 0 12px; border-radius: 12px; }
+.input.num-in { text-align: right; max-width: 120px; }
+.btn.inline { width: auto; }
+.btn.sm.line { border-width: 1.5px; }
+.cardhead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cardhead h2 { flex: 1; min-width: 160px; }
+.two { align-items: start; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+.two > * { min-width: 0; }
+@media (min-width: 900px) { .two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .two.wide-l { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); } }
+.cols4 { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+@media (min-width: 640px) { .cols4 { grid-template-columns: repeat(4, 1fr); } }
+.tilebox .v.sm { font-size: 18px; }
+.tilebox.warn { background: var(--warn-soft); border-color: transparent; } .tilebox.warn .v { color: var(--warn); }
+.tilebox.err { background: var(--err-soft); border-color: transparent; } .tilebox.err .v { color: var(--err); }
+
+/* Biểu đồ cột SVG */
+.chart { width: 100%; height: auto; display: block; overflow: visible; }
+.chart text { font-family: var(--font); font-size: 11px; fill: var(--muted); }
+.chart text.val { fill: var(--ink); font-weight: 700; }
+.chart .bar { fill: color-mix(in srgb, var(--orange) 45%, var(--card)); }
+.chart .bar.hl { fill: var(--orange); }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .hit:hover .bar { fill: var(--orange); }
+
+.tbl td.wrap, .tbl th.wrap { white-space: normal; min-width: 180px; }
+.tbl .sub { color: var(--muted); font-size: 12px; }
+.tbl td .btn.sm { min-height: 34px; padding: 0 12px; }
+.tbl .tc { text-align: center; }
+.tbl tr.dim td { opacity: .55; }
+.soon { color: var(--muted); font-size: 12px; font-weight: 600; display: inline-flex; flex-direction: column; align-items: center; gap: 2px; opacity: .7; }
+
+/* Lưới ca tuần */
+.plan td, .plan th { text-align: center; padding: 8px 6px; }
+.plan td:first-child, .plan th:first-child { text-align: left; position: sticky; left: 0; background: var(--card); z-index: 1; }
+.cell { min-width: 74px; min-height: 40px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card); font-weight: 700; font-size: 13px; color: var(--muted); padding: 6px 8px; }
+.cell.sang { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.cell.chieu { background: var(--info-soft); color: var(--info); border-color: transparent; }
+.cell:disabled { opacity: .5; }
+.plan th.today { color: var(--orange-ink); }
+
+/* Dòng thời gian giao dịch */
+.tl.wide > div { grid-template-columns: 56px 14px 1fr; }
+.tl .pt.err { background: var(--err); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 14px; }
+.kv > :nth-child(odd) { color: var(--muted); }
+.kv > :nth-child(even) { font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+
+.range { width: 100%; accent-color: var(--orange); height: 36px; }
+.rangeval { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; }
+.secret { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; font-weight: 700; word-break: break-all; background: var(--surface); padding: 12px 14px; border-radius: 14px; }
+.textarea-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; min-height: 130px; }
+.clickcard { cursor: pointer; }
+.check { color: var(--ok); font-weight: 800; }
+.dash { color: var(--muted); }
+.sheet.lg { max-width: 640px; }
+.sheet h2 { padding-right: 8px; }
+.formgrid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 560px) { .formgrid.c2 { grid-template-columns: 1fr 1fr; } }
+.divider { height: 1px; background: var(--line); border: 0; margin: 4px 0; width: 100%; }
+.qrbig svg { width: 100%; max-width: 280px; }
+.print-only { display: none; }
+
+@media print {
+  body * { visibility: hidden !important; }
+  .shell { height: 0 !important; min-height: 0 !important; overflow: hidden !important; }
+  .print-only, .print-only * { visibility: visible !important; }
+  .print-only { display: flex !important; position: fixed; inset: 0; background: #fff; color: #000; flex-direction: column; align-items: center; justify-content: center; gap: 18px; z-index: 999; }
+  .print-only svg { width: 9cm; height: 9cm; }
+  .print-only h1 { font-size: 28px; color: #000; }
+  .print-only p { font-size: 14px; color: #333; }
+}

@@ -3,7 +3,7 @@
 import { config } from '../config.js';
 import { nextCounter } from '../db.js';
 import { nowIso, uuid, bad, notFound, conflict, forbidden, money, normCode, localDate } from '../util.js';
-import { totals, itemCount, lineDiscount } from './pricing.js';
+import { totals, itemCount, lineDiscount, promoLabel } from './pricing.js';
 import { normalizeBarcode } from './barcode.js';
 import { vietQrPayload, makeReceiptToken, parseReceiptToken } from './qr.js';
 import { audit } from './audit.js';
@@ -35,7 +35,7 @@ function itemView(it) {
   return {
     id: it.id, sku: it.sku, barcode: it.barcode, name: it.name, price: it.unit_price, qty: it.qty,
     lineTotal: it.unit_price * it.qty - discount, discount, ageRestricted: !!it.age_restricted,
-    promo: it.promo_min_qty && it.promo_off ? `Mua ${it.promo_min_qty} giảm ${it.promo_off}` : null
+    promo: promoLabel(it.promo_min_qty, it.promo_off), promoMin: it.promo_min_qty, promoOff: it.promo_off
   };
 }
 
@@ -178,7 +178,11 @@ export function txView(ctx, tx, { staff = false } = {}) {
       payload: vietQrPayload({ bin: b.bin, account: b.account, amount: tx.total + tx.extra_due, content: tx.transfer_content })
     };
   }
-  if (staff) v.items = JSON.parse(tx.items_json);
+  if (staff) {
+    v.items = JSON.parse(tx.items_json);
+    const c = db.prepare('SELECT * FROM exit_checks WHERE transaction_id = ? ORDER BY id DESC LIMIT 1').get(tx.id);
+    if (c) v.lastCheck = { result: c.result, kind: c.kind, amount: c.amount, note: c.note, action: c.action, place: c.place, by: c.staff_id, at: c.created_at, resolution: c.resolution };
+  }
   return v;
 }
 
@@ -447,6 +451,7 @@ export function gateScan(ctx, user, raw, gate = 'Cổng 1') {
   if (tx.exit_status === 'exited') return out('used', { reason: 'QR đã được dùng', usedAt: tx.exited_at, usedBy: tx.exited_by, gate: tx.exited_gate }, tx);
   if (tx.receipt_expires_at < nowIso()) return out('expired', { reason: 'QR đã hết hạn' }, tx);
   if (tx.exit_status === 'held') return out('held', { reason: 'Đang chờ quản lý xử lý' }, tx);
+  if (tx.exit_status === 'denied') return out('denied', { reason: 'Quản lý không cho qua, hãy gặp quản lý' }, tx);
   if (tx.extra_due > 0) return out('extra_due', { reason: 'Còn khoản thu bổ sung', amount: tx.extra_due }, tx);
   if (tx.check_required && !tx.check_done) {
     db.prepare(`UPDATE transactions SET exit_status='checking' WHERE id=?`).run(tx.id);
@@ -500,7 +505,7 @@ export function resolveHeld(ctx, user, txId, { decision, note }) {
   const { db } = ctx;
   if (!isManager(user)) throw forbidden('MANAGER_ONLY', 'Chỉ quản lý mới xử lý được ca này');
   const tx = ownTx(ctx, user, txId);
-  if (tx.exit_status !== 'held') throw conflict('NOT_HELD', 'Giao dịch này không ở trạng thái chờ quản lý');
+  if (!['held', 'denied'].includes(tx.exit_status)) throw conflict('NOT_HELD', 'Giao dịch này không ở trạng thái chờ quản lý');
   if (!['allow', 'deny'].includes(decision)) throw bad('BAD_DECISION', 'Quyết định không hợp lệ');
   const ts = nowIso();
   db.prepare(`UPDATE exit_checks SET resolution=?, resolved_by=?, resolved_at=?, resolve_note=? WHERE id = (SELECT MAX(id) FROM exit_checks WHERE transaction_id=? AND action='call_manager')`)
@@ -511,6 +516,7 @@ export function resolveHeld(ctx, user, txId, { decision, note }) {
     if (tx.status === 'paid' && tx.extra_due === 0) markExited(db, db.prepare('SELECT * FROM transactions WHERE id=?').get(tx.id), user, 'Quản lý duyệt');
     return { decision, exited: tx.status === 'paid' && tx.extra_due === 0 };
   }
+  db.prepare(`UPDATE transactions SET exit_status='denied' WHERE id=?`).run(tx.id);
   return { decision, exited: false };
 }
 

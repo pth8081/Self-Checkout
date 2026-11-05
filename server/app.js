@@ -41,7 +41,7 @@ export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = f
   app.register(fastifyStatic, { root: config.publicDir, prefix: '/', index: ['index.html'], wildcard: false, decorateReply: false,
     setHeaders(res, p) {
       // Service worker phải luôn tải mới để cập nhật được.
-      if (p.endsWith('sw.js')) res.setHeader('Cache-Control', 'no-cache');
+      if (p.endsWith('sw.js')) res.header('Cache-Control', 'no-cache');
     } });
   app.addHook('onClose', async () => db.close());
   return app;

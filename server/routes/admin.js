@@ -246,6 +246,7 @@ export default async function adminRoutes(app) {
     });
     s.get('/dev/pos-products', async (req) => {
       chainOnly(req);
+      if (config.isProd) throw forbidden('DEV_ONLY', 'Chỉ dùng ở môi trường thử');
       return { products: db.prepare('SELECT sku, barcode, name, price, stock, active FROM pos_products WHERE store_id = ? ORDER BY name').all(storeOf(req)) };
     });
 
@@ -304,8 +305,9 @@ export default async function adminRoutes(app) {
       }
       if (role !== 'chain_admin') { if (!storeId) throw bad('STORE_REQUIRED', 'Chọn chi nhánh cho tài khoản này'); getStoreConfig(db, storeId); } else storeId = null;
       if (!String(b.name || '').trim()) throw bad('NAME_REQUIRED', 'Nhập họ tên');
-      if (!validPin(b.pin)) throw bad('BAD_PIN', 'PIN gồm 4–6 chữ số');
       const isAdminRole = role === 'chain_admin' || role === 'branch_admin';
+      // PIN dùng để vào app nhân viên: bắt buộc với nhân viên, tuỳ chọn với quản trị.
+      if ((!isAdminRole || b.pin) && !validPin(b.pin)) throw bad('BAD_PIN', 'PIN gồm 4–6 chữ số');
       if (isAdminRole && !strongPassword(b.password)) throw bad('WEAK_PASSWORD', 'Mật khẩu tối thiểu 8 ký tự, có cả chữ và số');
       let id = String(b.id || '').trim().toUpperCase();
       if (!id) {
@@ -316,7 +318,7 @@ export default async function adminRoutes(app) {
       if (!/^[A-Z0-9]{3,10}$/.test(id)) throw bad('BAD_ID', 'Mã tài khoản gồm 3–10 chữ hoa hoặc số');
       if (db.prepare('SELECT 1 FROM staff WHERE id = ?').get(id)) throw conflict('DUPLICATE', 'Mã tài khoản đã tồn tại');
       db.prepare(`INSERT INTO staff(id,store_id,name,role,email,pin_hash,pw_hash,created_at) VALUES(?,?,?,?,?,?,?,?)`)
-        .run(id, storeId, b.name.trim(), role, b.email || null, hashSecret(b.pin), isAdminRole ? hashSecret(b.password) : null, nowIso());
+        .run(id, storeId, b.name.trim(), role, b.email || null, b.pin ? hashSecret(b.pin) : null, isAdminRole ? hashSecret(b.password) : null, nowIso());
       audit(db, { storeId, actorType: 'admin', actorId: req.user.id, action: 'user.created', entity: 'user', entityId: id, data: { role } });
       return { user: userView(db.prepare('SELECT * FROM staff WHERE id = ?').get(id)) };
     });
@@ -387,9 +389,10 @@ export default async function adminRoutes(app) {
       if (req.query.date) { where.push(`${sqlLocalDate('created_at')} = ?`); args.push(String(req.query.date)); }
       if (req.query.status) { where.push('status = ?'); args.push(String(req.query.status)); }
       if (req.query.exit) { where.push('exit_status = ?'); args.push(String(req.query.exit)); }
-      const rows = db.prepare(`SELECT * FROM transactions WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 200`).all(...args);
       const q = normCode(req.query.q);
-      return { transactions: rows.filter((t) => !q || normCode(t.id + t.transfer_content).includes(q)).map((t) => txView(ctx, t)) };
+      if (q) { where.push(`REPLACE(REPLACE(UPPER(id || cart_code || transfer_content), '-', ''), ' ', '') LIKE ?`); args.push(`%${q}%`); }
+      const rows = db.prepare(`SELECT * FROM transactions WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 200`).all(...args);
+      return { transactions: rows.map((t) => txView(ctx, t)) };
     });
     s.get('/transactions/:id', async (req) => {
       const tx = txScoped(req);

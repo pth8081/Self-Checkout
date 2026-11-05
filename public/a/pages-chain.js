@@ -1,0 +1,371 @@
+// Các trang quản trị: tổng quan, chi nhánh, tích hợp, báo cáo, tài khoản, nhật ký.
+import { html, useState, useEffect, useMemo, useAsync, fmt, go, toast, Sheet, Switch, Field, Spinner, QR, copyText, saveBlob, todayStr } from '/shared/lib.js';
+import { api, ROLE_VI, STAFF_ROLES, BIN_NOTE, PageHead, Tile, Async, BarChart, StoreBar, useBusy, useDebounced, dm, addDays, actionLabel, ACTOR_VI, auditDetail, Icon, Pill, Banner, Empty, Confirm, ErrorBox } from '/a/common.js';
+
+// ============================== A01 Tổng quan chuỗi ==============================
+export function Overview({ setStoreId }) {
+  const st = useAsync(() => api.get('/overview'), []);
+  return html`<div class="stack-lg">
+    <${PageHead} title="Tổng quan chuỗi" sub=${st.data ? `Hôm nay, ${fmt.dateFull(st.data.date)}` : ' '}>
+      <button class="btn sm line" onClick=${st.reload} disabled=${st.loading}><${Icon} name="refresh" size=${18}/>Làm mới</button><//>
+    <${Async} state=${st}>${(d) => {
+      const al = d.alerts, warns = [];
+      for (const s of al.stalePos) warns.push(html`<${Banner} key=${s.id} title=${`Dữ liệu POS của ${s.name} đang chậm`}>Lần đồng bộ cuối cách đây ${s.lag} phút (ngưỡng cảnh báo ${s.limit} phút).<//>`);
+      if (al.pendingInvoices > 0) warns.push(html`<${Banner} key="inv" icon="receipt" title=${`${al.pendingInvoices} hoá đơn điện tử đang treo`}>Vào mục Tích hợp để thử xuất lại.<//>`);
+      if (al.held > 0) warns.push(html`<${Banner} key="held" tone="err" title=${`${al.held} ca đang chờ quản lý xử lý`}>Khách đang chờ ở cổng. Mở chi nhánh để cho qua hoặc từ chối.<//>`);
+      return html`
+      <div class="tiles">
+        <${Tile} k="Giao dịch hôm nay" v=${fmt.num(d.tiles.transactions)}/>
+        <${Tile} k="Doanh thu hôm nay" v=${fmt.money(d.tiles.revenue)}/>
+        <${Tile} k="Tỷ lệ chênh lệch" v=${fmt.pct(d.tiles.mismatchRate)}/>
+        <${Tile} k="Chi nhánh đang bật" v=${`${d.tiles.enabledStores}/${d.tiles.totalStores}`}/>
+      </div>
+      ${warns.length > 0 && html`<div class="stack">${warns}</div>`}
+      <div class="card"><h2>Doanh thu 7 ngày</h2>
+        <${BarChart} data=${d.revenue7.map((x) => ({ label: dm(x.date), value: x.revenue, hl: x.date === d.date }))} title="Doanh thu 7 ngày gần nhất"/></div>
+      <div class="card"><h2>Chi nhánh</h2>
+        <div class="tblwrap"><table class="tbl"><thead><tr><th>Chi nhánh</th><th>Trạng thái</th><th class="r">Giao dịch</th><th class="r">Doanh thu</th><th class="r">Tỷ lệ lệch</th><th>Độ trễ POS</th></tr></thead>
+          <tbody>${d.stores.map((s) => html`<tr class="click" key=${s.id} tabindex="0" onClick=${() => { setStoreId(s.id); go('/today'); }} onKeyDown=${(e) => e.key === 'Enter' && (setStoreId(s.id), go('/today'))}>
+            <td><b>${s.name}</b><div class="sub">${s.id}</div></td>
+            <td>${s.enabled ? html`<${Pill} tone="ok">Đang bật<//>` : html`<${Pill}>Đang tắt<//>`}</td>
+            <td class="r">${fmt.num(s.tx)}</td><td class="r">${fmt.money(s.revenue)}</td>
+            <td class="r">${s.mismatchRate == null ? '–' : fmt.pct(s.mismatchRate)}</td>
+            <td>${s.posLagMinutes == null ? html`<${Pill}>Chưa đồng bộ<//>` : s.posStale ? html`<${Pill} tone="warn">Chậm ${s.posLagMinutes} phút<//>` : html`<span>${s.posLagMinutes} phút</span>`}</td></tr>`)}</tbody></table></div>
+        <div class="hint">Bấm vào một dòng để xem chi tiết chi nhánh đó.</div></div>`;
+    }}<//></div>`;
+}
+
+// ============================== A02 Chi nhánh & tính năng ==============================
+function GateQr({ s, onClose }) {
+  const url = `${location.origin}/c/?s=${s.id}`;
+  return html`<${Sheet} center onClose=${onClose}>
+    <h2>Mã QR dán ở cổng vào</h2>
+    <p class="muted">Khách quét mã này bằng camera điện thoại để mở Scan & Go đúng chi nhánh <b>${s.name}</b>.</p>
+    <div class="qrbox qrbig"><${QR} text=${url} label=${`Mã QR vào chi nhánh ${s.name}`}/><div class="code">${s.id}</div></div>
+    <div class="field"><label>Đường dẫn</label><input class="input" readonly value=${url} onFocus=${(e) => e.target.select()} aria-label="Đường dẫn chi nhánh"/></div>
+    <div class="grid2"><button class="btn line" onClick=${() => copyText(url)}><${Icon} name="copy"/>Sao chép link</button><button class="btn primary" onClick=${() => window.print()}><${Icon} name="doc"/>In</button></div>
+    <button class="btn txt" onClick=${onClose}>Đóng</button>
+    <div class="print-only"><h1>${s.name}</h1><${QR} text=${url} label="Mã QR"/><p>Quét mã để mua sắm tự phục vụ · ${s.id}</p></div>
+  <//>`;
+}
+
+function AddStore({ onClose, onDone }) {
+  const [f, setF] = useState({ id: '', name: '', address: '' });
+  const [busy, run] = useBusy();
+  const [err, setErr] = useState('');
+  const set = (k) => (e) => setF({ ...f, [k]: k === 'id' ? e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') : e.target.value });
+  const submit = async (e) => {
+    e.preventDefault(); setErr('');
+    if (!f.id) return setErr('Nhập mã chi nhánh (1–6 chữ hoặc số)');
+    if (!f.name.trim()) return setErr('Nhập tên chi nhánh');
+    const r = await run(async () => { try { return await api.post('/stores', f); } catch (x) { setErr(x.message); throw x; } }, 'Đã thêm chi nhánh');
+    if (r) { onDone(); onClose(); }
+  };
+  return html`<${Sheet} center onClose=${onClose}><form class="stack" onSubmit=${submit}>
+    <h2>Thêm chi nhánh</h2>
+    <${Field} label="Mã chi nhánh" hint="1–6 chữ hoa hoặc số, dùng trong đường dẫn và mã giỏ hàng"><input class="input" maxlength="6" value=${f.id} onInput=${set('id')} autofocus aria-label="Mã chi nhánh"/><//>
+    <${Field} label="Tên chi nhánh"><input class="input" value=${f.name} onInput=${set('name')} aria-label="Tên chi nhánh"/><//>
+    <${Field} label="Địa chỉ"><input class="input" value=${f.address} onInput=${set('address')} aria-label="Địa chỉ"/><//>
+    ${err && html`<div class="errtext" role="alert">${err}</div>`}
+    <p class="hint">Chi nhánh mới ở trạng thái tắt. Hãy nhập thông tin thanh toán, đồng bộ POS rồi mới bật.</p>
+    <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : 'Thêm chi nhánh'}</button>
+    <button class="btn txt" type="button" onClick=${onClose}>Huỷ</button></form><//>`;
+}
+
+export function Stores({ reloadStores }) {
+  const st = useAsync(() => api.get('/stores'), []);
+  const [busyKey, setBusyKey] = useState('');
+  const [msg, setMsg] = useState('');
+  const [qr, setQr] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const toggle = async (key, path, body) => {
+    if (busyKey) return;
+    setBusyKey(key); setMsg('');
+    try { await api.put(path, body); toast('Đã lưu', 'ok'); await st.reload(); reloadStores(); }
+    catch (e) { setMsg(e.message); toast(e.message, 'err'); }
+    finally { setBusyKey(''); }
+  };
+  return html`<div class="stack-lg">
+    <${PageHead} title="Chi nhánh & tính năng" sub="Bật hoặc tắt Self Checkout và từng cách thanh toán cho từng chi nhánh. Thay đổi có hiệu lực ngay.">
+      <button class="btn sm primary" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${18}/>Thêm chi nhánh</button><//>
+    ${msg && html`<${Banner} tone="err" title="Chưa lưu được"><span role="alert">${msg}</span><//>`}
+    <${Async} state=${st}>${(d) => html`<div class="card"><div class="tblwrap"><table class="tbl">
+      <thead><tr><th>Chi nhánh</th><th class="tc">Self Checkout</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Online</th><th></th></tr></thead>
+      <tbody>${d.stores.map((s) => {
+        const sw = (key, checked, path, body, label) => html`<${Switch} checked=${checked} disabled=${!!busyKey} label=${`${label} ${s.name}`} onChange=${(v) => toggle(`${s.id}${key}`, path, body(v))}/>`;
+        return html`<tr key=${s.id}><td><b>${s.name}</b><div class="sub">${s.id} · ${s.address || 'Chưa có địa chỉ'}</div></td>
+          <td class="tc">${sw('e', s.enabled, `/stores/${s.id}`, (v) => ({ enabled: v }), 'Bật Self Checkout')}</td>
+          <td class="tc">${sw('c', s.config.payCash, `/stores/${s.id}/config`, (v) => ({ payCash: v }), 'Tiền mặt')}</td>
+          <td class="tc">${sw('q', s.config.payQr, `/stores/${s.id}/config`, (v) => ({ payQr: v }), 'Chuyển khoản QR')}</td>
+          <td class="tc"><span class="soon"><${Switch} checked=${false} disabled=${true} label=${`Thanh toán online ${s.name}`} onChange=${() => {}}/>Sắp có</span></td>
+          <td><button class="btn sm line" onClick=${() => setQr(s)}><${Icon} name="qr" size=${18}/>Mã QR dán cổng vào</button></td></tr>`;
+      })}</tbody></table></div>
+      <div class="hint">Chi nhánh chỉ bật được khi có ít nhất một cách thanh toán dùng được và đã có dữ liệu sản phẩm từ POS.</div></div>`}<//>
+    ${qr && html`<${GateQr} s=${qr} onClose=${() => setQr(null)}/>`}
+    ${adding && html`<${AddStore} onClose=${() => setAdding(false)} onDone=${() => { st.reload(); reloadStores(); }}/>`}
+  </div>`;
+}
+
+// ============================== A03 Tích hợp ==============================
+function PosCard({ d, reload }) {
+  const [busy, run] = useBusy();
+  const [vals, setVals] = useState({});
+  const sync = (id) => run(async () => { const r = await api.post('/integrations/pos/sync', id ? { storeId: id } : {}); await reload(); return r; }, id ? 'Đã đồng bộ POS' : 'Đã đồng bộ tất cả chi nhánh');
+  const saveLimit = (s) => run(async () => { await api.put(`/stores/${s.id}/config`, { posStaleMinutes: Number(vals[s.id]) }); await reload(); }, 'Đã lưu ngưỡng cảnh báo');
+  return html`<div class="card">
+    <div class="cardhead"><div class="ico-tile"><${Icon} name="barcode"/></div><div class="grow"><h2>POS (giá & tồn kho)</h2>
+      <div class="small muted">Bộ nối: ${d.pos.adapter === 'mock' ? 'POS giả lập' : d.pos.adapter}</div></div>
+      <${Pill} tone="ok"><span class="dot"></span>Đã kết nối<//>
+      <button class="btn sm primary" disabled=${busy} onClick=${() => sync(null)}><${Icon} name="refresh" size=${18}/>Đồng bộ tất cả</button></div>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>Chi nhánh</th><th>Đồng bộ gần nhất</th><th>Độ trễ</th><th>Ngưỡng cảnh báo (phút)</th><th class="r">Mã vạch không khớp (24 giờ)</th><th></th></tr></thead>
+      <tbody>${d.pos.stores.map((s) => {
+        const v = vals[s.id] ?? s.staleLimit;
+        return html`<tr key=${s.id}><td><b>${s.name}</b></td><td>${s.lastSync ? fmt.when(s.lastSync) : 'Chưa đồng bộ'}</td>
+          <td>${s.lagMinutes == null ? '–' : s.stale ? html`<${Pill} tone="warn">Chậm ${s.lagMinutes} phút<//>` : `${s.lagMinutes} phút`}</td>
+          <td><div class="row"><input class="input sm num-in" type="number" min="1" max="1440" value=${v} aria-label=${`Ngưỡng cảnh báo ${s.name}`} onInput=${(e) => setVals({ ...vals, [s.id]: e.target.value })}/>
+            <button class="btn sm line" disabled=${busy || Number(v) === s.staleLimit} onClick=${() => saveLimit(s)}>Lưu</button></div></td>
+          <td class="r">${s.unknownBarcodes}</td>
+          <td><button class="btn sm soft" disabled=${busy} onClick=${() => sync(s.id)} aria-label=${`Đồng bộ ngay ${s.name}`}>Đồng bộ ngay</button></td></tr>`;
+      })}</tbody></table></div></div>`;
+}
+
+function TransferCard({ stores }) {
+  const [id, setId] = useState(stores[0]?.id || '');
+  const st = useAsync(() => api.get('/stores'), []);
+  const s = st.data?.stores.find((x) => x.id === id);
+  const [f, setF] = useState(null);
+  const [busy, run] = useBusy();
+  const [err, setErr] = useState('');
+  useEffect(() => { if (s) setF({ bin: s.config.bank.bin || '', name: s.config.bank.name || '', account: s.config.bank.account || '', holder: s.config.bank.holder || '' }); setErr(''); }, [id, st.data]);
+  const set = (k, digits) => (e) => setF({ ...f, [k]: digits ? e.target.value.replace(/\D/g, '') : e.target.value });
+  const save = async (e) => {
+    e.preventDefault(); setErr('');
+    if (f.bin && !/^\d{6}$/.test(f.bin)) return setErr('Mã ngân hàng (BIN) gồm đúng 6 chữ số');
+    if (f.account && !/^\d{4,19}$/.test(f.account)) return setErr('Số tài khoản gồm 4–19 chữ số');
+    const r = await run(async () => { try { await api.put(`/stores/${id}/config`, { bank: f }); } catch (x) { setErr(x.message); throw x; } await st.reload(); }, 'Đã lưu thông tin ngân hàng');
+    return r;
+  };
+  return html`<div class="card">
+    <div class="cardhead"><div class="ico-tile green"><${Icon} name="qr"/></div><div class="grow"><h2>Chuyển khoản QR</h2><div class="small muted">Tài khoản nhận tiền hiển thị cho khách và nhân viên đối chiếu</div></div></div>
+    <div class="stack">
+      <div class="label">Cách tạo QR chuyển khoản</div>
+      <div class="option on" role="radio" aria-checked="true"><${Icon} name="qr"/><div class="grow"><div class="b">App tự tạo</div><div class="small muted">Dựng mã VietQR từ tài khoản bên dưới. Đang sử dụng.</div></div><span class="radio"></span></div>
+      <div class="option off" role="radio" aria-checked="false" aria-disabled="true"><${Icon} name="link"/><div class="grow"><div class="b">Lấy từ nhà cung cấp</div><div class="small muted">Chưa cấu hình nhà cung cấp nên chưa chọn được.</div></div><span class="radio"></span></div>
+    </div>
+    <hr class="divider"/>
+    <div class="toolbar"><div class="field grow"><label for="tf-store">Chi nhánh</label><select id="tf-store" class="input" value=${id} onChange=${(e) => setId(e.target.value)}>${stores.map((x) => html`<option value=${x.id} key=${x.id}>${x.name}</option>`)}</select></div></div>
+    ${!f ? html`<${Spinner}/>` : html`<form class="stack" onSubmit=${save}><div class="formgrid c2">
+      <${Field} label="Mã ngân hàng (BIN, 6 số)" hint=${BIN_NOTE}><input class="input" inputmode="numeric" maxlength="6" value=${f.bin} onInput=${set('bin', true)} aria-label="Mã ngân hàng BIN"/><//>
+      <${Field} label="Tên ngân hàng"><input class="input" value=${f.name} onInput=${set('name')} aria-label="Tên ngân hàng"/><//>
+      <${Field} label="Số tài khoản"><input class="input" inputmode="numeric" maxlength="19" value=${f.account} onInput=${set('account', true)} aria-label="Số tài khoản"/><//>
+      <${Field} label="Chủ tài khoản" hint="Viết hoa, không dấu như trên ngân hàng"><input class="input" value=${f.holder} onInput=${set('holder')} aria-label="Chủ tài khoản"/><//></div>
+      ${err && html`<div class="errtext" role="alert">${err}</div>`}
+      <div class="row"><button class="btn primary auto" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : 'Lưu thông tin ngân hàng'}</button></div>
+      <div class="hint">Khách sẽ thấy: ${f.name || 'Ngân hàng'} · ${f.account || 'số tài khoản'} · ${f.holder || 'chủ tài khoản'}. Mã QR được dựng theo từng giỏ hàng khi khách chọn chuyển khoản.</div></form>`}
+  </div>`;
+}
+
+function InvoiceCard({ d, reload }) {
+  const [busy, run] = useBusy();
+  const retry = () => run(async () => { const r = await api.post('/integrations/invoices/retry'); await reload(); toast(r.tried ? `Đã thử ${r.tried} hoá đơn, xuất được ${r.issued}` : 'Không có hoá đơn nào đang treo', 'ok'); }, null);
+  return html`<div class="card">
+    <div class="cardhead"><div class="ico-tile"><${Icon} name="receipt"/></div><div class="grow"><h2>Hoá đơn điện tử</h2><div class="small muted">Nhà cung cấp: ${d.einvoice.provider === 'mock' ? 'Giả lập (chưa nối nhà cung cấp thật)' : d.einvoice.provider}</div></div>
+      ${d.einvoice.configured ? html`<${Pill} tone="ok">Đã cấu hình<//>` : html`<${Pill} tone="warn">Bản giả lập<//>`}</div>
+    <div class="grid2"><${Tile} k="Đã xuất" v=${fmt.num(d.einvoice.issued)}/><${Tile} k="Đang treo" v=${fmt.num(d.einvoice.pending)} tone=${d.einvoice.pending ? 'warn' : ''}/></div>
+    <div class="row"><button class="btn line auto" disabled=${busy || !d.einvoice.pending} onClick=${retry}>${busy ? html`<${Spinner} sm/>` : html`<${Icon} name="refresh" size=${18}/>Thử lại hoá đơn treo`}</button></div>
+  </div>`;
+}
+
+function DevTools({ stores }) {
+  const [id, setId] = useState(stores[0]?.id || '');
+  const st = useAsync(() => api.get(`/dev/pos-products?storeId=${id}`), [id]);
+  const [sku, setSku] = useState('');
+  const [f, setF] = useState({ price: '', stock: '', active: true });
+  const [busy, run] = useBusy();
+  const list = st.data?.products || [];
+  useEffect(() => { if (list.length && !list.find((p) => p.sku === sku)) setSku(list[0].sku); }, [st.data]);
+  const cur = list.find((p) => p.sku === sku);
+  useEffect(() => { if (cur) setF({ price: String(cur.price), stock: String(cur.stock), active: !!cur.active }); }, [sku, st.data]);
+  if (st.error && !st.data && ['DEV_ONLY', 'FORBIDDEN'].includes(st.error.code || '') || st.error?.status === 403) return null;
+  const apply = () => run(async () => { await api.post('/dev/pos-product', { storeId: id, sku, price: Number(f.price), stock: Number(f.stock), active: f.active, sync: true }); await st.reload(); }, 'POS giả lập đã đổi và đồng bộ xong');
+  return html`<div class="card"><div class="cardhead"><div class="ico-tile warn"><${Icon} name="settings"/></div><div class="grow"><h2>Công cụ thử nghiệm</h2><div class="small muted">Chỉ có ở môi trường thử: giả lập POS đổi giá, tồn kho, ngừng bán rồi đồng bộ ngay.</div></div></div>
+    <div class="formgrid c2">
+      <${Field} label="Chi nhánh"><select class="input" value=${id} onChange=${(e) => setId(e.target.value)} aria-label="Chi nhánh thử nghiệm">${stores.map((x) => html`<option value=${x.id} key=${x.id}>${x.name}</option>`)}</select><//>
+      <${Field} label="Sản phẩm"><select class="input" value=${sku} onChange=${(e) => setSku(e.target.value)} aria-label="Sản phẩm thử nghiệm">${list.map((p) => html`<option value=${p.sku} key=${p.sku}>${p.name}${p.active ? '' : ' (ngừng bán)'}</option>`)}</select><//>
+      <${Field} label="Giá (₫)"><input class="input" type="number" min="0" value=${f.price} onInput=${(e) => setF({ ...f, price: e.target.value })} aria-label="Giá"/><//>
+      <${Field} label="Tồn kho"><input class="input" type="number" min="0" value=${f.stock} onInput=${(e) => setF({ ...f, stock: e.target.value })} aria-label="Tồn kho"/><//></div>
+    <div class="row"><${Switch} checked=${f.active} onChange=${(v) => setF({ ...f, active: v })} label="Đang bán"/><span>${f.active ? 'Đang bán' : 'Ngừng bán'}</span><button class="btn primary auto end" disabled=${busy || !cur} onClick=${apply}>${busy ? html`<${Spinner} sm/>` : 'Áp dụng & đồng bộ'}</button></div>
+    ${cur && html`<div class="hint">Mã vạch ${cur.barcode} · mã hàng ${cur.sku}</div>`}</div>`;
+}
+
+export function Integrations({ stores }) {
+  const st = useAsync(() => api.get('/integrations'), []);
+  return html`<div class="stack-lg"><${PageHead} title="Tích hợp" sub="Giám sát và cấu hình POS, chuyển khoản QR và hoá đơn điện tử."/>
+    <${Async} state=${st}>${(d) => html`
+      <${Banner} tone="info" icon="info" title="Đang chạy bản giả lập">${d.note}<//>
+      <${PosCard} d=${d} reload=${st.reload}/>
+      <div class="two"><${TransferCard} stores=${stores}/><${InvoiceCard} d=${d} reload=${st.reload}/></div>
+      <${DevTools} stores=${stores}/>`}<//></div>`;
+}
+
+// ============================== A04 Báo cáo ==============================
+export function Reports({ me, stores }) {
+  const chain = me.role === 'chain_admin';
+  const [to, setTo] = useState(todayStr());
+  const [from, setFrom] = useState(addDays(todayStr(), -6));
+  const [sid, setSid] = useState('all');
+  const st = useAsync(() => api.get(`/reports?from=${from}&to=${to}${chain ? `&storeId=${sid}` : ''}`), [from, to, sid]);
+  const [busy, run] = useBusy();
+  const quick = (n) => { setTo(todayStr()); setFrom(addDays(todayStr(), -(n - 1))); };
+  const exp = () => run(async () => { const b = await api.download(`/reports.csv?from=${from}&to=${to}${chain ? `&storeId=${sid}` : ''}`); saveBlob(b, `bao-cao-${from}-${to}.csv`); }, 'Đã tải file báo cáo');
+  const days = Math.round((new Date(to) - new Date(from)) / 86400_000) + 1;
+  return html`<div class="stack-lg"><${PageHead} title="Báo cáo" sub=${chain ? 'Tổng hợp theo ngày, toàn chuỗi hoặc từng chi nhánh' : 'Tổng hợp theo ngày của chi nhánh'}>
+      <button class="btn sm primary" disabled=${busy || !st.data} onClick=${exp}><${Icon} name="download" size=${18}/>Xuất Excel</button><//>
+    <div class="card tight"><div class="toolbar">
+      <div class="field"><label for="r-from">Từ ngày</label><input id="r-from" class="input" type="date" value=${from} max=${to} onChange=${(e) => e.target.value && setFrom(e.target.value)}/></div>
+      <div class="field"><label for="r-to">Đến ngày</label><input id="r-to" class="input" type="date" value=${to} min=${from} onChange=${(e) => e.target.value && setTo(e.target.value)}/></div>
+      <div class="chips"><button class=${`chip ${days === 7 && to === todayStr() ? 'on' : ''}`} onClick=${() => quick(7)}>7 ngày</button><button class=${`chip ${days === 30 && to === todayStr() ? 'on' : ''}`} onClick=${() => quick(30)}>30 ngày</button></div>
+      ${chain && html`<div class="field"><label for="r-store">Chi nhánh</label><select id="r-store" class="input" value=${sid} onChange=${(e) => setSid(e.target.value)}><option value="all">Toàn chuỗi</option>${stores.map((s) => html`<option value=${s.id} key=${s.id}>${s.name}</option>`)}</select></div>`}
+    </div></div>
+    <${Async} state=${st}>${(d) => html`
+      <div class="tiles"><${Tile} k="Giao dịch" v=${fmt.num(d.totals.tx)}/><${Tile} k="Doanh thu" v=${fmt.money(d.totals.revenue)}/><${Tile} k="Lượt kiểm tra" v=${fmt.num(d.totals.checks)}/><${Tile} k="Chênh lệch" v=${fmt.num(d.totals.mismatches)}/><${Tile} k="Tỷ lệ chênh lệch" v=${fmt.pct(d.totals.mismatchRate)}/></div>
+      <div class="card"><h2>Doanh thu theo ngày</h2><${BarChart} data=${d.rows.map((r) => ({ label: dm(r.date), value: r.revenue, hl: r.date === todayStr() }))}/></div>
+      <div class="card"><h2>Chi tiết theo ngày</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Ngày</th><th class="r">Giao dịch</th><th class="r">Doanh thu</th><th class="r">Tiền mặt</th><th class="r">Chuyển khoản</th><th class="r">Lượt kiểm tra</th><th class="r">Chênh lệch</th></tr></thead>
+        <tbody>${d.rows.map((r) => html`<tr key=${r.date}><td>${fmt.dateFull(`${r.date}T12:00:00Z`)}</td><td class="r">${fmt.num(r.tx)}</td><td class="r">${fmt.money(r.revenue)}</td><td class="r">${fmt.money(r.cash)}</td><td class="r">${fmt.money(r.transfer)}</td><td class="r">${fmt.num(r.checks)}</td><td class="r">${fmt.num(r.mismatches)}</td></tr>`)}</tbody>
+        <tfoot><tr><td>Tổng</td><td class="r">${fmt.num(d.totals.tx)}</td><td class="r">${fmt.money(d.totals.revenue)}</td><td class="r">${fmt.money(d.totals.cash)}</td><td class="r">${fmt.money(d.totals.transfer)}</td><td class="r">${fmt.num(d.totals.checks)}</td><td class="r">${fmt.num(d.totals.mismatches)}</td></tr></tfoot></table></div>
+        <div class="hint">Tỷ lệ chênh lệch = số lần chênh lệch / số giao dịch trong kỳ: ${fmt.pct(d.totals.mismatchRate)}.</div></div>`}<//></div>`;
+}
+
+// ============================== A05 Tài khoản & phân quyền ==============================
+const strongPw = (p) => p.length >= 8 && /[A-Za-z]/.test(p) && /\d/.test(p);
+
+function AddUser({ me, stores, onClose, onDone }) {
+  const chain = me.role === 'chain_admin';
+  const roles = chain ? ['cashier', 'gate', 'cashier_gate', 'branch_admin', 'chain_admin'] : STAFF_ROLES;
+  const [f, setF] = useState({ role: 'cashier', name: '', email: '', storeId: me.storeId || stores[0]?.id || '', pin: '', password: '' });
+  const [err, setErr] = useState('');
+  const [busy, run] = useBusy();
+  const set = (k, digits) => (e) => setF({ ...f, [k]: digits ? e.target.value.replace(/\D/g, '') : e.target.value });
+  const isAdm = f.role === 'chain_admin' || f.role === 'branch_admin';
+  const submit = async (e) => {
+    e.preventDefault(); setErr('');
+    if (!f.name.trim()) return setErr('Nhập họ tên');
+    if (!/^\d{4,6}$/.test(f.pin)) return setErr('PIN gồm 4–6 chữ số');
+    if (isAdm && !strongPw(f.password)) return setErr('Mật khẩu tối thiểu 8 ký tự, có cả chữ và số');
+    const body = { role: f.role, name: f.name, pin: f.pin, email: f.email || undefined, storeId: f.role === 'chain_admin' ? undefined : f.storeId };
+    if (isAdm) body.password = f.password;
+    const r = await run(async () => { try { return await api.post('/users', body); } catch (x) { setErr(x.message); throw x; } }, null);
+    if (r) { toast(`Đã tạo tài khoản ${r.user.id}`, 'ok'); onDone(); onClose(); }
+  };
+  return html`<${Sheet} center onClose=${onClose}><form class="stack" onSubmit=${submit}>
+    <h2>Thêm tài khoản</h2>
+    <${Field} label="Vai trò"><select class="input" value=${f.role} onChange=${set('role')} aria-label="Vai trò">${roles.map((r) => html`<option value=${r} key=${r}>${ROLE_VI[r]}</option>`)}</select><//>
+    <${Field} label="Họ tên"><input class="input" value=${f.name} onInput=${set('name')} aria-label="Họ tên" autofocus/><//>
+    ${f.role !== 'chain_admin' && chain && html`<${Field} label="Chi nhánh"><select class="input" value=${f.storeId} onChange=${set('storeId')} aria-label="Chi nhánh">${stores.map((s) => html`<option value=${s.id} key=${s.id}>${s.name}</option>`)}</select><//>`}
+    ${isAdm && html`<${Field} label="Email (dùng để đăng nhập quản trị)"><input class="input" type="email" value=${f.email} onInput=${set('email')} aria-label="Email"/><//>`}
+    <${Field} label="Mã PIN (4–6 số)" hint=${isAdm ? 'PIN dùng cho ứng dụng nhân viên' : 'Nhân viên dùng PIN để đăng nhập ứng dụng thu ngân và cổng'}><input class="input" inputmode="numeric" type="password" autocomplete="new-password" maxlength="6" value=${f.pin} onInput=${set('pin', true)} aria-label="Mã PIN"/><//>
+    ${isAdm && html`<${Field} label="Mật khẩu (tối thiểu 8 ký tự, có chữ và số)"><input class="input" type="password" autocomplete="new-password" value=${f.password} onInput=${set('password')} aria-label="Mật khẩu"/><//>`}
+    <div class="hint">Mã tài khoản được tạo tự động (${isAdm ? 'QT' : 'NV'}xxxx).</div>
+    ${err && html`<div class="errtext" role="alert">${err}</div>`}
+    <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : 'Tạo tài khoản'}</button>
+    <button class="btn txt" type="button" onClick=${onClose}>Huỷ</button></form><//>`;
+}
+
+function ManageUser({ me, u, storeName, onClose, onDone, onMe }) {
+  const [busy, run] = useBusy();
+  const [mode, setMode] = useState(''); // '', pin, pw, lock, totp-off
+  const [val, setVal] = useState('');
+  const [err, setErr] = useState('');
+  const [secret, setSecret] = useState(null);
+  const self = u.id === me.id;
+  const isAdm = u.role === 'chain_admin' || u.role === 'branch_admin';
+  const chain = me.role === 'chain_admin';
+  const done = async () => { await onDone(); };
+  const doLock = async () => { const r = await run(async () => { await api.put(`/users/${u.id}`, { active: !u.active }); await done(); }, u.active ? 'Đã khoá tài khoản' : 'Đã mở khoá tài khoản'); if (r) onClose(); };
+  const doPin = async (e) => { e.preventDefault(); setErr(''); if (!/^\d{4,6}$/.test(val)) return setErr('PIN gồm 4–6 chữ số');
+    const r = await run(async () => { try { await api.post(`/users/${u.id}/reset-pin`, { pin: val }); } catch (x) { setErr(x.message); throw x; } }, 'Đã đặt lại PIN'); if (r) onClose(); };
+  const doPw = async (e) => { e.preventDefault(); setErr(''); if (!strongPw(val)) return setErr('Mật khẩu tối thiểu 8 ký tự, có cả chữ và số');
+    const r = await run(async () => { try { await api.post(`/users/${u.id}/reset-password`, { password: val }); } catch (x) { setErr(x.message); throw x; } }, 'Đã đặt lại mật khẩu'); if (r) onClose(); };
+  const totpOn = async () => { const r = await run(async () => { const x = await api.post(`/users/${u.id}/totp`, { enable: true }); await done(); if (self) onMe({ ...me, hasTotp: true }); return x; }); if (r && r !== true) setSecret(r); };
+  const totpOff = async () => { const r = await run(async () => { await api.post(`/users/${u.id}/totp`, { enable: false }); await done(); if (self) onMe({ ...me, hasTotp: false }); }, 'Đã tắt xác thực 2 bước'); if (r) { setMode(''); onClose(); } };
+  useEffect(() => { if (u.auto && !u.hasTotp) totpOn(); }, []);
+  if (secret) return html`<${Totp} secret=${secret} onClose=${onClose}/>`;
+  return html`<${Sheet} center onClose=${onClose}><div class="stack">
+    <div class="row"><div class="avatar">${u.name.slice(0, 1).toUpperCase()}</div><div class="grow"><h2>${u.name}</h2><div class="small muted">${u.id} · ${ROLE_VI[u.role]}${storeName ? ` · ${storeName}` : ''}</div></div></div>
+    ${mode === '' && html`<div class="stack">
+      ${!self && html`<button class="btn line" onClick=${() => setMode('lock')}><${Icon} name="lock"/>${u.active ? 'Khoá tài khoản' : 'Mở khoá tài khoản'}</button>`}
+      <button class="btn line" onClick=${() => { setMode('pin'); setVal(''); setErr(''); }}><${Icon} name="kbd"/>Đặt lại mã PIN</button>
+      ${chain && isAdm && html`<button class="btn line" onClick=${() => { setMode('pw'); setVal(''); setErr(''); }}><${Icon} name="lock"/>Đặt lại mật khẩu</button>`}
+      ${isAdm && (self || chain) && html`<button class="btn line" onClick=${() => (u.hasTotp ? setMode('totp-off') : totpOn())}><${Icon} name="shield"/>${u.hasTotp ? 'Tắt xác thực 2 bước' : 'Bật xác thực 2 bước'}</button>`}
+      <button class="btn txt" onClick=${onClose}>Đóng</button></div>`}
+    ${mode === 'lock' && html`<div class="stack"><p class="muted">${u.active ? `${u.name} sẽ không đăng nhập được cho đến khi mở khoá.` : `${u.name} sẽ đăng nhập lại được.`}</p>
+      <button class=${`btn ${u.active ? 'danger' : 'primary'}`} disabled=${busy} onClick=${doLock}>${u.active ? 'Khoá tài khoản' : 'Mở khoá'}</button><button class="btn txt" onClick=${() => setMode('')}>Quay lại</button></div>`}
+    ${mode === 'pin' && html`<form class="stack" onSubmit=${doPin}><${Field} label="Mã PIN mới (4–6 số)" error=${err}><input class="input" inputmode="numeric" type="password" autocomplete="new-password" maxlength="6" value=${val} onInput=${(e) => setVal(e.target.value.replace(/\D/g, ''))} aria-label="Mã PIN mới" autofocus/><//>
+      <button class="btn primary" type="submit" disabled=${busy}>Đặt lại PIN</button><button class="btn txt" type="button" onClick=${() => setMode('')}>Quay lại</button></form>`}
+    ${mode === 'pw' && html`<form class="stack" onSubmit=${doPw}><${Field} label="Mật khẩu mới" error=${err} hint="Tối thiểu 8 ký tự, có chữ và số"><input class="input" type="password" autocomplete="new-password" value=${val} onInput=${(e) => setVal(e.target.value)} aria-label="Mật khẩu mới" autofocus/><//>
+      <button class="btn primary" type="submit" disabled=${busy}>Đặt lại mật khẩu</button><button class="btn txt" type="button" onClick=${() => setMode('')}>Quay lại</button></form>`}
+    ${mode === 'totp-off' && html`<div class="stack"><p class="muted">Sau khi tắt, ${self ? 'bạn' : u.name} chỉ cần mật khẩu để đăng nhập quản trị. Nên giữ xác thực 2 bước vì tài khoản này xem được doanh thu và tiền thu.</p>
+      <button class="btn danger" disabled=${busy} onClick=${totpOff}>Tắt xác thực 2 bước</button><button class="btn txt" onClick=${() => setMode('')}>Quay lại</button></div>`}
+  </div><//>`;
+}
+
+function Totp({ secret, onClose }) {
+  return html`<${Sheet} center onClose=${onClose}><div class="stack">
+    <h2>Quét mã bằng app xác thực</h2>
+    <${Banner} tone="" title="Mã bí mật chỉ hiện một lần">Hãy quét QR hoặc lưu mã bên dưới ngay. Đóng hộp này là không xem lại được; muốn xem lại phải tạo mã mới.<//>
+    <div class="qrbox qrbig"><${QR} text=${secret.uri} label="Mã QR thiết lập xác thực 2 bước"/></div>
+    <div class="field"><label>Hoặc nhập mã bí mật thủ công</label><div class="secret" id="totp-secret">${secret.secret}</div></div>
+    <button class="btn line" onClick=${() => copyText(secret.secret)}><${Icon} name="copy"/>Sao chép mã bí mật</button>
+    <div class="hint">Lần đăng nhập tới, bạn sẽ nhập thêm mã 6 số từ app (Google Authenticator, Microsoft Authenticator, Authy…).</div>
+    <button class="btn primary" onClick=${onClose}>Tôi đã lưu xong</button></div><//>`;
+}
+
+export function Users({ me, stores, onMe }) {
+  const st = useAsync(() => api.get('/users'), []);
+  const [adding, setAdding] = useState(false);
+  const [sel, setSel] = useState(null);
+  const sname = (id) => stores.find((s) => s.id === id)?.name || (id ? id : 'Toàn chuỗi');
+  const mine = st.data?.users.find((u) => u.id === me.id);
+  return html`<div class="stack-lg"><${PageHead} title="Tài khoản & phân quyền" sub=${me.role === 'chain_admin' ? 'Quản lý quản trị viên và nhân viên của cả chuỗi' : 'Quản lý nhân viên của chi nhánh'}>
+      <button class="btn sm primary" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${18}/>Thêm tài khoản</button><//>
+    <div class="card"><div class="cardhead"><div class="ico-tile green"><${Icon} name="shield"/></div><div class="grow"><h2>Xác thực 2 bước của tôi</h2>
+      <div class="small muted">${me.hasTotp ? 'Đang bật: khi đăng nhập cần thêm mã 6 số từ app xác thực.' : 'Chưa bật. Nên bật vì tài khoản quản trị xem được doanh thu và tiền thu.'}</div></div>
+      <${Pill} tone=${me.hasTotp ? 'ok' : 'warn'}>${me.hasTotp ? 'Đã bật' : 'Chưa bật'}<//>
+      ${mine && html`<button class="btn sm line" onClick=${() => setSel(me.hasTotp ? mine : { ...mine, auto: true })}>${me.hasTotp ? 'Quản lý' : 'Bật xác thực 2 bước'}</button>`}</div></div>
+    <${Async} state=${st}>${(d) => html`
+      <div class="card"><h2>Tài khoản</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Mã</th><th>Họ tên</th><th>Vai trò</th><th>Chi nhánh</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody>${d.users.map((u) => html`<tr key=${u.id} class=${u.active ? '' : 'dim'}><td><b>${u.id}</b></td><td>${u.name}${u.email && html`<div class="sub">${u.email}</div>`}</td><td>${ROLE_VI[u.role] || u.role}</td><td>${sname(u.storeId)}</td>
+          <td>${u.active ? html`<${Pill} tone="ok">Hoạt động<//>` : html`<${Pill} tone="err">Đã khoá<//>`} ${u.hasTotp && html`<${Pill} tone="info">2FA<//>`}</td>
+          <td><button class="btn sm line" onClick=${() => setSel(u)} aria-label=${`Quản lý ${u.name}`}>Quản lý</button></td></tr>`)}</tbody></table></div></div>
+      <div class="card"><h2>Phân quyền theo vai trò</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Chức năng</th><th class="tc">Quản trị chuỗi</th><th class="tc">Quản trị chi nhánh</th><th class="tc">Thu ngân</th><th class="tc">Cổng</th></tr></thead>
+        <tbody>${d.permissions.map((p) => html`<tr key=${p.feature}><td class="wrap">${p.feature}</td>${['chain_admin', 'branch_admin', 'cashier', 'gate'].map((r) => html`<td class="tc" key=${r}>${p[r] ? html`<span class="check" aria-label="Được phép">✓</span>` : html`<span class="dash" aria-label="Không">–</span>`}</td>`)}</tr>`)}</tbody></table></div>
+        <div class="hint">Vai trò "Thu ngân kiêm cổng" có quyền của cả thu ngân và cổng.</div></div>`}<//>
+    ${adding && html`<${AddUser} me=${me} stores=${stores} onClose=${() => setAdding(false)} onDone=${st.reload}/>`}
+    ${sel && html`<${ManageUser} me=${me} u=${sel} storeName=${sel.storeId ? sname(sel.storeId) : ''} onClose=${() => setSel(null)} onDone=${st.reload} onMe=${onMe}/>`}
+  </div>`;
+}
+
+// ============================== Nhật ký ==============================
+export function Audit({ me, stores }) {
+  const chain = me.role === 'chain_admin';
+  const [sid, setSid] = useState('');
+  const [kind, setKind] = useState('');
+  const [q, setQ] = useState('');
+  const dq = useDebounced(q);
+  const st = useAsync(() => api.get(`/audit?limit=200${chain && sid ? `&storeId=${sid}` : ''}`), [sid]);
+  const rows = useMemo(() => {
+    const evs = st.data?.events || [];
+    const n = dq.trim().toLowerCase();
+    return evs.filter((e) => (!kind || e.actorType === kind) && (!n || `${actionLabel(e.action)} ${e.action} ${e.actorId || ''} ${e.entityId || ''}`.toLowerCase().includes(n)));
+  }, [st.data, kind, dq]);
+  return html`<div class="stack-lg"><${PageHead} title="Nhật ký" sub="Các thao tác gần đây, mới nhất ở trên cùng">
+      <button class="btn sm line" onClick=${st.reload} disabled=${st.loading}><${Icon} name="refresh" size=${18}/>Làm mới</button><//>
+    <div class="card tight"><div class="toolbar">
+      ${chain && html`<div class="field"><label for="a-store">Chi nhánh</label><select id="a-store" class="input" value=${sid} onChange=${(e) => setSid(e.target.value)}><option value="">Tất cả</option>${stores.map((s) => html`<option value=${s.id} key=${s.id}>${s.name}</option>`)}</select></div>`}
+      <div class="field"><label for="a-kind">Người thực hiện</label><select id="a-kind" class="input" value=${kind} onChange=${(e) => setKind(e.target.value)}><option value="">Tất cả</option>${Object.entries(ACTOR_VI).map(([k, v]) => html`<option value=${k} key=${k}>${v}</option>`)}</select></div>
+      <div class="field grow"><label for="a-q">Tìm</label><input id="a-q" class="input" placeholder="Hành động, mã nhân viên, mã giao dịch" value=${q} onInput=${(e) => setQ(e.target.value)}/></div></div></div>
+    <${Async} state=${st}>${() => rows.length === 0 ? html`<${Empty} icon="doc" title="Không có sự kiện phù hợp" text="Thử đổi bộ lọc."/>` : html`
+      <div class="card"><div class="tblwrap"><table class="tbl"><thead><tr><th>Thời gian</th><th>Hành động</th><th>Người thực hiện</th><th>Chi nhánh</th><th>Chi tiết</th></tr></thead>
+        <tbody>${rows.map((e) => html`<tr key=${e.id}><td>${fmt.dateTime(e.ts)}</td><td><b>${actionLabel(e.action)}</b>${actionLabel(e.action) === e.action ? '' : html`<div class="sub">${e.action}</div>`}</td>
+          <td>${ACTOR_VI[e.actorType] || e.actorType}${e.actorId ? ` · ${e.actorId}` : ''}</td><td>${e.storeId || '–'}</td><td class="wrap">${e.entityId ? html`<span class="sub">${e.entity} ${e.entityId}</span> ` : ''}${auditDetail(e)}</td></tr>`)}</tbody></table></div></div>`}<//></div>`;
+}

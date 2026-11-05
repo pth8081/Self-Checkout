@@ -282,3 +282,49 @@ test('hoá đơn lỗi thì để pending và thử lại được', async () =>
   assert.equal(r.body.issued, 1);
   await app.close();
 });
+
+test('tra cứu sản phẩm theo mã trước khi thêm vào giỏ', async () => {
+  const app = await makeApp();
+  const ok = await call(app, 'GET', `/api/c/products/lookup?storeId=Q7&barcode=${barcodeOf(app, 'Q7', 'SUA01')}`);
+  assert.equal(ok.body.found, true);
+  assert.equal(ok.body.product.price, 34500);
+  assert.equal(ok.body.product.promo, 'Mua 2 giảm 13.000₫');
+  assert.equal((await call(app, 'GET', '/api/c/products/lookup?storeId=Q7&barcode=8936036123450')).body.invalid, true);
+  assert.equal((await call(app, 'GET', `/api/c/products/lookup?storeId=Q7&barcode=${ean13('893999999999')}`)).body.found, false);
+  await app.close();
+});
+
+test('phục vụ file tĩnh: service worker luôn tải mới, trang ứng dụng mở được', async () => {
+  const app = await makeApp();
+  for (const p of ['/c/', '/s/', '/a/', '/c/sw.js', '/shared/lib.js', '/shared/ui.css', '/c/manifest.webmanifest']) {
+    const r = await app.inject({ method: 'GET', url: p });
+    assert.equal(r.statusCode, 200, `${p} phải trả 200`);
+  }
+  assert.equal((await app.inject({ method: 'GET', url: '/c/sw.js' })).headers['cache-control'], 'no-cache');
+  assert.equal((await app.inject({ method: 'GET', url: '/../server/config.js' })).statusCode, 404);
+  await app.close();
+});
+
+test('quản lý từ chối: giao dịch ở trạng thái denied, cổng báo không cho qua, có thể đổi quyết định', async () => {
+  const app = await makeApp({ rng: () => 0 });
+  const { id } = await newCart(app, [['MI01', 1]]);
+  const tx = (await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash' } })).body.transaction;
+  const staff = await staffLogin(app);
+  await call(app, 'POST', '/api/s/shifts/start', { token: staff, body: { kind: 'sang' } });
+  await call(app, 'POST', `/api/s/carts/${tx.id}/collect`, { token: staff, body: { method: 'cash', cashReceived: 10000 } });
+  const receipt = (await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.transaction.receipt.token;
+  const gate = await staffLogin(app, 'NV0157', '2222');
+  await call(app, 'POST', '/api/s/gate/scan', { token: gate, body: { raw: receipt } });
+  await call(app, 'POST', '/api/s/checks', { token: gate, body: { transactionId: tx.id, result: 'mismatch', action: 'call_manager', kind: 'other', note: 'Khách từ chối' } });
+  const mgr = await staffLogin(app, 'QT0007', '2345');
+  assert.equal((await call(app, 'POST', `/api/s/transactions/${tx.id}/resolve`, { token: mgr, body: { decision: 'deny', note: 'Còn hàng chưa thanh toán' } })).status, 200);
+  assert.equal((await call(app, 'POST', '/api/s/gate/scan', { token: gate, body: { raw: receipt } })).body.outcome, 'denied');
+  const list = await call(app, 'GET', '/api/s/transactions', { token: mgr });
+  const row = list.body.transactions.find((t) => t.id === tx.id);
+  assert.equal(row.exitStatus, 'denied');
+  const detail = await call(app, 'GET', `/api/s/transactions/${tx.id}`, { token: mgr });
+  assert.equal(detail.body.transaction.lastCheck.note, 'Khách từ chối');
+  const again = await call(app, 'POST', `/api/s/transactions/${tx.id}/resolve`, { token: mgr, body: { decision: 'allow', note: 'Đã giải quyết' } });
+  assert.equal(again.body.exited, true);
+  await app.close();
+});

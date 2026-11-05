@@ -71,10 +71,14 @@ Tổng cộng **52 màn hình**: 26 khách (M), 14 nhân viên (N), 12 quản tr
 | A11 | Mã quét không tìm thấy | Chi nhánh | FR-ADM-10 |
 | A12 | Đăng nhập quản trị (kèm mã xác thực 2 bước) | Chuỗi, Chi nhánh | FR-ADM-12 |
 
-## 4. Chưa có thiết kế
+## 4. Đã dựng trong ứng dụng nhưng chưa vẽ trong bản thiết kế
+
+Menu bên và màn "Hàng đợi", "Giao dịch gần đây", "Chờ quản lý" của app nhân viên; trang "Giao dịch" và "Nhật ký" của web quản trị. Xem [11](11-ung-dung.md).
+
+## 5. Chưa có thiết kế
 
 - Quên mật khẩu / đặt lại; quên mã PIN của nhân viên.
-- Huỷ giao dịch / hoàn tiền có quyền quản lý (G-07).
+- Huỷ giao dịch từ app nhân viên và hoàn tiền (G-07). Quản trị đã huỷ được ở trang chi tiết giao dịch.
 - Xác minh email để xem lịch sử trên máy khác (phụ thuộc G-04).
 - Màn hình hướng dẫn riêng cho hàng cân, hàng giới hạn độ tuổi (G-01, G-02).
 - Giao diện quản trị trên điện thoại (hiện vẽ cho màn hình máy tính).

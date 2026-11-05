@@ -13,7 +13,11 @@
     "dev": "node --watch server/index.js",
     "seed": "node server/seed.js --reset",
     "vendor": "node scripts/vendor.js",
-    "test": "node --test --test-reporter=spec test/*.test.js"
+    "test": "node --test --test-reporter=spec test/*.test.js",
+    "create-admin": "node server/create-admin.js",
+    "seed:demo": "node server/seed.js --reset --demo",
+    "e2e": "bash e2e/run.sh",
+    "build:sw": "node scripts/build-sw.js"
   },
   "dependencies": {
     "@fastify/static": "^10.1.10",

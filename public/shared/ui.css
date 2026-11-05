@@ -61,7 +61,7 @@ a { color: var(--orange-ink); }
 .card { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow); padding: 20px; display: flex; flex-direction: column; gap: 14px; border: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .card.flat { box-shadow: none; background: var(--surface); border-color: transparent; }
 .card.tight { padding: 14px 16px; border-radius: 20px; }
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 20px; border-radius: var(--r-btn);
+.btn { white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 20px; border-radius: var(--r-btn);
   border: 0; background: var(--surface); color: var(--ink); font-weight: 700; font-size: 16px; width: 100%; text-decoration: none; transition: transform .08s, filter .15s; }
 .btn:active:not(:disabled) { transform: scale(.985); }
 .btn.primary { background: var(--orange); color: var(--on-orange); box-shadow: 0 6px 16px color-mix(in srgb, var(--orange) 30%, transparent); }

@@ -14,6 +14,9 @@ Phần A là các quyết định đã chốt với khách hàng trong quá trì
 | D-04 | Đã có **API tồn kho của tất cả siêu thị, cập nhật gần real-time** | 2026-11-04 | 07 mục 1; Q-01 được trả lời một phần |
 | D-05 | Nhân viên dùng **PWA riêng** (đăng nhập) cho thu tiền và cổng ra; quản trị là web riêng. **Đề xuất, chưa chốt:** GĐ1 quầy và cổng cần có mạng (không xác nhận offline) | 2026-11-04 | 05 mục 2; G-09 |
 | D-06 | Mục tiêu thời gian: dùng được trong khoảng **2 tháng** (chưa xác nhận khả thi) | 2026-11-04 | 08 |
+| D-07 | Xây trọn ứng dụng (khách, thu ngân, cổng ra, quản trị) trước; các tích hợp (POS, hoá đơn, thanh toán online) xử lý lần lượt sau, hiện dùng bản giả lập | 2026-11-05 | [11](11-ung-dung.md) |
+| D-08 | Giao diện theo mẫu HCRC: tông cam, phông Inter, nút bo tròn, biểu tượng túi xanh có nụ cười, menu bên nét mảnh | 2026-11-05 | public/shared |
+| D-09 | Kiểm tra ngẫu nhiên do máy chủ bốc khi khoá giỏ; làm ở cổng ra, nhân viên quầy có thể đối chiếu sớm tại quầy; không có nút bỏ qua | 2026-11-05 | 02, 07 |
 
 ## B. Câu hỏi mở từ tài liệu gốc (cập nhật)
 

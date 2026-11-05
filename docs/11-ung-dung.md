@@ -1,0 +1,75 @@
+# 11. Ứng dụng đã xây và cách gắn tích hợp thật
+
+**Trạng thái:** ứng dụng đầy đủ chức năng cho khách, thu ngân, nhân viên cổng ra và quản trị; POS, hoá đơn điện tử và thanh toán online chạy bản giả lập hoặc chưa có. Cách chạy xem [README](../README.md).
+
+## 1. Đã làm
+
+| Phần | Màn hình (docs/10) | Ghi chú |
+|------|--------------------|---------|
+| PWA khách `/c/` | M01–M22, M25–M26; M23–M24 chưa dùng (online) | Quét bằng `BarcodeDetector`, nếu thiếu dùng ZXing (Safari iOS). Giỏ lưu trên máy, quét tiếp khi mất mạng, tự đồng bộ. QR biên nhận lưu để xem khi mất mạng |
+| PWA nhân viên `/s/` | N01–N14 + menu, hàng đợi, giao dịch gần đây, "Chờ quản lý" | Thu tiền mặt (tính tiền thừa), xác nhận chuyển khoản (3 ô tick), quét QR ra cổng, kiểm tra ngẫu nhiên, chênh lệch, thu bổ sung, kết thúc ca có đối soát |
+| Web quản trị `/a/` | A01–A12 + giao dịch, nhật ký | Đăng nhập kèm xác thực 2 bước (TOTP), phân quyền chuỗi/chi nhánh, báo cáo + CSV, đối soát sao kê, mã QR dán cổng vào cho từng chi nhánh |
+| Máy chủ | toàn bộ API | Phiên khách theo mã thiết bị, QR biên nhận ký HMAC dùng một lần, khoá tài khoản khi sai nhiều lần, nhật ký bất biến |
+
+Điểm khác với bản vẽ ban đầu: kiểm tra ngẫu nhiên do máy chủ bốc khi khoá giỏ; nhân viên **có thể** đối chiếu ngay tại quầy (tuỳ chọn) hoặc để cổng ra kiểm tra, không có nút bỏ qua ở cổng. Khi quản lý từ chối, giao dịch sang trạng thái `denied` và quản lý đổi được quyết định sau đó.
+
+## 2. Quy tắc nghiệp vụ chính (đã có kiểm thử)
+
+- Giá chốt lúc quét; khi khoá giỏ, hệ thống đối chiếu lại với POS. Giá, khuyến mãi, tồn kho hoặc ngừng bán đổi thì khách phải đồng ý (M15) mới khoá được.
+- Khoá giỏ sinh `GH-<chi nhánh>-<số>` (mã giỏ) và nội dung chuyển khoản `SG <chi nhánh> <số>`. Chỉ nhân viên đúng chi nhánh tra được.
+- Thu tiền cần nhân viên đã bắt đầu ca. Chuyển khoản chỉ xác nhận khi đủ 3 điều kiện (số tiền, nội dung, tiền đã vào). Tiền mặt ghi số khách đưa và tiền thừa.
+- QR biên nhận `R1.<mã>.<hạn>.<chữ ký>` chỉ hợp lệ khi đã thu tiền, chưa hết hạn, chưa dùng, chưa bị huỷ; quét thành công là đánh dấu đã dùng ngay.
+- Kết thúc ca: tiền mặt đếm thực tế so với hệ thống; lệch thì bắt buộc ghi lý do.
+- Huỷ giao dịch đã thu: chỉ quản lý, bắt buộc lý do, chưa ra cổng; QR trở nên vô hiệu, hoá đơn đã xuất chuyển sang "yêu cầu huỷ".
+- Mọi thao tác quan trọng ghi `audit_events` (truy vết ở A07, nhật ký ở trang quản trị).
+
+## 3. Gắn POS thật
+
+Bản giả lập: `server/services/pos.js` (đọc bảng `pos_products`). POS thật thay bằng một adapter cùng giao diện, chọn trong `server/app.js` (tham số `pos` của `buildApp`, hoặc đổi nơi tạo `createMockPos`).
+
+```js
+{
+  name: 'ten-pos',
+  sync(storeId)            // kéo giá/tồn kho/khuyến mãi của chi nhánh vào bảng product_cache, trả { storeId, synced, at }
+  syncAll()                // gọi sync cho mọi chi nhánh (chạy định kỳ ở server/index.js, mặc định 60 giây)
+  lookup(storeId, variants)// tra trong product_cache theo danh sách biến thể mã vạch, trả hàng hoặc null
+  current(storeId, skus)   // GIÁ/TỒN KHO HIỆN TẠI từ POS (Map sku -> hàng), dùng khi khoá giỏ để phát hiện thay đổi
+  lastSync(storeId)        // thời điểm đồng bộ gần nhất (hiện ở A01, A03)
+}
+```
+
+Một dòng sản phẩm cần: `sku, barcode, name, price (VND, số nguyên), stock, unit, active, age_restricted, promo_min_qty, promo_off, ...`. Bảng `product_cache` là bản sao để quét nhanh; `current()` mới là nguồn để chốt giá, nên với POS có API thời gian thực hãy gọi trực tiếp POS trong `current()` thay vì đọc bộ nhớ đệm.
+
+Việc cần chốt với POS (xem [07](07-tich-hop-chong-that-thoat.md)): API đọc theo chi nhánh, xác thực, giới hạn gọi, một SKU nhiều mã vạch, khuyến mãi (hiện chỉ hỗ trợ dạng "mua N giảm X"), hàng cân theo ký, hàng giới hạn độ tuổi.
+
+**Báo cáo và POS:** báo cáo hiện lấy từ dữ liệu của chính hệ thống (A01, A04, xuất CSV). Ghi giao dịch Self Checkout về POS/kế toán chưa làm (G-05); điểm gắn tự nhiên là cuối `collectPayment` trong `server/services/core.js`, sau khi ghi `payments`, kèm hàng đợi thử lại giống hoá đơn.
+
+## 4. Gắn hoá đơn điện tử thật
+
+Bản giả lập: `createMockInvoicer` trong `server/services/invoice.js`. Adapter thật cần một hàm:
+
+```js
+{ name: 'nha-cung-cap', async issue(tx, buyer) { /* gọi nhà cung cấp */ return { number: 'SỐ HOÁ ĐƠN' }; } }
+```
+
+`tx` là dòng giao dịch (có `items_json`, `total`, `store_id`…), `buyer` có `email`, `taxCode`, `companyName`, `address` khi khách xin hoá đơn công ty. Hàm ném lỗi thì hoá đơn ở trạng thái `pending`, vẫn cho khách ra cổng, và được thử lại mỗi 2 phút hoặc từ nút ở A03. Hoá đơn bán lẻ xuất ngay khi thu tiền; hoá đơn công ty thay thế hoá đơn bán lẻ, chỉ trong ngày phát sinh.
+
+Cần chốt: nếu POS cũng tự xuất hoá đơn khi nhận đơn, chỉ để **một bên** xuất, tránh trùng.
+
+## 5. Thêm thanh toán online
+
+Hiện `pay_online` luôn tắt và API cấu hình từ chối bật. Hướng làm:
+
+1. Adapter thanh toán (tạo giao dịch, nhận thông báo có chữ ký, truy vấn trạng thái) và tuyến webhook mới, ghi `payments` với `provider`, `provider_ref`, khớp theo số tiền + mã giao dịch, xử lý trùng.
+2. Trạng thái giao dịch thêm `pending_online`; màn M23/M24 đã có trong bản vẽ; PWA khách thêm lựa chọn ở M16 và chuyển sang chờ thanh toán.
+3. Mở khoá ô "Online" ở A02 và nhận lựa chọn `qrProvider = provider` ở A03.
+4. QR do nhà cung cấp trả về thay cho `vietQrPayload` trong `txView`; màn hình khách (M17) không đổi.
+
+## 6. Hạn chế đã biết
+
+- Chưa thử camera và quét mã trên điện thoại thật; đã thử bằng luồng video giả với mã EAN-13 (ZXing giải mã đúng), chưa thử BarcodeDetector gốc.
+- QR chuyển khoản tự dựng theo chuẩn VietQR chưa kiểm chứng với các app ngân hàng thật; thông tin ngân hàng trong dữ liệu mẫu là giả.
+- Chưa gửi email thật (mã xác nhận lịch sử, hoá đơn). Ở môi trường thử mã được trả về trong phản hồi; ở production chỉ ghi log máy chủ.
+- Chưa có: hàng bán theo cân, đặt lại mật khẩu quản trị qua email, huỷ giao dịch từ app nhân viên, giao diện quản trị tối ưu cho điện thoại, thông báo đẩy.
+- Xác nhận thu tiền do người thực hiện: cần quy trình bàn giao ca và đối soát sao kê hằng ngày (A10).
+- SQLite phù hợp một máy chủ. Nhiều máy chủ hoặc tải lớn cần chuyển sang PostgreSQL (lớp truy cập tập trung ở `server/db.js` và các câu lệnh SQL trong `server/services`).

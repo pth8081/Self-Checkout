@@ -43,7 +43,7 @@
 |----|-----------|---------|----------|---------------------------|
 | FR-GATE-01 | Quét QR biên nhận để xác nhận đã thanh toán hợp lệ | M | N08, N09 | |
 | FR-GATE-02 | Báo ngay khi QR không hợp lệ / đã dùng / chưa thanh toán | M | N11 | Ba trạng thái hiển thị phân biệt; mọi lần từ chối được ghi log |
-| FR-GATE-03 | Kiểm tra ngẫu nhiên đối chiếu giỏ thật – giỏ ảo theo tỷ lệ cấu hình | M | N10, N12, M20 | Máy chủ bốc theo tỷ lệ, nhân viên không tự chọn; không có nút bỏ qua |
+| FR-GATE-03 | Kiểm tra ngẫu nhiên đối chiếu giỏ thật – giỏ ảo theo tỷ lệ cấu hình | M | N10, N12, M20 | Máy chủ bốc theo tỷ lệ khi khoá giỏ, nhân viên không tự chọn; làm ở cổng ra, hoặc đối chiếu sớm tại quầy; không có nút bỏ qua |
 | FR-GATE-04 | Quy trình xử lý khi chênh lệch (thu bổ sung / báo quản lý) | M | N13 | |
 | FR-GATE-05 | Ghi log mọi lượt kiểm tra | M | N12, N13 | `ExitCheck` |
 | FR-GATE-06 | Khách từ chối kiểm tra thì gọi quản lý | M | N10 | |
