@@ -29,6 +29,14 @@
 - **`guardCheck = false`:** không có bước cổng ra, không bốc kiểm tra ngẫu nhiên, thanh toán xong khách ra luôn, không có QR.
 - Cả hai chỉ quản trị chuỗi đổi, có ghi nhật ký. Đây là hướng POS gọi vào BRG, **khác** với cách BRG gọi POS để lấy giá và tồn kho ở mục 3.
 
+## 2c. Khách mất mạng, tắt trình duyệt hoặc bị xoá dữ liệu
+
+- **Mất mạng:** giỏ, mã giỏ và QR biên nhận lưu trên máy, tải lại vẫn thấy; thao tác quét chờ gửi khi có mạng lại.
+- **Tắt trình duyệt:** mở lại link cửa hàng, giỏ đang dở (kể cả giỏ đã khoá chờ thu ngân hoặc đã thanh toán chưa ra) hiện lại theo mã thiết bị.
+- **Bị xoá dữ liệu trang** (iOS xoá localStorage sau 7 ngày không dùng): máy chủ đặt thêm cookie `brgd` làm bản sao mã thiết bị; còn cookie thì giỏ vẫn tìm lại được (`GET /api/c/sessions/current`).
+- **Không còn gì** (đổi trình duyệt, ứng dụng ra màn hình chính tách riêng với Safari, chế độ riêng tư): giỏ cũ không tự khôi phục. Thu ngân vẫn xử lý được nếu khách còn mã giỏ (màn chờ nhắc chụp màn hình).
+- Giỏ bị bỏ quên quá 12 giờ (`CART_TTL_HOURS`) được dọn mỗi giờ; giỏ POS đã nhận thì giữ.
+
 ## 3. Gắn POS thật (đọc giá và tồn kho)
 
 Bản giả lập: `server/services/pos.js` (đọc bảng `pos_products`). POS thật thay bằng một adapter cùng giao diện, chọn trong `server/app.js` (tham số `pos` của `buildApp`, hoặc đổi nơi tạo `createMockPos`).

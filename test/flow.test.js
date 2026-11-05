@@ -334,3 +334,38 @@ test('quản lý từ chối: giao dịch ở trạng thái denied, cổng báo 
   assert.equal(again.body.exited, true);
   await app.close();
 });
+
+test('khách mất bộ nhớ trang: cookie do máy chủ đặt vẫn tìm lại được giỏ đã khoá', async () => {
+  const app = await makeApp();
+  const { id } = await newCart(app, [['SUA01', 1]]);
+  const lock = await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash' } });
+  assert.equal(lock.status, 200);
+  const cookie = /brgd=([A-Za-z0-9_-]+)/.exec(lock.raw.headers['set-cookie'])[1];
+  assert.equal(cookie, DEVICE);
+  // localStorage bị xoá: trình duyệt sinh mã thiết bị mới nhưng vẫn gửi cookie
+  const r = await app.inject({ method: 'POST', url: '/api/c/sessions', payload: { storeId: 'Q7' }, headers: { 'x-device-id': 'newdevice-1234567890abcdef', cookie: `brgd=${cookie}` } });
+  const b = JSON.parse(r.body);
+  assert.equal(b.session.id, id);
+  assert.equal(b.session.transaction.status, 'awaiting_counter');
+  assert.equal(r.headers['set-cookie'], undefined); // cookie đã có, không đặt lại
+  const cur = await app.inject({ method: 'GET', url: '/api/c/sessions/current?storeId=Q7', headers: { 'x-device-id': 'newdevice-1234567890abcdef', cookie: `brgd=${cookie}` } });
+  assert.equal(JSON.parse(cur.body).session.id, id);
+  const none = await call(app, 'GET', '/api/c/sessions/current?storeId=Q7', { device: 'someoneelse-1234567890abcd' });
+  assert.equal(none.body.session, null);
+  await app.close();
+});
+
+test('giỏ bị bỏ quên quá hạn được dọn, giỏ POS đã nhận thì giữ', async () => {
+  const { sweepStaleCarts } = await import('../server/services/core.js');
+  const app = await makeApp();
+  const a = await newCart(app, [['SUA01', 1]], 'devA-1234567890abcdef');
+  const b = await newCart(app, [['SUA01', 1]], 'devB-1234567890abcdef');
+  await call(app, 'POST', `/api/c/sessions/${b.id}/lock`, { body: { method: 'cash' }, device: 'devB-1234567890abcdef' });
+  assert.equal(sweepStaleCarts(app.ctx, 12), 0); // còn mới
+  const old = new Date(Date.now() - 13 * 3600_000).toISOString();
+  app.ctx.db.prepare('UPDATE scan_sessions SET last_activity = ?').run(old);
+  assert.equal(sweepStaleCarts(app.ctx, 12), 2);
+  assert.equal(app.ctx.db.prepare('SELECT status FROM scan_sessions WHERE id=?').get(a.id).status, 'abandoned');
+  assert.equal(app.ctx.db.prepare(`SELECT status FROM transactions WHERE session_id=?`).get(b.id).status, 'cancelled');
+  await app.close();
+});

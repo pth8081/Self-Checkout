@@ -136,6 +136,7 @@ export function Wait({ s }) {
       ${claimed ? html`<div class="center small muted">Mã giỏ hàng: <b class="num">${tx.code}</b></div>`
         : html`<div class="qrbox"><${QR} text=${tx.code} label="Mã giỏ hàng"/><div class="code">${tx.code}</div></div>`}
       <div class="card flat tight"><div class="row"><div class="grow"><div class="small muted">${pos ? 'Tạm tính' : 'Cần thanh toán'}</div><b class="num" style="font-size:20px">${fmt.money(tx.total + tx.extraDue)}</b></div><${Pill} tone="brand">${pos ? 'Tại quầy' : fmt.method(tx.method)}<//></div>${pos && html`<div class="xs muted">Số tiền cuối cùng do máy tính tiền quyết định</div>`}</div>
+      <div class="small muted center">Có thể chụp màn hình mã này. Nếu mất mạng hoặc lỡ tắt trình duyệt, mở lại link của cửa hàng, giỏ vẫn còn. Thu ngân cũng nhập tay được mã giỏ.</div>
       ${transfer && html`<button class="btn soft" onClick=${() => go('/transfer')}><${Icon} name="qr"/>Xem lại QR chuyển khoản</button>`}
       <ol class="stack small" style="padding:0;list-style:none;gap:10px">
         ${steps.map((t, i) => html`<li class="row" style="align-items:flex-start"><span class="avatar" style="width:26px;height:26px;font-size:12px">${i + 1}</span><span>${t}</span></li>`)}

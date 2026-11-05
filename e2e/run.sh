@@ -8,7 +8,7 @@ rm -f "$DB_FILE"*
 node scripts/build-sw.js >/dev/null
 fresh() { rm -f "$DB_FILE"*; node server/seed.js --reset --demo >/dev/null 2>&1; node server/index.js >/tmp/brg-e2e-server.log 2>&1 & SRV=$!; sleep 2.5; }
 fail=0
-for t in customer customer-camera staff admin; do
+for t in customer customer-camera staff admin resilience; do
   fresh
   echo "=== $t ==="
   if ! node e2e/$t.e2e.cjs; then fail=1; fi

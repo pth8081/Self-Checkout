@@ -18,8 +18,16 @@ export default async function customerRoutes(app) {
   app.addHook('preHandler', async (req) => {
     const id = req.headers['x-device-id'];
     if (req.url.includes('/store') && req.method === 'GET') { req.deviceId = typeof id === 'string' ? id : ''; return; }
-    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(id)) throw bad('NO_DEVICE', 'Thiếu mã thiết bị');
-    req.deviceId = id;
+    const okId = (v) => typeof v === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(v);
+    if (!okId(id)) throw bad('NO_DEVICE', 'Thiếu mã thiết bị');
+    // Bản sao lưu mã thiết bị trong cookie do máy chủ đặt (iOS Safari xoá localStorage sau 7 ngày không dùng,
+    // còn cookie của máy chủ thì không bị giới hạn đó). Còn cookie thì cookie là chuẩn, để giỏ không mất khi bộ nhớ trang bị xoá.
+    const saved = /(?:^|;\s*)brgd=([A-Za-z0-9_-]{16,64})/.exec(req.headers.cookie || '')?.[1];
+    req.deviceId = saved || id;
+    if (!saved) req.cookieToSet = id;
+  });
+  app.addHook('onSend', async (req, reply) => {
+    if (req.cookieToSet) reply.header('set-cookie', `brgd=${req.cookieToSet}; Path=/api/c; Max-Age=31536000; HttpOnly; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
   });
 
   const session = (req) => {
@@ -66,6 +74,13 @@ export default async function customerRoutes(app) {
       for (const o of old) { try { abandonSession(ctx, o); } catch { /* đã kết thúc */ } }
     }
     return createOrResumeSession(ctx, storeId, req.deviceId);
+  });
+  // Tìm lại giỏ đang dở của thiết bị này (không tạo mới). Dùng khi máy khách mất dữ liệu trang.
+  app.get('/sessions/current', async (req) => {
+    const storeId = String(req.query?.storeId || '').toUpperCase();
+    const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const row = db.prepare(`SELECT id FROM scan_sessions WHERE device_id = ? AND store_id = ? AND status IN ('active','locked','paid') AND last_activity >= ? ORDER BY started_at DESC LIMIT 1`).get(req.deviceId, storeId, since);
+    return { session: row ? sessionView(ctx, row.id) : null };
   });
   app.get('/sessions/:id', async (req) => ({ session: sessionView(ctx, session(req).id) }));
   app.post('/sessions/:id/ops', async (req) => {

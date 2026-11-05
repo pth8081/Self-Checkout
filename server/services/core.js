@@ -90,6 +90,15 @@ export function cleanBuyer(b) {
   return Object.keys(out).length ? JSON.stringify(out) : null;
 }
 
+/** Dọn giỏ bỏ quên (khách tắt trình duyệt rồi đi): giỏ đang quét hoặc đã khoá nhưng POS chưa nhận, quá `hours` giờ không hoạt động. */
+export function sweepStaleCarts(ctx, hours = 12) {
+  const cutoff = new Date(Date.now() - hours * 3600_000).toISOString();
+  const rows = ctx.db.prepare(`SELECT * FROM scan_sessions WHERE status IN ('active','locked') AND last_activity < ?`).all(cutoff);
+  let n = 0;
+  for (const s of rows) { try { abandonSession(ctx, s); n++; } catch { /* POS đang xử lý: để nguyên */ } }
+  return n;
+}
+
 /** Bỏ phiên cũ để bắt đầu giỏ mới (khách chọn "Bắt đầu giỏ mới"). */
 export function abandonSession(ctx, session) {
   const { db } = ctx;

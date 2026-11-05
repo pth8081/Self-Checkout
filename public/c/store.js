@@ -104,7 +104,17 @@ export async function openSession({ fresh = false } = {}) {
 export function resetSession() { setState({ session: null, queue: [], issues: [] }); }
 
 export async function refreshSession() {
-  if (!state.session) return null;
+  if (!state.session) {
+    // Mất dữ liệu trang (iOS xoá bộ nhớ, đổi trình duyệt cùng cookie): hỏi máy chủ xem còn giỏ đang dở không.
+    if (!state.storeCode) return null;
+    try {
+      const r = await api.get(`/sessions/current?storeId=${encodeURIComponent(state.storeCode)}`);
+      if (!r.session || ['abandoned', 'exited'].includes(r.session.status)) return null;
+      setState({ session: r.session, online: true });
+      if (r.session.transaction?.status === 'paid') saveReceipt(r.session.transaction);
+      return { session: r.session, ended: false };
+    } catch { return null; }
+  }
   try {
     const r = await api.get(`/sessions/${state.session.id}`);
     const ended = ['abandoned', 'exited'].includes(r.session.status) || (r.session.status === 'paid' && r.session.transaction?.exitStatus === 'exited');
