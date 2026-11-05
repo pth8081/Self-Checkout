@@ -102,14 +102,14 @@ export function Stores({ me, reloadStores, setStoreId }) {
     toggle(`${s.id}guard`, `/stores/${s.id}/config`, { guardCheck: true }, 'Đã bật bảo vệ cổng ra. Áp dụng cho các giao dịch mới.');
   };
   return html`<div class="stack-lg">
-    <${PageHead} title="Chi nhánh & tính năng" sub=${chain ? 'Bật hoặc tắt Self Checkout, cách thu tiền, bảo vệ cổng ra và từng cách thanh toán cho từng chi nhánh. Thay đổi có hiệu lực ngay.' : 'Cấu hình hiện tại của chi nhánh. Chỉ quản trị chuỗi mới được thay đổi.'}>
+    <${PageHead} title="Chi nhánh & tính năng" sub=${chain ? 'Bật hoặc tắt Scan & Checkout, cách thu tiền, bảo vệ cổng ra và từng cách thanh toán cho từng chi nhánh. Thay đổi có hiệu lực ngay.' : 'Cấu hình hiện tại của chi nhánh. Chỉ quản trị chuỗi mới được thay đổi.'}>
       ${chain && html`<button class="btn sm primary" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${18}/>Thêm chi nhánh</button>`}<//>
     ${!chain && html`<${Banner} tone="info" icon="lock" title="Chỉ xem">Các nút bên dưới bị khoá. Hãy nhờ quản trị chuỗi nếu cần đổi cách thu tiền hoặc bảo vệ cổng ra.<//>`}
     ${msg && html`<${Banner} tone="err" title="Chưa lưu được"><span role="alert">${msg.message}</span>
       ${msg.code === 'NO_POS_KEY' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => go('/integrations')}><${Icon} name="link" size=${18}/>Đi tới mục Tích hợp để tạo khoá</button></div>`}
       ${msg.code === 'CARTS_PENDING' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => { if (msg.storeId) setStoreId(msg.storeId); go('/transactions'); }}>Xem giao dịch</button></div>`}<//>`}
     <${Async} state=${st}>${(d) => html`<div class="card"><div class="tblwrap"><table class="tbl">
-      <thead><tr><th>Chi nhánh</th><th class="tc">Self Checkout</th><th class="tc">Giỏ QR cho POS</th><th>Thu tiền</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Bảo vệ cổng ra</th><th class="tc">Online</th><th></th></tr></thead>
+      <thead><tr><th>Chi nhánh</th><th class="tc">Scan & Checkout</th><th class="tc">Giỏ QR cho POS</th><th>Thu tiền</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Bảo vệ cổng ra</th><th class="tc">Online</th><th></th></tr></thead>
       <tbody>${d.stores.map((s) => {
         const basket = s.config.checkoutMode === 'basket'; // giỏ QR: POS thu tiền, không bảo vệ; các luồng cũ bị khoá
         const pos = isPos(s.config) || basket;
@@ -117,7 +117,7 @@ export function Stores({ me, reloadStores, setStoreId }) {
         const sw = (key, checked, path, body, label, extra = {}) => html`<${Switch} checked=${checked} disabled=${dis || extra.off} label=${`${label} ${s.name}`} onChange=${(v) => toggle(`${s.id}${key}`, path, body(v))}/>`;
         const mute = (node) => (pos ? html`<span class="soon">${node}Dùng POS</span>` : node);
         return html`<tr key=${s.id}><td><b>${s.name}</b><div class="sub">${s.id} · ${s.address || 'Chưa có địa chỉ'}</div></td>
-          <td class="tc">${sw('e', s.enabled, `/stores/${s.id}`, (v) => ({ enabled: v }), 'Bật Self Checkout')}</td>
+          <td class="tc">${sw('e', s.enabled, `/stores/${s.id}`, (v) => ({ enabled: v }), 'Bật Scan & Checkout')}</td>
           <td class="tc">${sw('m', basket, `/stores/${s.id}/config`, (v) => ({ checkoutMode: v ? 'basket' : 'classic' }), 'Giỏ QR cho POS')}</td>
           <td><select class="input sm" style="width:auto;min-width:175px" value=${basket ? 'pos' : (s.config.paymentSource || 'manual')} disabled=${dis || basket} aria-label=${`Thu tiền ${s.name}`}
             onChange=${(e) => { const v = e.target.value; e.target.value = s.config.paymentSource || 'manual'; if (v !== (s.config.paymentSource || 'manual')) { setMsg(null); setAsk({ kind: 'source', s, value: v }); } }}>

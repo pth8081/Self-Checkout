@@ -10,7 +10,7 @@ access: chain
 
 ## Dữ liệu sản phẩm từ POS
 
-- Giá, tồn kho, khuyến mãi, trạng thái bán đến từ **POS** (nguồn gốc). BRG Self Checkout giữ một **bản sao** để quét nhanh và đồng bộ định kỳ.
+- Giá, tồn kho, khuyến mãi, trạng thái bán đến từ **POS** (nguồn gốc). BRG Scan & Checkout giữ một **bản sao** để quét nhanh và đồng bộ định kỳ.
 - Khi khách khoá giỏ, hệ thống **hỏi lại POS** giá và tồn kho hiện tại của từng món, để chặn trường hợp giá đổi giữa lúc quét và lúc thanh toán.
 - Mục **Tích hợp** hiện cho từng chi nhánh: lần đồng bộ gần nhất, **độ trễ**, **ngưỡng cảnh báo** (sửa được, tính bằng phút), số mã vạch không khớp. Quá ngưỡng thì Tổng quan hiện cảnh báo.
 - Nút **Đồng bộ ngay** kéo dữ liệu mới ngay lập tức.

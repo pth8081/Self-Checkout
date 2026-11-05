@@ -1,4 +1,4 @@
-# BRG Self Checkout (PWA)
+# BRG Scan & Checkout (PWA)
 
 Khách tự quét mã vạch bằng điện thoại (PWA, không cần cài app), chọn cách thanh toán rồi ra cổng bằng mã QR biên nhận.
 Ứng dụng gồm ba giao diện dùng chung một máy chủ:

@@ -47,13 +47,13 @@ let ADMIN_TOKEN;
   // --- Chi nhánh: công tắc ---
   await go('/stores');
   const sw = (label) => p.locator(`button[role=switch][aria-label="${label}"]`);
-  await sw('Bật Self Checkout Chi nhánh Quận 1').click(); await p.waitForTimeout(600);
-  ok('bật Q1', (await sw('Bật Self Checkout Chi nhánh Quận 1').getAttribute('aria-checked')) === 'true');
-  await sw('Bật Self Checkout Chi nhánh Quận 1').click(); await p.waitForTimeout(600);
-  ok('tắt Q1', (await sw('Bật Self Checkout Chi nhánh Quận 1').getAttribute('aria-checked')) === 'false');
+  await sw('Bật Scan & Checkout Chi nhánh Quận 1').click(); await p.waitForTimeout(600);
+  ok('bật Q1', (await sw('Bật Scan & Checkout Chi nhánh Quận 1').getAttribute('aria-checked')) === 'true');
+  await sw('Bật Scan & Checkout Chi nhánh Quận 1').click(); await p.waitForTimeout(600);
+  ok('tắt Q1', (await sw('Bật Scan & Checkout Chi nhánh Quận 1').getAttribute('aria-checked')) === 'false');
   await sw('Tiền mặt Chi nhánh Gò Vấp').click(); await p.waitForTimeout(500);
   await sw('Chuyển khoản QR Chi nhánh Gò Vấp').click(); await p.waitForTimeout(500);
-  await sw('Bật Self Checkout Chi nhánh Gò Vấp').click(); await p.waitForTimeout(600);
+  await sw('Bật Scan & Checkout Chi nhánh Gò Vấp').click(); await p.waitForTimeout(600);
   const alert = await p.locator('main [role=alert]').first().textContent().catch(() => '');
   ok('lỗi NO_PAYMENT hiển thị', alert.includes('thanh toán'), alert);
   await shot('stores-error');

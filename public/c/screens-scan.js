@@ -7,7 +7,7 @@ export function Help({ onClose }) {
     <h2>Cần giúp?</h2>
     <div class="stack">
       <div class="row" style="align-items:flex-start"><${Icon} name="barcode"/><div><b>Mã vạch không quét được?</b><div class="small muted">Giữ sản phẩm ổn định, đủ sáng, cách camera khoảng 15–20 cm. Bật đèn flash nếu thiếu sáng. Hoặc chọn Nhập mã và gõ dãy số dưới mã vạch.</div></div></div>
-      <div class="row" style="align-items:flex-start"><${Icon} name="user"/><div><b>Cần nhân viên?</b><div class="small muted">Hãy vẫy nhân viên gần nhất hoặc đến quầy Self Checkout. Nhân viên sẽ hỗ trợ bạn ngay.</div></div></div>
+      <div class="row" style="align-items:flex-start"><${Icon} name="user"/><div><b>Cần nhân viên?</b><div class="small muted">Hãy vẫy nhân viên gần nhất hoặc đến quầy Scan & Checkout. Nhân viên sẽ hỗ trợ bạn ngay.</div></div></div>
     </div>
     <button class="btn primary" onClick=${onClose}>Đã hiểu</button><//>`;
 }

@@ -29,7 +29,7 @@ const when = (iso) => (iso ? new Date(iso).toLocaleString('vi-VN', { timeZone: '
 export function billPdf(b) {
   const W = 300, M = 18;
   const height = 230 + b.lines.length * 34 + (b.invoiceUrl ? 28 : 0) + (b.provisional ? 30 : 0);
-  const doc = new PDFDocument({ size: [W, height], margin: M, info: { Title: `Bill ${b.code}`, Author: 'BRG Self Checkout' } });
+  const doc = new PDFDocument({ size: [W, height], margin: M, info: { Title: `Bill ${b.code}`, Author: 'BRG Scan & Checkout' } });
   doc.registerFont('r', font('DejaVuSans.ttf')); doc.registerFont('b', font('DejaVuSans-Bold.ttf'));
   const chunks = [];
   doc.on('data', (c) => chunks.push(c));
@@ -38,7 +38,7 @@ export function billPdf(b) {
   const rule = () => { doc.moveTo(M, doc.y + 2).lineTo(W - M, doc.y + 2).dash(2, { space: 2 }).strokeColor('#999').stroke().undash(); doc.moveDown(0.6); };
   const row = (l, r, bold) => { const y = doc.y; doc.font(bold ? 'b' : 'r').text(l, M, y, { width: inner - 90 }); doc.font(bold ? 'b' : 'r').text(r, W - M - 90, y, { width: 90, align: 'right' }); };
 
-  doc.font('b').fontSize(13).text('BRG Self Checkout', { align: 'center' });
+  doc.font('b').fontSize(13).text('BRG Scan & Checkout', { align: 'center' });
   doc.font('r').fontSize(9).text(b.storeName, { align: 'center' });
   if (b.storeAddress) doc.text(b.storeAddress, { align: 'center' });
   doc.moveDown(0.6); rule();

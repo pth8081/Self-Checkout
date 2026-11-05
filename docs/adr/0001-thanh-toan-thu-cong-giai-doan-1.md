@@ -13,7 +13,7 @@ Cần dùng được trong khoảng 2 tháng (D-06). Các hình thức thanh to�
 3. **Khách tự bấm "đã chuyển khoản" hoặc gửi ảnh chụp.** Dễ giả mạo. Loại.
 
 ## Quyết định
-Chọn phương án 2. Khách tự quét hàng, đến quầy Self Checkout đưa mã giỏ hàng, nhân viên đối chiếu và thu tiền rồi bấm xác nhận; khách nhận QR biên nhận để ra cổng. Mỗi cách trả bật/tắt riêng theo chi nhánh. Giao diện online giữ chỗ và hiện mờ.
+Chọn phương án 2. Khách tự quét hàng, đến quầy Scan & Checkout đưa mã giỏ hàng, nhân viên đối chiếu và thu tiền rồi bấm xác nhận; khách nhận QR biên nhận để ra cổng. Mỗi cách trả bật/tắt riêng theo chi nhánh. Giao diện online giữ chỗ và hiện mờ.
 
 ## Hệ quả
 - Quầy vẫn có người; thời gian chờ giảm vì không phải quét từng món (G1), nhưng giảm thu ngân (G2) chỉ rõ khi có thanh toán tự động.

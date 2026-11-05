@@ -4,7 +4,7 @@
 
 ## 1. POS/ERP (ưu tiên số 1)
 
-Nguyên tắc: BRG Self Checkout **không** là nơi nhập liệu song song với POS.
+Nguyên tắc: BRG Scan & Checkout **không** là nơi nhập liệu song song với POS.
 
 Hiện trạng: khách hàng **đã có API tồn kho của tất cả siêu thị, cập nhật gần real-time** (D-04). Cần thêm để thiết kế chi tiết:
 
@@ -25,7 +25,7 @@ Hiện trạng: khách hàng **đã có API tồn kho của tất cả siêu th�
 
 Màn hình quản trị A01 và A03 hiện độ trễ đồng bộ và số mã vạch không khớp. Khi khoá giỏ, hệ thống kiểm tra lại giá và tồn kho (M15).
 
-Ghi nhận giao dịch Self Checkout vào POS/kế toán/tồn kho: chưa có cơ chế, xem G-05.
+Ghi nhận giao dịch Scan & Checkout vào POS/kế toán/tồn kho: chưa có cơ chế, xem G-05.
 
 ## 2. Thanh toán
 

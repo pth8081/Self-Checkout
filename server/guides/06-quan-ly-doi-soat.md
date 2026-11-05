@@ -95,7 +95,7 @@ Việc quản lý cần làm:
 | **Đơn lệch tiền** (số POS khác tạm tính của BRG) | Xem nguyên nhân: khuyến mãi theo hoá đơn, làm tròn, hay sai sót. Lệch lớn hoặc lặp lại thì báo bộ phận POS |
 | **Đơn chờ lâu** (POS đã nhận giỏ nhưng quá 10 phút chưa báo thanh toán) | Hỏi thu ngân. Nếu POS sập giữa chừng, bấm **Nhả giỏ** kèm lý do để khách không bị kẹt. Nhả rồi mà POS vẫn báo đã thanh toán thì BRG từ chối, phải đối soát tay |
 | **Đơn đã huỷ sau khi khách ra** | Xem nhật ký và xác minh với POS, xử lý hàng hoá theo quy định của cửa hàng |
-| **Đối soát cuối ngày** | So số giao dịch và số tiền BRG đã thu trong ngày với báo cáo bán hàng của POS (đơn có nguồn Self Checkout). Chênh lệch phải giải thích được |
+| **Đối soát cuối ngày** | So số giao dịch và số tiền BRG đã thu trong ngày với báo cáo bán hàng của POS (đơn có nguồn Scan & Checkout). Chênh lệch phải giải thích được |
 
 Tiền mặt và chuyển khoản ở chế độ POS **do POS đối soát** (két theo ca của POS, sao kê theo POS). Các màn đối soát tiền mặt và sao kê trong BRG chỉ còn ý nghĩa cho chi nhánh tự thu.
 
@@ -119,4 +119,4 @@ Mỗi lần khách quét một mã **không có trong dữ liệu POS** của ch
 
 Báo cáo theo ngày: số giao dịch, doanh thu, tiền mặt, chuyển khoản, lượt kiểm tra, chênh lệch. Xuất được **CSV** để mở bằng Excel. Quản trị chuỗi xem toàn chuỗi hoặc lọc từng chi nhánh; quản lý chi nhánh chỉ thấy chi nhánh mình.
 
-> **Lưu ý:** Báo cáo lấy từ dữ liệu của BRG Self Checkout. Doanh thu bán ở quầy thường nằm trong POS và chưa được gộp.
+> **Lưu ý:** Báo cáo lấy từ dữ liệu của BRG Scan & Checkout. Doanh thu bán ở quầy thường nằm trong POS và chưa được gộp.

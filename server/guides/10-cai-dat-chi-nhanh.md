@@ -1,6 +1,6 @@
 ---
 title: Cài đặt một chi nhánh mới
-summary: Các bước đưa một chi nhánh vào dùng Self Checkout, từ tạo chi nhánh, đồng bộ dữ liệu, ngân hàng, nhân sự đến thử và bật.
+summary: Các bước đưa một chi nhánh vào dùng Scan & Checkout, từ tạo chi nhánh, đồng bộ dữ liệu, ngân hàng, nhân sự đến thử và bật.
 group: he-thong
 order: 10
 access: chain
@@ -22,7 +22,7 @@ f[Đặt tỷ lệ kiểm tra ngẫu nhiên]
 g[In mã QR dán ở cổng vào]
 h[Chạy thử trọn quy trình bằng giao dịch thật nhỏ]
 i{Mọi bước đều đúng?}
-j([Bật Self Checkout cho chi nhánh])
+j([Bật Scan & Checkout cho chi nhánh])
 a --> b
 b --> c
 c --> d
@@ -48,9 +48,9 @@ i -- Còn lỗi --> b
 7. **Đặt tỷ lệ kiểm tra ngẫu nhiên** (bỏ qua nếu tắt bảo vệ) (Kiểm tra ngẫu nhiên). Khi thí điểm nên đặt cao.
 8. **In mã QR dán ở cổng vào** (Chi nhánh và tính năng, **Mã QR dán cổng vào**): hiện QR của đường dẫn `.../c/?s=<MÃ>` kèm nút sao chép link và nút in. Dán ở cổng vào, nơi khách dễ quét.
 9. **Chạy thử trọn quy trình:** dùng điện thoại thật quét vài món, khoá giỏ, thu bằng tiền mặt và bằng chuyển khoản (số tiền nhỏ), quét QR ở cổng, thử một lần kiểm tra ngẫu nhiên, kết thúc ca và đối soát. Dùng chi nhánh còn **tắt** thì khách thật chưa vào được; khi thử, bật chi nhánh trong giờ thử rồi tắt lại nếu chưa sẵn sàng.
-10. **Bật Self Checkout** cho chi nhánh. Từ lúc này khách quét mã QR cổng vào là mua sắm được.
+10. **Bật Scan & Checkout** cho chi nhánh. Từ lúc này khách quét mã QR cổng vào là mua sắm được.
 
-> **Lưu ý:** Tắt một chi nhánh bất kỳ lúc nào (ví dụ khi sự cố) không ảnh hưởng chi nhánh khác. Khách mở link của chi nhánh đang tắt sẽ thấy thông báo "Chi nhánh này chưa có Self Checkout".
+> **Lưu ý:** Tắt một chi nhánh bất kỳ lúc nào (ví dụ khi sự cố) không ảnh hưởng chi nhánh khác. Khách mở link của chi nhánh đang tắt sẽ thấy thông báo "Chi nhánh này chưa có Scan & Checkout".
 
 ## Lộ trình bật dần
 

@@ -14,7 +14,7 @@ flowchart LR
       A[Web quản trị]
     end
     C & S & A --> GW[API Gateway / BFF]
-    GW --> BE[Backend BRG Self Checkout<br/>multi-tenant theo storeId]
+    GW --> BE[Backend BRG Scan & Checkout<br/>multi-tenant theo storeId]
     BE <--> POS[(POS/ERP<br/>giá, tồn kho)]
     BE --> PM[Module thanh toán<br/>tiền mặt · chuyển khoản · online]
     PM -. GĐ2 .-> PAY[Cổng thanh toán / nhà cung cấp QR]

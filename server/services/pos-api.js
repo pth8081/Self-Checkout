@@ -1,4 +1,4 @@
-// API cho phần mềm POS gọi vào BRG Self Checkout (POS là bên gọi):
+// API cho phần mềm POS gọi vào BRG Scan & Checkout (POS là bên gọi):
 //   1. POS quét mã giỏ hàng của khách và "nhận" giỏ (lấy danh sách món để tự nhập vào đơn POS).
 //   2. POS báo đơn đã thanh toán, BRG tự xác nhận và cho khách ra (thu ngân không phải xác nhận lại).
 //   3. POS báo đơn đã huỷ.

@@ -32,7 +32,7 @@ Phương án 0 (hiện tại: BRG tự thu tiền, thu ngân tick xác nhận) l
 - **Đổi hoặc thêm:** chế độ thu tiền "POS" theo từng chi nhánh; thu ngân thấy đơn POS và trạng thái; xác nhận chỉ bật khi POS báo đã thanh toán; khách nhập thông tin hoá đơn công ty trước khi khoá giỏ; trang quản trị có trạng thái POS, đơn đẩy lỗi, đơn treo, đối soát BRG và POS.
 - **Bỏ trong chế độ POS:** BRG xuất hoá đơn (POS xuất, BRG nhận số hoá đơn), tick 3 điều kiện chuyển khoản, đối soát sao kê trong BRG.
 
-Lợi ích thêm: giao dịch Self Checkout **tự vào POS** (tồn kho, doanh thu, kế toán), giải quyết khoảng trống G-05 và mục 10, 11 trong "Điểm cần chốt".
+Lợi ích thêm: giao dịch Scan & Checkout **tự vào POS** (tồn kho, doanh thu, kế toán), giải quyết khoảng trống G-05 và mục 10, 11 trong "Điểm cần chốt".
 
 ## Quyết định nghiệp vụ mới
 
@@ -43,7 +43,7 @@ Lợi ích thêm: giao dịch Self Checkout **tự vào POS** (tồn kho, doanh 
 | Ai giữ sự thật "đã thu tiền" | POS; BRG phát QR sau khi POS báo đã thanh toán **và** thu ngân xác nhận |
 | Tiền mặt và két | Két do POS đối soát; màn đối soát tiền mặt của BRG chỉ tham khảo hoặc bỏ. Cần chốt |
 | Hoá đơn công ty | Khách nhập mã số thuế trước khi khoá giỏ, gửi cùng đơn |
-| POS mất kết nối | Thu thủ công như hiện nay, cần quản lý duyệt, đánh dấu để nhập bù vào POS; hoặc tạm dừng Self Checkout |
+| POS mất kết nối | Thu thủ công như hiện nay, cần quản lý duyệt, đánh dấu để nhập bù vào POS; hoặc tạm dừng Scan & Checkout |
 | Hoàn tiền, trả hàng | Làm trên POS; BRG hiện trạng thái |
 | Đối soát mỗi ngày | So từng giao dịch BRG với đơn POS (có đơn, đúng số tiền, đã thanh toán) |
 
@@ -56,7 +56,7 @@ Lợi ích thêm: giao dịch Self Checkout **tự vào POS** (tồn kho, doanh 
 5. Gán đơn cho máy hoặc thu ngân cụ thể, hay thu ngân tìm đơn bằng số.
 6. POS có tự tính lại giá và khuyến mãi (khuyến mãi theo hoá đơn, giảm theo thành viên, làm tròn).
 7. Nhận thông tin xuất hoá đơn công ty cùng đơn.
-8. Môi trường thử, tài liệu, khoá truy cập, giới hạn gọi; đánh dấu đơn đến từ "Self Checkout".
+8. Môi trường thử, tài liệu, khoá truy cập, giới hạn gọi; đánh dấu đơn đến từ "Scan & Checkout".
 9. Nếu không có API: POS có nhập đơn từ file, có cho viết tiện ích, hay chỉ có giao diện bán hàng.
 
 ## Các bước

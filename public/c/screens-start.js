@@ -22,7 +22,7 @@ export function Welcome({ store, onStart, busy, error }) {
       <div class="card">
         <div class="row"><div class="ico-tile"><${Icon} name="store"/></div>
           <div class="grow"><div class="b" style="font-size:17px">${store.name}</div><div class="small muted">${store.address || ''}</div></div></div>
-        <${Pill} tone="ok"><span class="dot"></span>Self Checkout đang hoạt động<//>
+        <${Pill} tone="ok"><span class="dot"></span>Scan & Checkout đang hoạt động<//>
       </div>
       ${error && html`<${ErrorBox} error=${error}/>`}
       <div class="stack" style="margin-top:4px">
@@ -50,7 +50,7 @@ export function Guide({ onDone }) {
   const [i, setI] = useState(0);
   const s = STEPS[i], last = i === STEPS.length - 1;
   return html`<div style="display:flex;flex-direction:column;flex:1">
-    <header class="hdr"><div class="brand"><${Logo}/><span>BRG Self Checkout</span></div><button class="btn txt auto" onClick=${onDone}>Bỏ qua</button></header>
+    <header class="hdr"><div class="brand"><${Logo}/><span>BRG Scan & Checkout</span></div><button class="btn txt auto" onClick=${onDone}>Bỏ qua</button></header>
     <div class="page" style="align-items:center;justify-content:center;text-align:center;gap:20px">
       <div class="ico-tile lg" style="width:160px;height:160px;border-radius:48px"><${Icon} name=${s.icon} size=${72}/></div>
       <h1>${s.title}</h1><p class="muted" style="max-width:34ch">${s.text}</p>
@@ -94,7 +94,7 @@ export function StoreDisabled({ store }) {
   return html`<div style="display:flex;flex-direction:column;flex:1"><${Header}/>
     <div class="page" style="align-items:center;text-align:center;justify-content:center;gap:20px">
       <div class="ico-tile warn lg"><${Icon} name="store"/></div>
-      <h1>Chi nhánh này chưa có Self Checkout</h1>
+      <h1>Chi nhánh này chưa có Scan & Checkout</h1>
       <p class="muted" style="max-width:36ch">${store?.name ? `${store.name} chưa bật tính năng này.` : 'Chi nhánh chưa bật tính năng này.'} Bạn vẫn mua sắm bình thường và thanh toán tại quầy.</p>
     </div>
     <div class="bar-bottom"><div class="in"><button class="btn primary" onClick=${() => go('/stores')}>Xem chi nhánh đang hỗ trợ</button></div></div></div>`;

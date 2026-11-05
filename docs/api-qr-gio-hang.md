@@ -10,7 +10,7 @@ Tài liệu này gửi cho đơn vị làm phần mềm POS. Có hai việc POS 
 ```mermaid
 sequenceDiagram
     participant K as Khách (điện thoại)
-    participant B as BRG Self Checkout
+    participant B as BRG Scan & Checkout
     participant P as Phần mềm POS
     K->>K: Quét mã vạch từng món, thấy tạm tính
     K->>K: Bấm Thanh toán, điện thoại hiện mã QR

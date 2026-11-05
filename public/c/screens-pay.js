@@ -191,7 +191,7 @@ export function Receipt({ s, store, onDone }) {
     <div class="page pad-b" style="gap:14px">
       ${offline && html`<${Banner} icon="wifioff">Mất kết nối. Mã QR đã được lưu trên máy nên vẫn dùng được.<//>`}
       <div class="center stack" style="align-items:center"><${Pill} tone="ok"><${Icon} name="check" size=${14}/>Đã thanh toán ${fmt.money(paidAmount(tx))}<//><h1>Đưa mã này cho nhân viên ở cổng</h1>${(tx.posInvoiceNo || tx.invoice?.number) && html`<div class="small muted">Hoá đơn số <b class="num">${tx.posInvoiceNo || tx.invoice.number}</b></div>`}</div>
-      ${tx.extraDue > 0 && html`<${Banner} tone="brand" icon="info" title=${`Còn khoản thu bổ sung ${fmt.money(tx.extraDue)}`}>Hãy đến quầy Self Checkout và đưa mã giỏ hàng <b class="num">${tx.code}</b>.<//>`}
+      ${tx.extraDue > 0 && html`<${Banner} tone="brand" icon="info" title=${`Còn khoản thu bổ sung ${fmt.money(tx.extraDue)}`}>Hãy đến quầy Scan & Checkout và đưa mã giỏ hàng <b class="num">${tx.code}</b>.<//>`}
       <div class="qrbox"><${QR} text=${tx.receipt.token} label="Mã QR biên nhận"/><div class="code">${tx.id}</div></div>
       <div class="small muted center">Mã dùng một lần · hiệu lực đến ${fmt.time(tx.receipt.expiresAt)}${tx.receipt.expired ? ' (đã hết hạn, hãy gặp nhân viên)' : ''}</div>
     </div>

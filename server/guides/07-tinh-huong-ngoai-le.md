@@ -75,7 +75,7 @@ Cột **Ứng dụng** cho biết việc đó có công cụ trong ứng dụng 
 
 | Tình huống | Cách xử lý | Ứng dụng |
 |-----------|-----------|---------|
-| Mất mạng tại quầy hoặc cổng ra (app nhân viên cần mạng) | Tạm dừng Self Checkout ở chi nhánh (quản trị chuỗi tắt chi nhánh), chuyển khách sang quầy thường. Giỏ đã khoá nhưng chưa thu thì thu ở quầy thường | Một phần |
+| Mất mạng tại quầy hoặc cổng ra (app nhân viên cần mạng) | Tạm dừng Scan & Checkout ở chi nhánh (quản trị chuỗi tắt chi nhánh), chuyển khách sang quầy thường. Giỏ đã khoá nhưng chưa thu thì thu ở quầy thường | Một phần |
 | POS đồng bộ chậm hoặc sai giá | Tổng quan hiện cảnh báo khi dữ liệu chậm quá ngưỡng. Việc đối chiếu lại giá lúc khoá giỏ giúp chặn sai giá. Báo bộ phận POS | Có |
 | Hoá đơn treo nhiều | Kiểm tra kết nối nhà cung cấp, bấm thử lại, báo bộ phận kế toán | Có |
 | Thiếu nhân viên ca (không có thu ngân hoặc cổng ra) | Lịch ca hiện cảnh báo. Điều người hỗ trợ hoặc tạm tắt chi nhánh | Có |

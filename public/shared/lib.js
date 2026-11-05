@@ -91,7 +91,7 @@ export function Icon({ name, size, class: cls = '' }) {
 
 /** Biểu tượng BRG: túi xanh có nụ cười, quai cam. */
 export function Logo({ size = 36 }) {
-  return html`<svg width=${size} height=${size} viewBox="0 0 64 64" role="img" aria-label="BRG Self Checkout"><path d="M22 27V21a10 10 0 0 1 20 0v6" fill="none" stroke="#F07F1A" stroke-width="6" stroke-linecap="round"/><rect x="9" y="24" width="46" height="34" rx="11" fill="#43A047"/><path d="M23 40q9 10 18 0" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/></svg>`;
+  return html`<svg width=${size} height=${size} viewBox="0 0 64 64" role="img" aria-label="BRG Scan & Checkout"><path d="M22 27V21a10 10 0 0 1 20 0v6" fill="none" stroke="#F07F1A" stroke-width="6" stroke-linecap="round"/><rect x="9" y="24" width="46" height="34" rx="11" fill="#43A047"/><path d="M23 40q9 10 18 0" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/></svg>`;
 }
 
 // ============================== QR ==============================
@@ -236,7 +236,7 @@ export function Drawer({ open, onClose, items, active, onSelect, user, sub, onLo
   if (!open) return null;
   return html`<div><div class="drawer-bg" onClick=${onClose}></div>
     <nav class="drawer" aria-label="Menu">
-      <div class="row" style="padding:6px 6px 14px"><${Logo}/><b style="font-size:20px">BRG Self Checkout</b><button class="iconbtn end" onClick=${onClose} aria-label="Đóng menu"><${Icon} name="x"/></button></div>
+      <div class="row" style="padding:6px 6px 14px"><${Logo}/><b style="font-size:20px">BRG Scan & Checkout</b><button class="iconbtn end" onClick=${onClose} aria-label="Đóng menu"><${Icon} name="x"/></button></div>
       <div class="stack" style="gap:4px">${items.map((it) => it.group
         ? html`<div class="label" style="padding:14px 16px 4px">${it.group}</div>`
         : html`<button class=${`navitem ${active === it.id ? 'on' : ''}`} onClick=${() => { onSelect(it.id); onClose(); }}><${Icon} name=${it.icon}/><span class="grow">${it.label}</span>${it.badge ? html`<${Pill} tone="warn">${it.badge}<//>` : null}</button>`)}</div>
@@ -249,7 +249,7 @@ export function Drawer({ open, onClose, items, active, onSelect, user, sub, onLo
 export function Header({ title, onBack, onMenu, right, sub }) {
   return html`<header class="hdr">
     ${onBack ? html`<button class="iconbtn" onClick=${onBack} aria-label="Quay lại"><${Icon} name="chevl"/></button>` : html`<${Logo}/>`}
-    ${title ? html`<div class="title">${title}${sub && html`<div class="small muted" style="font-weight:500">${sub}</div>`}</div>` : html`<div class="brand"><span>BRG Self Checkout</span></div>`}
+    ${title ? html`<div class="title">${title}${sub && html`<div class="small muted" style="font-weight:500">${sub}</div>`}</div>` : html`<div class="brand"><span>BRG Scan & Checkout</span></div>`}
     ${right}${onMenu && html`<button class="iconbtn" onClick=${onMenu} aria-label="Mở menu"><${Icon} name="menu"/></button>`}
   </header>`;
 }

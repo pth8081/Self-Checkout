@@ -1,4 +1,4 @@
-// PWA nhân viên BRG Self Checkout: thu ngân + kiểm soát cổng ra.
+// PWA nhân viên BRG Scan & Checkout: thu ngân + kiểm soát cổng ra.
 import { html, render, useState, useEffect, useCallback, useRoute, go, Drawer, Toasts, OfflineBar, registerSW, toast, Loading, ErrorBox } from '/shared/lib.js';
 import { api, getToken, setToken, setOnUnauth, setOnFlagChange, CSS, roleName, enc, flagsOf, Unavailable } from '/s/common.js';
 import { Login, Home, Lookup, QueueScreen, Cart, Cash, Transfer, Done, Transactions, TxDetail, EndShift } from '/s/screens.js';

@@ -154,7 +154,7 @@ sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 3. **Sản phẩm và giá:** khi chưa có API giá thật, nhập từ file CSV:
    `npm run import-products -- docs/mau/san-pham-mau.csv` (xem file mẫu để biết các cột; thêm `--replace` để thay toàn bộ sản phẩm của chi nhánh). Khi API giá thật có, bước này không còn dùng.
 4. Mục **Tích hợp:** bấm "Đồng bộ ngay" cho từng chi nhánh, tạo **khoá API cho POS** (chỉ hiện một lần, lưu lại), gửi cho đơn vị POS cùng `docs/api-qr-gio-hang.md`.
-5. Trang **Chi nhánh:** bật Self Checkout cho chi nhánh. Mặc định chi nhánh dùng chế độ **Giỏ QR cho POS**.
+5. Trang **Chi nhánh:** bật Scan & Checkout cho chi nhánh. Mặc định chi nhánh dùng chế độ **Giỏ QR cho POS**.
 6. Dùng điện thoại quét mã QR cổng vào (nút "Mã QR dán cổng vào"), quét thử vài món, bấm Thanh toán và để POS quét thử.
 
 Các tệp phông cho bill PDF nằm sẵn trong `server/assets/fonts`; `npm ci --omit=dev` đã cài thư viện tạo PDF.

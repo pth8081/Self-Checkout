@@ -2,7 +2,7 @@
 #   systemctl daemon-reload && systemctl enable --now brg
 # Chưa được chạy thử trong môi trường dựng tài liệu này.
 [Unit]
-Description=BRG Self Checkout
+Description=BRG Scan & Checkout
 After=network.target
 
 [Service]

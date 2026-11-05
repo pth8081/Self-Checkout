@@ -1,4 +1,4 @@
-// Đóng vai POS gọi API của BRG Self Checkout, để thử và để nhà cung cấp POS đối chiếu cách gọi.
+// Đóng vai POS gọi API của BRG Scan & Checkout, để thử và để nhà cung cấp POS đối chiếu cách gọi.
 //   node scripts/pos-simulator.js --base http://localhost:3000 --key brgpos_xxx <lệnh> [đối số]
 // Lệnh:
 //   health

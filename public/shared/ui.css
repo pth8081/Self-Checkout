@@ -1,4 +1,4 @@
-/* BRG Self Checkout: bộ giao diện dùng chung (khách, nhân viên, quản trị).
+/* BRG Scan & Checkout: bộ giao diện dùng chung (khách, nhân viên, quản trị).
    Tông cam, phông Inter, nút bo tròn, thẻ trắng bo lớn, biểu tượng nét mảnh. */
 :root {
   --orange: #F07F1A; --orange-ink: #C2640E; --orange-soft: #FEF0E0; --on-orange: #FFFFFF;

@@ -1,4 +1,4 @@
-# Bộ tài liệu BRG Self Checkout (PWA)
+# Bộ tài liệu BRG Scan & Checkout (PWA)
 
 Cách đọc: đi từ trên xuống. Mỗi tài liệu có **trạng thái** (`Nháp` / `Cần xác nhận` / `Đã chốt`) ở đầu file. Mục `TODO` là phần còn thiếu.
 

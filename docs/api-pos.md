@@ -1,4 +1,4 @@
-# API cho phần mềm POS gọi vào BRG Self Checkout
+# API cho phần mềm POS gọi vào BRG Scan & Checkout
 
 Tài liệu cho **nhà cung cấp POS**. Phiên bản API: `v1`.
 

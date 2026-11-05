@@ -4,7 +4,7 @@
 
 ## 1. Bối cảnh
 
-Chuỗi siêu thị triển khai **BRG Self Checkout** (mô hình Scan & Go) cho toàn hệ thống. Khách dùng điện thoại của mình, mở qua trình duyệt (PWA), quét mã vạch khi mua sắm, thấy giỏ hàng và tổng tiền theo thời gian thực, rồi thanh toán và ra cổng bằng mã QR biên nhận.
+Chuỗi siêu thị triển khai **BRG Scan & Checkout** (mô hình Scan & Go) cho toàn hệ thống. Khách dùng điện thoại của mình, mở qua trình duyệt (PWA), quét mã vạch khi mua sắm, thấy giỏ hàng và tổng tiền theo thời gian thực, rồi thanh toán và ra cổng bằng mã QR biên nhận.
 
 **Giai đoạn 1** (mục tiêu dùng được trong khoảng 2 tháng): khách tự quét hàng, **trả tiền mặt hoặc chuyển khoản QR tại quầy, nhân viên xác nhận**. Thanh toán online chưa triển khai, nhưng giao diện giữ chỗ và bật bằng cờ cấu hình (xem D-02).
 
@@ -12,7 +12,7 @@ Chuỗi siêu thị triển khai **BRG Self Checkout** (mô hình Scan & Go) cho
 
 | Mã | Mục tiêu | Chỉ số đo (TODO: chốt số) |
 |----|----------|---------------------------|
-| G1 | Giảm thời gian chờ ở quầy, nhất là giờ cao điểm | Thời gian từ vào cổng đến ra cổng; % khách dùng Self Checkout |
+| G1 | Giảm thời gian chờ ở quầy, nhất là giờ cao điểm | Thời gian từ vào cổng đến ra cổng; % khách dùng Scan & Checkout |
 | G2 | Giảm thu ngân cố định, chuyển sang hỗ trợ khách | Số giờ công thu ngân/chi nhánh |
 | G3 | Thu thập dữ liệu hành vi (quét nhưng không mua, thời gian mua sắm) | Có đủ sự kiện phân tích (xem [06](06-mo-hinh-du-lieu.md) mục 6) |
 | G4 | Lợi thế cạnh tranh về trải nghiệm | Điểm hài lòng khách |
@@ -41,7 +41,7 @@ Ghi chú: ở giai đoạn 1 quầy vẫn có người (thu tiền và kiểm tr
 1. Cân thông minh, camera AI.
 2. App native iOS/Android.
 3. Khách hàng thân thiết (cần xác nhận riêng, Q-10).
-4. Đồng bộ ngược dữ liệu về POS. POS vẫn là nguồn chân lý. Xem G-05: giao dịch Self Checkout vào kế toán và tồn kho bằng cách nào vẫn cần chốt.
+4. Đồng bộ ngược dữ liệu về POS. POS vẫn là nguồn chân lý. Xem G-05: giao dịch Scan & Checkout vào kế toán và tồn kho bằng cách nào vẫn cần chốt.
 
 ## 4. Vai trò
 

@@ -19,14 +19,14 @@ Danh sách này gom các chỗ **quy trình chưa có quy định chính thức*
 | 3 | **Khách mất điện thoại hoặc hết pin sau khi trả** | Cổng ra chỉ nhận QR. Quản lý tra giao dịch ở web quản trị | Thêm "cho qua thủ công" cần quản lý duyệt, bắt buộc ghi lý do, ghi nhật ký | Cao |
 | 4 | **Chuyển khoản sai** (thiếu, dư, sai nội dung, quên nội dung) | Thu ngân không tick thì không xác nhận được; không ghi nhận thanh toán gộp nhiều lần | Chốt chính sách cho từng trường hợp; nếu cho chuyển bù thì bổ sung ghi nhận thanh toán gộp | Cao |
 | 5 | **Hoàn tiền, trả hàng** | Quản lý huỷ giao dịch (nếu khách chưa ra). Hoàn tiền làm ngoài hệ thống, không có chứng từ trong ứng dụng | Quy trình hoàn tiền, ai duyệt, chứng từ, thời hạn; sau đó thêm chức năng ghi nhận hoàn tiền | Cao |
-| 6 | **Hàng giới hạn độ tuổi** | Chỉ hiện cảnh báo cho thu ngân, không ghi lại đã kiểm tra | Bắt buộc thu ngân xác nhận "đã kiểm tra giấy tờ" mới thu được, có ghi nhật ký; hoặc loại các mặt hàng này khỏi Self Checkout | Cao |
+| 6 | **Hàng giới hạn độ tuổi** | Chỉ hiện cảnh báo cho thu ngân, không ghi lại đã kiểm tra | Bắt buộc thu ngân xác nhận "đã kiểm tra giấy tờ" mới thu được, có ghi nhật ký; hoặc loại các mặt hàng này khỏi Scan & Checkout | Cao |
 | 7 | **Ngưỡng lệch tiền mặt** | Lệch bất kỳ phải ghi lý do; không có ngưỡng duyệt | Đặt ngưỡng (ví dụ lệch trên một mức cần quản lý duyệt), quy định xử lý khi lệch lặp lại | Trung bình |
 | 8 | **Tỷ lệ kiểm tra ngẫu nhiên** | Mẫu 10%, khách lần đầu 20%, giỏ từ 500.000₫ là 25% (quản lý đổi được) | Chốt giá trị bắt đầu, và ngưỡng dữ liệu để giảm dần (ví dụ tỷ lệ chênh lệch dưới mức X trong Y tuần) | Trung bình |
 | 9 | **Hàng bán theo cân, hàng tươi** | Chưa hỗ trợ, khách mua ở quầy thường | Chốt loại trừ ở giai đoạn 1 hay hỗ trợ mã cân động | Trung bình |
 | 10 | **Ghi nhận giao dịch vào POS và kế toán** | Chế độ POS: đơn nằm ở POS nên tồn kho, doanh thu, kế toán có sẵn. Chế độ tự thu: báo cáo chỉ lấy từ dữ liệu của BRG | Với chi nhánh tự thu, chốt cơ chế (xuất file hoặc API) để gộp vào POS và kế toán | Trung bình |
 | 11 | **Hoá đơn điện tử: bên nào xuất** | Chế độ POS: POS xuất, BRG chỉ lưu số hoá đơn. Chế độ tự thu: bản giả lập của BRG | Chi nhánh nào tự thu thì chốt nhà cung cấp hoá đơn thật; chỉ để một bên xuất | Cao |
 | 12 | **Thời gian lưu nhật ký và dữ liệu cá nhân** | Lưu không giới hạn | Chốt thời gian lưu theo quy định nội bộ và pháp lý (nhật ký, email khách) | Trung bình |
-| 13 | **Nhân sự tối thiểu mỗi ca** | Chỉ cảnh báo thiếu thu ngân hoặc cổng ra trên lịch ca | Chốt số người tối thiểu, quy định khi thiếu người (tạm tắt Self Checkout) | Trung bình |
+| 13 | **Nhân sự tối thiểu mỗi ca** | Chỉ cảnh báo thiếu thu ngân hoặc cổng ra trên lịch ca | Chốt số người tối thiểu, quy định khi thiếu người (tạm tắt Scan & Checkout) | Trung bình |
 | 14 | **Sự cố mạng tại quầy hoặc cổng ra** | App nhân viên cần mạng, không có chế độ ngoại tuyến | Chốt phương án dự phòng (quầy thường, mạng dự phòng), có thể cần chế độ ngoại tuyến cho cổng ra | Trung bình |
 | 15 | **Hàng giá trị cao, nghi vấn** | Chỉ tăng xác suất kiểm tra theo ngưỡng giá trị | Cân nhắc buộc kiểm tra mọi giỏ vượt một mức giá trị | Thấp |
 

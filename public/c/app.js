@@ -1,4 +1,4 @@
-// PWA khách BRG Self Checkout: điều hướng, khởi động, chốt chặn theo trạng thái giao dịch.
+// PWA khách BRG Scan & Checkout: điều hướng, khởi động, chốt chặn theo trạng thái giao dịch.
 import { html, render, useRoute, go, useEffect, useState, useRef, Toasts, OfflineBar, registerSW, Loading, ErrorBox, Header, toast } from '/shared/lib.js';
 import { useStore, lastUnlockAt, loadStore, setStoreCode, openSession, refreshSession, resetSession, getState, local, setState, syncBasket } from './store.js';
 import { Welcome, Guide, CameraPermission, CameraBlocked, StoreDisabled, Stores, WebviewNotice, Resume, isWebview } from './screens-start.js';

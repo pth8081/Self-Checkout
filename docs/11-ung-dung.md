@@ -64,7 +64,7 @@ Một dòng sản phẩm cần: `sku, barcode, name, price (VND, số nguyên), 
 
 Việc cần chốt với POS (xem [07](07-tich-hop-chong-that-thoat.md)): API đọc theo chi nhánh, xác thực, giới hạn gọi, một SKU nhiều mã vạch, khuyến mãi (hiện chỉ hỗ trợ dạng "mua N giảm X"), hàng cân theo ký, hàng giới hạn độ tuổi.
 
-**Báo cáo và POS:** báo cáo hiện lấy từ dữ liệu của chính hệ thống (A01, A04, xuất CSV). Ghi giao dịch Self Checkout về POS/kế toán chưa làm (G-05); điểm gắn tự nhiên là cuối `collectPayment` trong `server/services/core.js`, sau khi ghi `payments`, kèm hàng đợi thử lại giống hoá đơn.
+**Báo cáo và POS:** báo cáo hiện lấy từ dữ liệu của chính hệ thống (A01, A04, xuất CSV). Ghi giao dịch Scan & Checkout về POS/kế toán chưa làm (G-05); điểm gắn tự nhiên là cuối `collectPayment` trong `server/services/core.js`, sau khi ghi `payments`, kèm hàng đợi thử lại giống hoá đơn.
 
 ## 4. Gắn hoá đơn điện tử thật
 

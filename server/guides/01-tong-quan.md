@@ -1,6 +1,6 @@
 ---
 title: Tổng quan nghiệp vụ
-summary: BRG Self Checkout là gì, ai làm gì, các nguyên tắc kiểm soát và luồng từ lúc khách vào cửa hàng đến lúc ra cổng.
+summary: BRG Scan & Checkout là gì, ai làm gì, các nguyên tắc kiểm soát và luồng từ lúc khách vào cửa hàng đến lúc ra cổng.
 group: nghiep-vu
 order: 10
 access: all
@@ -16,7 +16,7 @@ access: all
 >
 > Không có thanh toán trên web, không có bước bảo vệ cổng ra, BRG không quản lý tồn kho. Phần còn lại của bài này mô tả luồng cũ, đang khoá, để dùng lại sau.
 
-BRG Self Checkout cho khách **tự quét mã vạch từng món bằng điện thoại**, xem giỏ hàng và tổng tiền ngay, rồi **thanh toán tại quầy Self Checkout** và ra cổng bằng **mã QR biên nhận**. Nhân viên không phải quét từng món, chỉ đối chiếu giỏ, thu tiền và kiểm tra.
+BRG Scan & Checkout cho khách **tự quét mã vạch từng món bằng điện thoại**, xem giỏ hàng và tổng tiền ngay, rồi **thanh toán tại quầy Scan & Checkout** và ra cổng bằng **mã QR biên nhận**. Nhân viên không phải quét từng món, chỉ đối chiếu giỏ, thu tiền và kiểm tra.
 
 > **Lưu ý:** Giai đoạn 1 chưa có thanh toán online trong BRG. Mỗi chi nhánh chọn **một trong hai cách thu tiền** (xem bên dưới). Ví điện tử, VNPay, thẻ sẽ bật sau bằng cấu hình, hoặc dùng sẵn trên POS ở chế độ thu tiền qua POS.
 
@@ -73,7 +73,7 @@ Cùng một giao dịch đi qua ba bước kiểm soát độc lập: **hệ th�
 
 ## Nguyên tắc nghiệp vụ
 
-1. **POS là nguồn giá và tồn kho.** BRG Self Checkout không tự nhập giá. Giá khách thấy lúc quét có thể bị đối chiếu lại khi khoá giỏ, và khách phải đồng ý nếu giá đổi.
+1. **POS là nguồn giá và tồn kho.** BRG Scan & Checkout không tự nhập giá. Giá khách thấy lúc quét có thể bị đối chiếu lại khi khoá giỏ, và khách phải đồng ý nếu giá đổi.
 2. **Giá chốt khi khoá giỏ.** Sau khi khoá, không sửa được giỏ, trừ khi khách (hoặc thu ngân) mở khoá và quay lại bước quét.
 3. **Khách không tự xác nhận đã thanh toán.** Ở chế độ tự thu, chỉ thu ngân xác nhận (ghi rõ người thu, cách thu, giờ). Ở chế độ POS, POS báo thanh toán thành công và BRG tự xác nhận (ghi rõ nguồn POS, cách trả, số tiền, số hoá đơn).
 4. **QR biên nhận dùng một lần.** Quét hợp lệ ở cổng là bị đánh dấu đã dùng ngay. Chụp lại ảnh QR để vào lần hai sẽ bị chặn.

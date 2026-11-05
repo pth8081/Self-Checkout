@@ -57,7 +57,7 @@
 
 | Mã | User story | Vai trò | Ưu tiên | Màn hình |
 |----|-----------|---------|---------|----------|
-| FR-ADM-01 | Bật/tắt Self Checkout từng chi nhánh, không ảnh hưởng chi nhánh khác | Chuỗi | M | A02 |
+| FR-ADM-01 | Bật/tắt Scan & Checkout từng chi nhánh, không ảnh hưởng chi nhánh khác | Chuỗi | M | A02 |
 | FR-ADM-02 | Báo cáo tổng hợp: giao dịch, doanh thu, tỷ lệ chênh lệch theo chi nhánh | Chuỗi | M | A01, A04 |
 | FR-ADM-03 | Cấu hình & giám sát tích hợp (POS, chuyển khoản QR, hoá đơn) | Chuỗi | M | A03 |
 | FR-ADM-04 | Báo cáo giao dịch, doanh thu riêng chi nhánh | Chi nhánh | M | A06 |

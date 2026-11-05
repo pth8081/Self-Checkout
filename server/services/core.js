@@ -63,7 +63,7 @@ export function sessionView(ctx, sessionId) {
 export function createOrResumeSession(ctx, storeId, deviceId) {
   const { db } = ctx;
   const { store } = getStoreConfig(db, storeId);
-  if (!store.enabled) throw conflict('STORE_DISABLED', 'Chi nhánh này chưa bật Self Checkout');
+  if (!store.enabled) throw conflict('STORE_DISABLED', 'Chi nhánh này chưa bật Scan & Checkout');
   const since = new Date(Date.now() - config.sessionResumeHours * 3600_000).toISOString();
   const existing = db.prepare(`SELECT * FROM scan_sessions WHERE device_id = ? AND store_id = ? AND status IN ('active','locked')
     AND last_activity >= ? ORDER BY started_at DESC LIMIT 1`).get(deviceId, storeId, since);
@@ -255,7 +255,7 @@ function drawCheck(ctx, session, cfg, total) {
 export function lockSession(ctx, session, { method, acceptChanges = false, buyer = null }) {
   const { db } = ctx;
   const { store, cfg } = getStoreConfig(db, session.store_id);
-  if (!store.enabled) throw conflict('STORE_DISABLED', 'Chi nhánh này chưa bật Self Checkout');
+  if (!store.enabled) throw conflict('STORE_DISABLED', 'Chi nhánh này chưa bật Scan & Checkout');
   if (cfg.checkout_mode === 'basket') throw conflict('BASKET_MODE', 'Chi nhánh dùng giỏ QR cho POS, không dùng luồng thanh toán này');
   const posMode = cfg.payment_source === 'pos';
   if (posMode) {
@@ -322,7 +322,7 @@ export function lockSession(ctx, session, { method, acceptChanges = false, buyer
 export function lockBasket(ctx, session, { ref } = {}) {
   const { db } = ctx;
   const { store, cfg } = getStoreConfig(db, session.store_id);
-  if (!store.enabled) throw conflict('STORE_DISABLED', 'Chi nhánh này chưa bật Self Checkout');
+  if (!store.enabled) throw conflict('STORE_DISABLED', 'Chi nhánh này chưa bật Scan & Checkout');
   if (cfg.checkout_mode !== 'basket') throw conflict('NOT_BASKET', 'Chi nhánh này không dùng giỏ QR');
   const code = String(ref || '').toUpperCase();
   if (!/^[A-Z0-9]{1,6}-[A-Z0-9]{6,12}$/.test(code)) throw bad('BAD_REF', 'Mã giỏ không hợp lệ');

@@ -34,4 +34,4 @@
 quét/giây          = đồng_thời × (số_món_trung_bình / thời_gian_mua_sắm)
 ```
 
-TODO: chi nhánh = ?, khách cao điểm/chi nhánh = ?, % dùng Self Checkout = ?, món/giỏ = ?, phút/lượt = ?
+TODO: chi nhánh = ?, khách cao điểm/chi nhánh = ?, % dùng Scan & Checkout = ?, món/giỏ = ?, phút/lượt = ?

@@ -1,4 +1,4 @@
-// Web quản trị BRG Self Checkout (chuỗi + chi nhánh).
+// Web quản trị BRG Scan & Checkout (chuỗi + chi nhánh).
 import { html, render, useState, useEffect, useMemo, useCallback, useRoute, go, toast, Toasts, Header, Drawer, Icon, Logo, Spinner, OfflineBar, Field, registerSW, ErrorBox } from '/shared/lib.js';
 import { api, S, store, ROLE_VI } from '/a/common.js';
 import { Overview, Stores, Integrations, Reports, Users, Audit } from '/a/pages-chain.js';
@@ -62,7 +62,7 @@ function Login({ onLogin, notice }) {
     } finally { setBusy(false); }
   };
   return html`<div class="login"><form class="card" onSubmit=${submit} noValidate>
-    <div class="row"><${Logo} size=${44}/><div><h1 style="font-size:22px">Quản trị BRG</h1><div class="small muted">Self Checkout · chuỗi và chi nhánh</div></div></div>
+    <div class="row"><${Logo} size=${44}/><div><h1 style="font-size:22px">Quản trị BRG</h1><div class="small muted">Scan & Checkout · chuỗi và chi nhánh</div></div></div>
     ${notice && html`<div class="banner" role="status">${notice}</div>`}
     <${Field} label="Tài khoản hoặc email"><input class="input" name="username" autocomplete="username" autocapitalize="off" value=${account} onInput=${(e) => setAccount(e.target.value)} aria-label="Tài khoản hoặc email" autofocus disabled=${needTotp}/><//>
     <${Field} label="Mật khẩu"><input class="input" type="password" name="password" autocomplete="current-password" value=${password} onInput=${(e) => setPassword(e.target.value)} aria-label="Mật khẩu" disabled=${needTotp}/><//>
@@ -77,7 +77,7 @@ function Login({ onLogin, notice }) {
 // ============================== Khung ứng dụng ==============================
 function Sidebar({ items, active, onSelect, me, onLogout }) {
   return html`<aside class="side" aria-label="Menu chính">
-    <div class="brandrow"><${Logo}/><div>BRG Self Checkout<small>${ROLE_VI[me.role]}</small></div></div>
+    <div class="brandrow"><${Logo}/><div>BRG Scan & Checkout<small>${ROLE_VI[me.role]}</small></div></div>
     ${items.map((it) => it.group ? html`<div class="label" key=${it.group}>${it.group}</div>`
       : html`<button key=${it.id} class=${`navitem ${active === it.id ? 'on' : ''}`} aria-current=${active === it.id ? 'page' : undefined} onClick=${() => onSelect(it.id)}><${Icon} name=${it.icon}/><span class="grow">${it.label}</span></button>`)}
     <div class="me"><div class="avatar">${(me.name || '?').slice(0, 1).toUpperCase()}</div><div class="grow"><div class="b">${me.name}</div><div class="small muted">${me.id}</div></div>

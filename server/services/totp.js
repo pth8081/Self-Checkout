@@ -46,5 +46,5 @@ export function verifyTotp(secret, code, time = Date.now()) {
   return false;
 }
 
-export const otpauthUri = (secret, account, issuer = 'BRG Self Checkout') =>
+export const otpauthUri = (secret, account, issuer = 'BRG Scan & Checkout') =>
   `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(account)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}`;
