@@ -8,6 +8,8 @@ access: all
 
 # Tình huống ngoại lệ
 
+> **Luồng hiện hành là "Giỏ QR cho POS"** (bật sẵn cho mọi chi nhánh): khách quét món, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào POS, POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở trang Chi nhánh. Xem thêm bài "Kết nối POS".
+
 Cột **Ứng dụng** cho biết việc đó có công cụ trong ứng dụng hay phải xử lý ngoài hệ thống:
 **Có** = đã hỗ trợ, **Một phần** = hỗ trợ một phần, **Thủ công** = chưa có chức năng, xử lý ngoài ứng dụng và ghi chú lại.
 

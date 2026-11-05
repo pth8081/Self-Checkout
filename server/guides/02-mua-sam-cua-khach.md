@@ -8,6 +8,8 @@ access: all
 
 # Quy trình mua sắm của khách
 
+> **Bước thanh toán hiện nay:** khách bấm **Thanh toán** là thấy ngay mã QR để đưa thu ngân (không chọn cách trả, không nhập thông tin). Có thể **Sửa giỏ hàng** để quét thêm, mã QR cũ sẽ không còn dùng. Sau khi POS báo xong, màn hình hiện "Đã hoàn thành thanh toán" kèm **Xem bill** và **Tải bill PDF**; bill xem lại được ở Lịch sử. Nếu POS chậm báo, khách bấm "Đã thanh toán xong" để kết thúc.
+
 ## Các bước
 
 1. **Vào cửa hàng.** Khách dùng camera điện thoại quét **mã QR dán ở cổng vào** (đường dẫn dạng `/c/?s=Q7`). Ứng dụng tự nhận ra chi nhánh, khách không phải chọn. Không cần cài ứng dụng.

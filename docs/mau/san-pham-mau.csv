@@ -1,0 +1,3 @@
+store,sku,barcode,name,price,unit,active,age_restricted,promo_min_qty,promo_off,stock
+Q7,SUA01,8936036123456,Sữa tươi không đường 1L,29000,hộp,1,0,0,0,100
+Q7,MI01,8934567890123,Mì ăn liền tôm chua cay,4800,gói,1,0,2,2000,100
