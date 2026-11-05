@@ -190,6 +190,11 @@ function basketByCode(ctx, scope, code, body) {
     || db.prepare(`SELECT * FROM transactions WHERE cart_code = ? AND pos_order_ref IS NOT NULL`).get(String(code).toUpperCase());
   if (!tx) throw notFound('BASKET_NOT_FOUND', 'Chưa thấy giỏ này. Điện thoại khách có thể đang mất mạng, hãy thử lại sau');
   inScope(scope, tx);
+  // Mã điểm là khoá bảo vệ: POS phải gửi mã điểm của CHÍNH cửa hàng mình, sai thì từ chối ngay.
+  const point = String(body.pointCode || '').trim();
+  if (!point) throw bad('POINT_REQUIRED', 'pointCode (mã điểm của cửa hàng POS đang bán) là bắt buộc');
+  const st = db.prepare('SELECT pos_code FROM stores WHERE id = ?').get(tx.store_id);
+  if (!st?.pos_code || st.pos_code.toLowerCase() !== point.toLowerCase()) throw conflict('POINT_MISMATCH', 'Mã điểm không khớp với cửa hàng của giỏ này. Không thanh toán');
   const ref = String(body.posOrderRef || '').trim().slice(0, 64);
   if (!ref) throw bad('REF_REQUIRED', 'posOrderRef (mã đơn trên POS) là bắt buộc');
   if (tx.pos_order_ref && tx.pos_order_ref !== ref) throw conflict('REF_IN_USE', 'Giỏ này đã gắn với đơn POS khác', { posOrderRef: tx.pos_order_ref });

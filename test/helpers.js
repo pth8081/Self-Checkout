@@ -6,6 +6,7 @@ export async function makeApp({ rng = () => 0.99, demo = false, basket = false }
   seed(app.ctx.db, { demo });
   // Các kiểm thử cũ chạy luồng cổ điển (thu tại quầy, cổng ra). Chế độ giỏ QR bật bằng { basket: true }.
   if (!basket) app.ctx.db.prepare(`UPDATE store_config SET checkout_mode = 'classic'`).run();
+  else app.ctx.db.prepare(`UPDATE stores SET pos_code = 'SP-' || id`).run(); // chế độ giỏ QR bắt buộc có mã điểm
   await app.ready();
   return app;
 }

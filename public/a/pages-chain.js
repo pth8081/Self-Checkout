@@ -66,7 +66,7 @@ function AddStore({ onClose, onDone }) {
     <${Field} label="Mã chi nhánh" hint="1–6 chữ hoa hoặc số, dùng trong đường dẫn và mã giỏ hàng"><input class="input" maxlength="6" value=${f.id} onInput=${set('id')} autofocus aria-label="Mã chi nhánh"/><//>
     <${Field} label="Tên chi nhánh"><input class="input" value=${f.name} onInput=${set('name')} aria-label="Tên chi nhánh"/><//>
     <${Field} label="Địa chỉ"><input class="input" value=${f.address} onInput=${set('address')} aria-label="Địa chỉ"/><//>
-    <${Field} label="Mã điểm (hệ thống giá/POS)" hint="Mã của siêu thị này trong hệ thống giá, để gọi đúng cửa hàng. Có thể nhập sau ở mục Tích hợp"><input class="input" maxlength="40" value=${f.posCode} onInput=${set('posCode')} aria-label="Mã điểm"/><//>
+    <${Field} label="Mã điểm (hệ thống giá/POS)" hint="Mã của siêu thị này trong hệ thống giá, để gọi đúng cửa hàng. Bắt buộc phải có trước khi bật chi nhánh. Có thể nhập sau ở mục Tích hợp"><input class="input" maxlength="40" value=${f.posCode} onInput=${set('posCode')} aria-label="Mã điểm"/><//>
     ${err && html`<div class="errtext" role="alert">${err}</div>`}
     <p class="hint">Chi nhánh mới ở trạng thái tắt. Hãy nhập thông tin thanh toán, đồng bộ POS rồi mới bật.</p>
     <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : 'Thêm chi nhánh'}</button>

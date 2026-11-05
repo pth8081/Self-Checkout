@@ -157,8 +157,10 @@ export function makeBasket() {
   const items = basketItems(state);
   if (!items.length) throw new Error('Giỏ hàng đang trống');
   const v = cartView(state);
+  const point = state.store?.pointCode;
+  if (!point) throw new Error('Cửa hàng chưa có Mã điểm nên chưa thanh toán được. Hãy báo nhân viên');
   const ref = makeBasketRef(state.storeCode);
-  const qr = encodeBasket({ point: state.store?.pointCode || state.storeCode, ref, items, total: v.total });
+  const qr = encodeBasket({ point, ref, items, total: v.total });
   setState({ basket: { ref, qr, total: v.total, count: v.itemCount + v.pendingCount, pending: v.pendingCount, synced: false, at: Date.now(), error: null } });
   syncBasket();
 }

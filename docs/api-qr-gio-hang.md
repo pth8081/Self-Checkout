@@ -37,6 +37,20 @@ sequenceDiagram
 | **Mã giỏ** (ví dụ `Q7-LM3K2AB`) | BRG Scan & Checkout (điện thoại khách) | Có | BRG Scan & Checkout nhận ra giỏ. POS gửi lại trong đường dẫn khi báo thanh toán |
 | **Mã đơn POS** (`posOrderRef`, mã giao dịch hoặc mã bill của POS) | POS | Không | POS gửi lại trong báo thanh toán. BRG Scan & Checkout dùng để **chống ghi trùng** và đối soát |
 
+## Quy tắc then chốt: kiểm tra mã điểm
+
+> **POS bắt buộc kiểm tra mã điểm trước mọi bước khác.** Mã điểm trong mã QR phải **đúng bằng mã điểm của cửa hàng mà máy POS đang bán**. Không khớp thì **từ chối ngay: không tạo đơn, không thu tiền**, báo thu ngân "Mã này của cửa hàng khác". Không có ngoại lệ.
+
+Mã điểm đi từ đâu đến đâu:
+
+1. Quản trị BRG Scan & Checkout nhập **mã điểm** cho từng chi nhánh (đúng mã của cửa hàng trong hệ thống giá và POS).
+2. Khách quét mã QR dán ở cổng vào của cửa hàng. BRG Scan & Checkout biết khách ở chi nhánh nào và lấy mã điểm của chi nhánh đó.
+3. Giá của từng mặt hàng được tra theo mã điểm này, và mã điểm được ghi vào mã QR giỏ hàng.
+4. POS quét mã QR giỏ, **so mã điểm trong mã QR với mã điểm của mình**. Khác thì từ chối.
+5. Khi POS báo thanh toán về BRG Scan & Checkout, POS phải gửi lại `pointCode` (mã điểm của mình). BRG Scan & Checkout so với mã điểm của giỏ; **khác thì từ chối** (lỗi `POINT_MISMATCH`), không ghi thanh toán.
+
+Cửa hàng **chưa có mã điểm** thì không bật được và khách không tạo được mã QR giỏ.
+
 ## 2. Định dạng mã QR
 
 Một chuỗi văn bản ASCII, các phần ngăn bằng ký tự `|`:
@@ -93,7 +107,7 @@ static string Crc16(string s) {
 ### POS xử lý khi quét
 
 1. Kiểm tra tiền tố `BRG1|` và CRC16. Sai thì báo "Mã không hợp lệ, nhờ khách tạo lại".
-2. Kiểm tra mã điểm đúng cửa hàng.
+2. **Kiểm tra mã điểm (bắt buộc):** phải bằng mã điểm của cửa hàng máy POS đang bán. Không khớp thì **từ chối, không tạo đơn, không thanh toán**, báo thu ngân "Mã này của cửa hàng khác".
 3. Kiểm tra mã giỏ chưa dùng. Đã dùng thì mở lại đơn cũ, không tạo đơn mới.
 4. Với mỗi dòng, tìm sản phẩm theo mã vạch (mã nhà cung cấp hoặc mã nội bộ đều được, tuỳ POS) và thêm đúng số lượng. Mã không có trong POS thì báo thu ngân xử lý tại chỗ.
 5. POS tự tính giá, khuyến mãi, trừ kho. **BRG Scan & Checkout không quản lý tồn kho và không tính tiền thay POS.**
@@ -115,6 +129,7 @@ Xác thực: header `Authorization: Bearer <khoá API>` (hoặc `X-Api-Key`). Ch
 
 ```json
 {
+  "pointCode": "SP-0107",
   "posOrderRef": "POS-20261105-000123",
   "amount": 60800,
   "method": "qr_transfer",
@@ -131,6 +146,7 @@ Xác thực: header `Authorization: Bearer <khoá API>` (hoặc `X-Api-Key`). Ch
 
 | Trường | Bắt buộc | Ý nghĩa |
 |--------|----------|---------|
+| `pointCode` | **Có** | **Mã điểm của cửa hàng máy POS đang bán.** BRG Scan & Checkout so với mã điểm của giỏ, khác thì từ chối. |
 | `posOrderRef` | **Có** | Mã đơn (mã giao dịch hoặc mã bill) trên POS. **Khoá chống trùng** |
 | `amount` | **Có** | Số tiền thực thu, VND, số nguyên dương |
 | `method` | **Có** | `cash`, `qr_transfer`, `card`, `ewallet` |
@@ -162,6 +178,8 @@ Dạng `{ "error": "MÃ", "message": "…" }`.
 
 | HTTP | Mã lỗi | Ý nghĩa | POS làm |
 |------|--------|---------|---------|
+| 400 | `POINT_REQUIRED` | Thiếu `pointCode` | Gửi lại có `pointCode` |
+| 409 | `POINT_MISMATCH` | **Mã điểm không khớp** cửa hàng của giỏ | **Không thử lại, không thanh toán**, báo quản lý |
 | 400 | `BAD_AMOUNT`, `BAD_METHOD`, `BAD_LINES`, `REF_REQUIRED`, `BAD_INVOICE_URL` | Dữ liệu gửi sai | Sửa rồi gửi lại (không tự thử lại) |
 | 401 | `NO_API_KEY`, `BAD_API_KEY` | Khoá thiếu, sai hoặc bị thu hồi | Không thử lại, báo quản lý |
 | 403 | `STORE_FORBIDDEN` | Khoá không dùng cho chi nhánh này | Không thử lại |
@@ -185,7 +203,7 @@ Ví dụ gọi thử:
 ```bash
 curl -X POST "https://tên-miền-brg/api/pos/v1/baskets/Q7-LM3K2AB/paid" \
   -H "Authorization: Bearer brgpos_xxxxxxxx" -H "Content-Type: application/json" \
-  -d '{"posOrderRef":"POS-1","amount":60800,"method":"cash","invoiceNo":"C26TAA-123"}'
+  -d '{"posOrderRef":"POS-1","pointCode":"SP-0107","amount":60800,"method":"cash","invoiceNo":"C26TAA-123"}'
 ```
 
 ## 6. Bill khách xem
@@ -198,7 +216,8 @@ curl -X POST "https://tên-miền-brg/api/pos/v1/baskets/Q7-LM3K2AB/paid" \
 - [ ] POS quét được mã QR mẫu `docs/mau/qr-gio-hang-mau.svg` và đọc ra đúng 2 dòng hàng, mã điểm `SP-0107`, mã giỏ `Q7-LM3K2AB`.
 - [ ] POS kiểm tra CRC16 và từ chối khi chuỗi bị sửa một ký tự.
 - [ ] Quét cùng một mã QR hai lần không tạo hai đơn.
-- [ ] Mã điểm khác cửa hàng thì báo lỗi cho thu ngân.
+- [ ] **Mã điểm trong mã QR khác mã điểm cửa hàng của POS thì POS từ chối ngay**, không tạo đơn, không thu tiền.
+- [ ] Báo thanh toán thiếu `pointCode` bị từ chối (400), sai `pointCode` bị từ chối (409 `POINT_MISMATCH`).
 - [ ] Báo thanh toán lần 1 trả `duplicate: false`, lần 2 trả `duplicate: true`, không thu hai lần.
 - [ ] Ngắt mạng giữa chừng: POS thử lại theo lịch ở mục 5 và cuối cùng báo được.
 - [ ] Số tiền POS tính khác tạm tính vẫn báo được bình thường.

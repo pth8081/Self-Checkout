@@ -28,7 +28,7 @@ export function storeView(db, storeId) {
   return {
     id: store.id, name: store.name, address: store.address, enabled: !!store.enabled,
     paymentSource: cfg.payment_source, guardCheck: !!cfg.guard_check,
-    basket: cfg.checkout_mode === 'basket', pointCode: store.pos_code || store.id,
+    basket: cfg.checkout_mode === 'basket', pointCode: store.pos_code || '',
     payment: { cash: !pos && !!cfg.pay_cash, qrTransfer: !pos && !!cfg.pay_qr && bankOk, pos, online: false /* chưa tích hợp */ }
   };
 }
@@ -212,7 +212,7 @@ export function txView(ctx, tx, { staff = false } = {}) {
   };
   if (tx.method === 'basket') {
     const st = db.prepare('SELECT pos_code FROM stores WHERE id = ?').get(tx.store_id);
-    v.basketQr = encodeBasket({ point: st?.pos_code || tx.store_id, ref: tx.cart_code, at: Date.parse(tx.created_at), total: tx.total,
+    v.basketQr = encodeBasket({ point: st?.pos_code || '', ref: tx.cart_code, at: Date.parse(tx.created_at), total: tx.total,
       items: JSON.parse(tx.items_json).map((i) => ({ barcode: i.barcode, qty: i.qty })) });
   }
   if (tx.status === 'awaiting_counter' && tx.method === 'qr_transfer' && cfg.bank_bin && cfg.bank_account) {
@@ -324,6 +324,7 @@ export function lockBasket(ctx, session, { ref } = {}) {
   const { store, cfg } = getStoreConfig(db, session.store_id);
   if (!store.enabled) throw conflict('STORE_DISABLED', 'Chi nhánh này chưa bật Scan & Checkout');
   if (cfg.checkout_mode !== 'basket') throw conflict('NOT_BASKET', 'Chi nhánh này không dùng giỏ QR');
+  if (!store.pos_code) throw conflict('NO_POS_CODE', 'Cửa hàng chưa có Mã điểm nên chưa thanh toán được. Hãy báo nhân viên');
   const code = String(ref || '').toUpperCase();
   if (!/^[A-Z0-9]{1,6}-[A-Z0-9]{6,12}$/.test(code)) throw bad('BAD_REF', 'Mã giỏ không hợp lệ');
   const same = db.prepare('SELECT * FROM transactions WHERE store_id = ? AND cart_code = ?').get(session.store_id, code);

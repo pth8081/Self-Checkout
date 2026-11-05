@@ -343,11 +343,11 @@ test('giỏ QR: POS báo thanh toán theo mã giỏ kèm bill thật; báo lại
     { id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }, { id: 'b', type: 'scan', barcode: barcodeOf(app, 'Q7', 'MI01') }] } });
   const code = 'Q7-ABCDEF2K';
   // chưa đồng bộ giỏ: POS nhận 404 và thử lại sau
-  const early = await pos(app, key, 'POST', `/baskets/${code}/paid`, { posOrderRef: 'POS-1', amount: 1000, method: 'cash' });
+  const early = await pos(app, key, 'POST', `/baskets/${code}/paid`, { posOrderRef: 'POS-1', pointCode: 'SP-Q7', amount: 1000, method: 'cash' });
   assert.equal(early.status, 404);
   assert.equal(early.body.error, 'BASKET_NOT_FOUND');
   const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: code } })).body.transaction;
-  const body = { posOrderRef: 'POS-1', amount: tx.total - 2000, method: 'qr_transfer', invoiceNo: 'C26TAA-123', cashier: 'Lan',
+  const body = { posOrderRef: 'POS-1', pointCode: 'SP-Q7', amount: tx.total - 2000, method: 'qr_transfer', invoiceNo: 'C26TAA-123', cashier: 'Lan',
     invoiceUrl: 'https://hddt.example.vn/tra-cuu/abc',
     lines: [{ barcode: '1', name: 'Sữa tươi 1L', qty: 1, unitPrice: 29000, discount: 0, lineTotal: 29000 }, { name: 'Mì tôm', qty: 1, unitPrice: 4800, discount: 2000, lineTotal: 2800 }] };
   // dữ liệu sai bị từ chối
@@ -393,9 +393,38 @@ test('giỏ QR: POS chưa gửi bill thì bill là tạm tính; gửi bổ sung 
   const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
   await call(app, 'POST', `/api/c/sessions/${s.body.session.id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }] } });
   const tx = (await call(app, 'POST', `/api/c/sessions/${s.body.session.id}/basket`, { body: { ref: 'Q7-ZZZZ2345' } })).body.transaction;
-  await pos(app, key, 'POST', `/baskets/Q7-ZZZZ2345/paid`, { posOrderRef: 'P9', amount: tx.total, method: 'cash' });
+  await pos(app, key, 'POST', `/baskets/Q7-ZZZZ2345/paid`, { posOrderRef: 'P9', pointCode: 'SP-Q7', amount: tx.total, method: 'cash' });
   assert.equal((await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill.provisional, true);
-  await pos(app, key, 'POST', `/baskets/Q7-ZZZZ2345/paid`, { posOrderRef: 'P9', amount: tx.total, method: 'cash', lines: [{ name: 'Sữa tươi 1L', qty: 1, unitPrice: tx.total, discount: 0, lineTotal: tx.total }] });
+  await pos(app, key, 'POST', `/baskets/Q7-ZZZZ2345/paid`, { posOrderRef: 'P9', pointCode: 'SP-Q7', amount: tx.total, method: 'cash', lines: [{ name: 'Sữa tươi 1L', qty: 1, unitPrice: tx.total, discount: 0, lineTotal: tx.total }] });
   assert.equal((await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill.provisional, false);
+  await app.close();
+});
+
+test('mã điểm là khoá: POS gửi sai hoặc thiếu mã điểm thì bị từ chối, không ghi thanh toán; cửa hàng chưa có mã điểm thì không tạo được giỏ QR', async () => {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  await call(app, 'POST', `/api/c/sessions/${s.body.session.id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }] } });
+  const tx = (await call(app, 'POST', `/api/c/sessions/${s.body.session.id}/basket`, { body: { ref: 'Q7-POINT234' } })).body.transaction;
+  const base = { posOrderRef: 'P1', amount: tx.total, method: 'cash' };
+  const missing = await pos(app, key, 'POST', '/baskets/Q7-POINT234/paid', base);
+  assert.equal(missing.status, 400); assert.equal(missing.body.error, 'POINT_REQUIRED');
+  const wrong = await pos(app, key, 'POST', '/baskets/Q7-POINT234/paid', { ...base, pointCode: 'SP-Q1' });
+  assert.equal(wrong.status, 409); assert.equal(wrong.body.error, 'POINT_MISMATCH');
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-POINT234/cancelled', { posOrderRef: 'P1', pointCode: 'SP-Q1' })).status, 409);
+  assert.equal(app.ctx.db.prepare('SELECT COUNT(*) n FROM payments').get().n, 0);
+  assert.equal(app.ctx.db.prepare('SELECT status FROM transactions WHERE id=?').get(tx.id).status, 'awaiting_counter');
+  // đúng mã điểm (không phân biệt hoa thường) thì nhận
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-POINT234/paid', { ...base, pointCode: 'sp-q7' })).status, 200);
+  // cửa hàng chưa có mã điểm: không tạo được giỏ QR
+  app.ctx.db.prepare(`UPDATE stores SET pos_code = '' WHERE id = 'Q7'`).run();
+  const s2 = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' }, device: 'other-1234567890abcdef' });
+  await call(app, 'POST', `/api/c/sessions/${s2.body.session.id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'MI01') }] }, device: 'other-1234567890abcdef' });
+  const nope = await call(app, 'POST', `/api/c/sessions/${s2.body.session.id}/basket`, { body: { ref: 'Q7-NOPOINT23' }, device: 'other-1234567890abcdef' });
+  assert.equal(nope.status, 409); assert.equal(nope.body.error, 'NO_POS_CODE');
+  // không bật được chi nhánh khi chưa có mã điểm; không xoá được mã điểm khi đang bật
+  app.ctx.db.prepare(`UPDATE stores SET enabled = 0 WHERE id = 'Q7'`).run();
+  assert.equal((await call(app, 'PUT', '/api/a/stores/Q7', { token: admin, body: { enabled: true } })).body.error, 'NO_POS_CODE');
   await app.close();
 });

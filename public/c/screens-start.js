@@ -24,6 +24,7 @@ export function Welcome({ store, onStart, busy, error }) {
           <div class="grow"><div class="b" style="font-size:17px">${store.name}</div><div class="small muted">${store.address || ''}</div></div></div>
         <${Pill} tone="ok"><span class="dot"></span>Scan & Checkout đang hoạt động<//>
       </div>
+      ${store.basket && !store.pointCode && html`<${Banner} tone="warn" icon="alert" title="Cửa hàng chưa sẵn sàng">Cửa hàng chưa được gán Mã điểm nên chưa thanh toán được. Hãy báo nhân viên.<//>`}
       ${error && html`<${ErrorBox} error=${error}/>`}
       <div class="stack" style="margin-top:4px">
         ${[['scan', 'Quét mã vạch từng mặt hàng bằng camera'], ['cash', store.basket ? 'Thu ngân quét một mã QR là có đủ mặt hàng, không quét từng mặt hàng' : store.payment?.pos ? 'Thanh toán tại quầy, thu ngân quét mã giỏ hàng' : 'Trả tiền mặt hoặc chuyển khoản tại quầy'], ['qr', store.basket ? 'Mã QR lưu trên điện thoại, mất mạng vẫn dùng được' : store.guardCheck === false ? 'Thanh toán xong là ra về' : 'Nhận mã QR để ra cổng']].map(([ic, t]) => html`

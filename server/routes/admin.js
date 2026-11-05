@@ -164,10 +164,12 @@ export default async function adminRoutes(app) {
       const b = req.body || {};
       if (b.enabled !== undefined || b.posCode !== undefined) chainOnly(req);
       const posCode = b.posCode === undefined ? st.pos_code : cleanPosCode(b.posCode, id);
+      if (!posCode && st.enabled && (b.enabled === undefined || b.enabled) && db.prepare("SELECT 1 FROM store_config WHERE store_id = ? AND checkout_mode = 'basket'").get(id)) throw conflict('NO_POS_CODE', 'Chi nhánh đang bật nên không được xoá Mã điểm. Hãy tắt chi nhánh trước');
       if (b.enabled === true) {
         const c = db.prepare('SELECT * FROM store_config WHERE store_id = ?').get(id);
         if (c.checkout_mode !== 'basket' && c.payment_source !== 'pos' && !c.pay_cash && !(c.pay_qr && c.bank_bin && c.bank_account)) throw conflict('NO_PAYMENT', 'Hãy bật ít nhất một cách thanh toán dùng được trước khi bật chi nhánh');
         if (!db.prepare('SELECT 1 FROM product_cache WHERE store_id = ? LIMIT 1').get(id)) throw conflict('NO_PRODUCTS', 'Chi nhánh chưa có dữ liệu sản phẩm, hãy đồng bộ POS trước');
+        if (c.checkout_mode === 'basket' && !posCode) throw conflict('NO_POS_CODE', 'Hãy nhập Mã điểm của chi nhánh (mã trong hệ thống giá và POS) trước khi bật');
       }
       db.prepare('UPDATE stores SET name = ?, address = ?, enabled = ?, pos_code = ? WHERE id = ?')
         .run(b.name?.trim() || st.name, b.address ?? st.address, b.enabled === undefined ? st.enabled : (b.enabled ? 1 : 0), posCode, id);

@@ -43,7 +43,7 @@ async function api(method,url,body,headers={}){const r=await fetch(BASE+url,{met
  const key=(await api('POST','/api/a/pos/keys',{name:'POS e2e'},AH)).body.key;const code=await p.innerText('.code');
  await sleep(1500); // chờ giỏ đồng bộ lên máy chủ
  const total=await p.evaluate(()=>JSON.parse(localStorage.getItem('brg.c.v1')).basket.total);
- const paid=await api('POST',`/api/pos/v1/baskets/${code}/paid`,{posOrderRef:'POS-E2E-1',amount:total,method:'cash',invoiceNo:'C26-9',cashier:'Lan',lines:[{name:'Sữa tươi 1L',qty:2,unitPrice:Math.round(total/2),discount:0,lineTotal:total}]},{authorization:'Bearer '+key});
+ const paid=await api('POST',`/api/pos/v1/baskets/${code}/paid`,{posOrderRef:'POS-E2E-1',pointCode:'SP-0107',amount:total,method:'cash',invoiceNo:'C26-9',cashier:'Lan',lines:[{name:'Sữa tươi 1L',qty:2,unitPrice:Math.round(total/2),discount:0,lineTotal:total}]},{authorization:'Bearer '+key});
  ok('POS báo thanh toán thành công',paid.status===200);
  await p.waitForSelector('text=Đã hoàn thành thanh toán',{timeout:15000}).catch(()=>{});
  ok('khách thấy "Đã hoàn thành thanh toán"',await p.isVisible('text=Đã hoàn thành thanh toán'));
