@@ -50,7 +50,7 @@ function GateQr({ s, onClose }) {
 }
 
 function AddStore({ onClose, onDone }) {
-  const [f, setF] = useState({ id: '', name: '', address: '' });
+  const [f, setF] = useState({ id: '', name: '', address: '', posCode: '' });
   const [busy, run] = useBusy();
   const [err, setErr] = useState('');
   const set = (k) => (e) => setF({ ...f, [k]: k === 'id' ? e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') : e.target.value });
@@ -66,6 +66,7 @@ function AddStore({ onClose, onDone }) {
     <${Field} label="Mã chi nhánh" hint="1–6 chữ hoa hoặc số, dùng trong đường dẫn và mã giỏ hàng"><input class="input" maxlength="6" value=${f.id} onInput=${set('id')} autofocus aria-label="Mã chi nhánh"/><//>
     <${Field} label="Tên chi nhánh"><input class="input" value=${f.name} onInput=${set('name')} aria-label="Tên chi nhánh"/><//>
     <${Field} label="Địa chỉ"><input class="input" value=${f.address} onInput=${set('address')} aria-label="Địa chỉ"/><//>
+    <${Field} label="Mã điểm (hệ thống giá/POS)" hint="Mã của siêu thị này trong hệ thống giá, để gọi đúng cửa hàng. Có thể nhập sau ở mục Tích hợp"><input class="input" maxlength="40" value=${f.posCode} onInput=${set('posCode')} aria-label="Mã điểm"/><//>
     ${err && html`<div class="errtext" role="alert">${err}</div>`}
     <p class="hint">Chi nhánh mới ở trạng thái tắt. Hãy nhập thông tin thanh toán, đồng bộ POS rồi mới bật.</p>
     <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : 'Thêm chi nhánh'}</button>
@@ -142,17 +143,23 @@ export function Stores({ me, reloadStores, setStoreId }) {
 function PosCard({ d, reload }) {
   const [busy, run] = useBusy();
   const [vals, setVals] = useState({});
+  const [codes, setCodes] = useState({});
   const sync = (id) => run(async () => { const r = await api.post('/integrations/pos/sync', id ? { storeId: id } : {}); await reload(); return r; }, id ? 'Đã đồng bộ POS' : 'Đã đồng bộ tất cả chi nhánh');
+  const saveCode = (s) => run(async () => { await api.put(`/stores/${s.id}`, { posCode: (codes[s.id] ?? '').trim() }); await reload(); }, 'Đã lưu mã điểm');
   const saveLimit = (s) => run(async () => { await api.put(`/stores/${s.id}/config`, { posStaleMinutes: Number(vals[s.id]) }); await reload(); }, 'Đã lưu ngưỡng cảnh báo');
   return html`<div class="card">
     <div class="cardhead"><div class="ico-tile"><${Icon} name="barcode"/></div><div class="grow"><h2>POS (giá & tồn kho)</h2>
       <div class="small muted">Bộ nối: ${d.pos.adapter === 'mock' ? 'POS giả lập' : d.pos.adapter}</div></div>
       <${Pill} tone="ok"><span class="dot"></span>Đã kết nối<//>
       <button class="btn sm primary" disabled=${busy} onClick=${() => sync(null)}><${Icon} name="refresh" size=${18}/>Đồng bộ tất cả</button></div>
-    <div class="tblwrap"><table class="tbl"><thead><tr><th>Chi nhánh</th><th>Đồng bộ gần nhất</th><th>Độ trễ</th><th>Ngưỡng cảnh báo (phút)</th><th class="r">Mã vạch không khớp (24 giờ)</th><th></th></tr></thead>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>Chi nhánh</th><th>Mã điểm (hệ thống giá)</th><th>Đồng bộ gần nhất</th><th>Độ trễ</th><th>Ngưỡng cảnh báo (phút)</th><th class="r">Mã vạch không khớp (24 giờ)</th><th></th></tr></thead>
       <tbody>${d.pos.stores.map((s) => {
         const v = vals[s.id] ?? s.staleLimit;
-        return html`<tr key=${s.id}><td><b>${s.name}</b></td><td>${s.lastSync ? fmt.when(s.lastSync) : 'Chưa đồng bộ'}</td>
+        const code = codes[s.id] ?? s.posCode ?? '';
+        return html`<tr key=${s.id}><td><b>${s.name}</b><div class="sub">${s.id}</div></td>
+          <td><div class="row"><input class="input sm" maxlength="40" value=${code} placeholder="Chưa nhập" aria-label=${`Mã điểm ${s.name}`} onInput=${(e) => setCodes({ ...codes, [s.id]: e.target.value })}/>
+            <button class="btn sm line" disabled=${busy || code.trim() === (s.posCode || '')} onClick=${() => saveCode(s)}>Lưu</button></div></td>
+          <td>${s.lastSync ? fmt.when(s.lastSync) : 'Chưa đồng bộ'}</td>
           <td>${s.lagMinutes == null ? '–' : s.stale ? html`<${Pill} tone="warn">Chậm ${s.lagMinutes} phút<//>` : `${s.lagMinutes} phút`}</td>
           <td><div class="row"><input class="input sm num-in" type="number" min="1" max="1440" value=${v} aria-label=${`Ngưỡng cảnh báo ${s.name}`} onInput=${(e) => setVals({ ...vals, [s.id]: e.target.value })}/>
             <button class="btn sm line" disabled=${busy || Number(v) === s.staleLimit} onClick=${() => saveLimit(s)}>Lưu</button></div></td>

@@ -52,6 +52,8 @@ Bản giả lập: `server/services/pos.js` (đọc bảng `pos_products`). POS 
 }
 ```
 
+Mã điểm của từng chi nhánh (`stores.pos_code`, nhập ở A02/A03) là mã để adapter gọi đúng cửa hàng trong hệ thống giá; xem [api-gia-chi-nhanh](api-gia-chi-nhanh.md).
+
 Một dòng sản phẩm cần: `sku, barcode, name, price (VND, số nguyên), stock, unit, active, age_restricted, promo_min_qty, promo_off, ...`. Bảng `product_cache` là bản sao để quét nhanh; `current()` mới là nguồn để chốt giá, nên với POS có API thời gian thực hãy gọi trực tiếp POS trong `current()` thay vì đọc bộ nhớ đệm.
 
 Việc cần chốt với POS (xem [07](07-tich-hop-chong-that-thoat.md)): API đọc theo chi nhánh, xác thực, giới hạn gọi, một SKU nhiều mã vạch, khuyến mãi (hiện chỉ hỗ trợ dạng "mua N giảm X"), hàng cân theo ký, hàng giới hạn độ tuổi.

@@ -146,6 +146,7 @@ CREATE TABLE IF NOT EXISTS integration_keys (
 
 /** Thêm cột còn thiếu cho CSDL tạo từ phiên bản cũ (CREATE TABLE IF NOT EXISTS không tự thêm cột). */
 const MIGRATIONS = [
+  ['stores', 'pos_code', "TEXT NOT NULL DEFAULT ''"],
   ['store_config', 'payment_source', "TEXT NOT NULL DEFAULT 'manual'"], ['store_config', 'guard_check', 'INTEGER NOT NULL DEFAULT 1'],
   ['transactions', 'pos_order_ref', 'TEXT'], ['transactions', 'pos_status', 'TEXT'], ['transactions', 'pos_claimed_at', 'TEXT'],
   ['transactions', 'pos_cashier', 'TEXT'], ['transactions', 'pos_terminal', 'TEXT'], ['transactions', 'pos_amount', 'INTEGER'],
@@ -156,6 +157,7 @@ function migrate(db) {
     if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
   }
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_pos_ref ON transactions(pos_order_ref)');
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_stores_pos_code ON stores(pos_code) WHERE pos_code <> ''");
 }
 
 export function openDb(file) {

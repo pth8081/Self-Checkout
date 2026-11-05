@@ -51,6 +51,10 @@ Một mã vạch ứng với một `sku`. Một `sku` có thể có nhiều mã 
 
 Trả danh sách như 2.1, có phân trang và `updatedSince` để chỉ lấy dòng thay đổi. BRG dùng để giữ bản sao tra nhanh và đồng bộ mỗi phút.
 
+## 2c. Mã điểm
+
+Mỗi chi nhánh trong BRG có **mã điểm**: mã của siêu thị đó trong hệ thống giá của bạn. Quản trị chuỗi nhập một lần cho từng chi nhánh (khi thêm chi nhánh, hoặc ở mục Tích hợp), không trùng nhau giữa các chi nhánh. Khi khách quét QR cổng vào, BRG biết chi nhánh theo mã trong link; khi cần giá, BRG đổi sang mã điểm rồi gọi API. Vì vậy `storeId` trong hai lệnh trên là **mã điểm**, và phản hồi nên trả lại đúng mã điểm đó để BRG đối chiếu.
+
 ## 3. Yêu cầu chung
 
 - Xác thực bằng khoá API trong header (BRG cấp chỗ để lưu khoá), HTTPS.

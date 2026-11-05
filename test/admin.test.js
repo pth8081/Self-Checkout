@@ -141,3 +141,22 @@ test('tìm giao dịch theo mã giỏ hàng; tạo quản trị không cần PIN
   assert.equal(u.status, 200, JSON.stringify(u.body));
   await app.close();
 });
+
+test('mã điểm của chi nhánh: nhập, không trùng, chỉ quản trị chuỗi đổi', async () => {
+  const app = await makeApp();
+  const chain = (await adminLogin(app)).body.token;
+  const q7 = (await adminLogin(app, 'QT0007')).body.token;
+  let r = await call(app, 'PUT', '/api/a/stores/Q7', { token: chain, body: { posCode: 'SP-0107' } });
+  assert.equal(r.body.store.posCode, 'SP-0107');
+  r = await call(app, 'PUT', '/api/a/stores/Q1', { token: chain, body: { posCode: 'sp-0107' } });
+  assert.equal(r.status, 409);
+  r = await call(app, 'PUT', '/api/a/stores/Q7', { token: chain, body: { posCode: 'có dấu' } });
+  assert.equal(r.status, 400);
+  r = await call(app, 'PUT', '/api/a/stores/Q7', { token: q7, body: { posCode: 'X1' } });
+  assert.equal(r.status, 403);
+  r = await call(app, 'POST', '/api/a/stores', { token: chain, body: { id: 'NEW1', name: 'Mới', posCode: 'SP-9' } });
+  assert.equal(r.body.store.posCode, 'SP-9');
+  const i = await call(app, 'GET', '/api/a/integrations', { token: chain });
+  assert.equal(i.body.pos.stores.find((s) => s.id === 'Q7').posCode, 'SP-0107');
+  await app.close();
+});

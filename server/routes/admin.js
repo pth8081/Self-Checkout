@@ -122,7 +122,7 @@ export default async function adminRoutes(app) {
     const storeRow = (st) => {
       const c = db.prepare('SELECT * FROM store_config WHERE store_id = ?').get(st.id);
       return {
-        id: st.id, name: st.name, address: st.address, enabled: !!st.enabled,
+        id: st.id, name: st.name, address: st.address, enabled: !!st.enabled, posCode: st.pos_code,
         config: { payCash: !!c.pay_cash, payQr: !!c.pay_qr, payOnline: !!c.pay_online, qrProvider: c.qr_provider,
           randomCheckRate: c.random_check_rate, rateFirstTime: c.rate_first_time, rateHighValue: c.rate_high_value, highValueThreshold: c.high_value_threshold,
           bank: { bin: c.bank_bin, name: c.bank_name, account: c.bank_account, holder: c.bank_holder }, posStaleMinutes: c.pos_stale_minutes,
@@ -132,6 +132,15 @@ export default async function adminRoutes(app) {
     s.get('/stores', async (req) => ({
       stores: db.prepare('SELECT * FROM stores ORDER BY name').all().filter((x) => req.user.role === 'chain_admin' || x.id === req.user.store_id).map(storeRow)
     }));
+    // Mã điểm: mã của chi nhánh trong hệ thống giá/POS, để BRG gọi đúng cửa hàng.
+    const cleanPosCode = (v, selfId) => {
+      const c = String(v ?? '').trim();
+      if (!c) return '';
+      if (!/^[A-Za-z0-9_.\-/]{1,40}$/.test(c)) throw bad('BAD_POS_CODE', 'Mã điểm gồm chữ, số, dấu - _ . / tối đa 40 ký tự');
+      const dup = db.prepare('SELECT id FROM stores WHERE lower(pos_code) = lower(?) AND id <> ?').get(c, selfId || '');
+      if (dup) throw conflict('DUPLICATE_POS_CODE', `Mã điểm này đã gán cho chi nhánh ${dup.id}`);
+      return c;
+    };
     s.post('/stores', async (req) => {
       chainOnly(req);
       const id = String(req.body?.id || '').trim().toUpperCase();
@@ -139,8 +148,9 @@ export default async function adminRoutes(app) {
       if (!/^[A-Z0-9]{1,6}$/.test(id)) throw bad('BAD_ID', 'Mã chi nhánh gồm 1–6 chữ hoa hoặc số');
       if (!name) throw bad('NAME_REQUIRED', 'Nhập tên chi nhánh');
       if (db.prepare('SELECT 1 FROM stores WHERE id = ?').get(id)) throw conflict('DUPLICATE', 'Mã chi nhánh đã tồn tại');
+      const posCode = cleanPosCode(req.body?.posCode, id);
       db.transaction(() => {
-        db.prepare('INSERT INTO stores(id,name,address,enabled,created_at) VALUES(?,?,?,0,?)').run(id, name, String(req.body?.address || ''), nowIso());
+        db.prepare('INSERT INTO stores(id,name,address,enabled,created_at,pos_code) VALUES(?,?,?,0,?,?)').run(id, name, String(req.body?.address || ''), nowIso(), posCode);
         db.prepare('INSERT INTO store_config(store_id) VALUES(?)').run(id);
         audit(db, { storeId: id, actorType: 'admin', actorId: req.user.id, action: 'store.created', entity: 'store', entityId: id });
       })();
@@ -152,14 +162,15 @@ export default async function adminRoutes(app) {
       if (!st) throw notFound('STORE_NOT_FOUND', 'Không tìm thấy chi nhánh');
       if (req.user.role === 'branch_admin' && id !== req.user.store_id) throw forbidden();
       const b = req.body || {};
-      if (b.enabled !== undefined) chainOnly(req);
+      if (b.enabled !== undefined || b.posCode !== undefined) chainOnly(req);
+      const posCode = b.posCode === undefined ? st.pos_code : cleanPosCode(b.posCode, id);
       if (b.enabled === true) {
         const c = db.prepare('SELECT * FROM store_config WHERE store_id = ?').get(id);
         if (c.payment_source !== 'pos' && !c.pay_cash && !(c.pay_qr && c.bank_bin && c.bank_account)) throw conflict('NO_PAYMENT', 'Hãy bật ít nhất một cách thanh toán dùng được trước khi bật chi nhánh');
         if (!db.prepare('SELECT 1 FROM product_cache WHERE store_id = ? LIMIT 1').get(id)) throw conflict('NO_PRODUCTS', 'Chi nhánh chưa có dữ liệu sản phẩm, hãy đồng bộ POS trước');
       }
-      db.prepare('UPDATE stores SET name = ?, address = ?, enabled = ? WHERE id = ?')
-        .run(b.name?.trim() || st.name, b.address ?? st.address, b.enabled === undefined ? st.enabled : (b.enabled ? 1 : 0), id);
+      db.prepare('UPDATE stores SET name = ?, address = ?, enabled = ?, pos_code = ? WHERE id = ?')
+        .run(b.name?.trim() || st.name, b.address ?? st.address, b.enabled === undefined ? st.enabled : (b.enabled ? 1 : 0), posCode, id);
       audit(db, { storeId: id, actorType: 'admin', actorId: req.user.id, action: 'store.updated', entity: 'store', entityId: id, data: b });
       return { store: storeRow(db.prepare('SELECT * FROM stores WHERE id = ?').get(id)) };
     });
@@ -232,10 +243,10 @@ export default async function adminRoutes(app) {
       return {
         pos: {
           adapter: ctx.pos.name, connected: true,
-          stores: db.prepare('SELECT s.id, s.name, c.pos_stale_minutes stale FROM stores s JOIN store_config c ON c.store_id = s.id ORDER BY s.name').all().map((st) => {
+          stores: db.prepare('SELECT s.id, s.name, s.pos_code, c.pos_stale_minutes stale FROM stores s JOIN store_config c ON c.store_id = s.id ORDER BY s.name').all().map((st) => {
             const lag = lagMinutes(st.id);
             const unknown = db.prepare(`SELECT COUNT(*) n FROM unknown_barcodes WHERE store_id = ? AND status != 'resolved' AND last_seen >= ?`).get(st.id, new Date(Date.now() - 86400_000).toISOString()).n;
-            return { id: st.id, name: st.name, lastSync: ctx.pos.lastSync(st.id), lagMinutes: lag, stale: lag != null && lag > st.stale, staleLimit: st.stale, unknownBarcodes: unknown };
+            return { id: st.id, name: st.name, lastSync: ctx.pos.lastSync(st.id), lagMinutes: lag, stale: lag != null && lag > st.stale, staleLimit: st.stale, unknownBarcodes: unknown, posCode: st.pos_code };
           })
         },
         einvoice: { provider: ctx.invoicer.name, configured: ctx.invoicer.name !== 'mock', failNext: !!einv.failNext,
