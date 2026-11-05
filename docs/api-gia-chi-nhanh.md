@@ -1,15 +1,15 @@
-# API giá và sản phẩm theo chi nhánh (cho BRG đọc)
+# API giá và sản phẩm theo chi nhánh (cho BRG Scan & Checkout đọc)
 
-**Mục đích:** khi khách quét mã vạch, BRG phải hiện đúng tên và giá **của chi nhánh khách đang đứng**. Hệ thống của bạn là nguồn giá; BRG chỉ đọc, không ghi.
+**Mục đích:** khi khách quét mã vạch, BRG Scan & Checkout phải hiện đúng tên và giá **của chi nhánh khách đang đứng**. Hệ thống của bạn là nguồn giá; BRG Scan & Checkout chỉ đọc, không ghi.
 
-Phần này tách khỏi [api-pos](api-pos.md) (POS gọi vào BRG). Ở đây là BRG gọi ra.
+Phần này tách khỏi [api-pos](api-pos.md) (POS gọi vào BRG Scan & Checkout). Ở đây là BRG Scan & Checkout gọi ra.
 
 ## 1. Nguyên tắc
 
 - Giá luôn tra theo cặp **(chi nhánh, mã vạch)**. Cùng mã vạch ở hai chi nhánh có thể khác giá.
-- Giá BRG hiện cho khách và giá POS thu **nên cùng một nguồn**. Khi đó giá khớp, không cần POS tính lại; POS chỉ cần dựng đơn từ danh sách BRG gửi và thu đúng số tiền đó.
-- BRG tra giá hai lần: lúc khách quét, và lúc khách khoá giỏ (để phát hiện giá vừa đổi). Vì vậy API cần trả lời nhanh.
-- BRG không dùng tồn kho (POS tự xử lý). Trường tồn kho có hay không đều được.
+- Giá BRG Scan & Checkout hiện cho khách và giá POS thu **nên cùng một nguồn**. Khi đó giá khớp, không cần POS tính lại; POS chỉ cần dựng đơn từ danh sách BRG Scan & Checkout gửi và thu đúng số tiền đó.
+- BRG Scan & Checkout tra giá hai lần: lúc khách quét, và lúc khách khoá giỏ (để phát hiện giá vừa đổi). Vì vậy API cần trả lời nhanh.
+- BRG Scan & Checkout không dùng tồn kho (POS tự xử lý). Trường tồn kho có hay không đều được.
 
 ## 2. Hai lệnh cần có
 
@@ -41,7 +41,7 @@ Trả về, mỗi mã vạch tìm thấy là một phần tử (mã không có t
 | `price` | Giá bán lẻ **đang áp dụng tại chi nhánh**, VND, số nguyên, đã gồm thuế |
 | `active` | `false` nếu ngừng bán tại chi nhánh |
 | `ageRestricted` | `true` với rượu, thuốc lá… (thu ngân sẽ kiểm tra ở quầy) |
-| `promo` | Khuyến mãi đang chạy, `null` nếu không. Hiện BRG hiểu dạng "mua từ N mặt hàng, giảm X đồng mỗi mặt hàng" |
+| `promo` | Khuyến mãi đang chạy, `null` nếu không. Hiện BRG Scan & Checkout hiểu dạng "mua từ N mặt hàng, giảm X đồng mỗi mặt hàng" |
 
 Một mã vạch ứng với một `sku`. Một `sku` có thể có nhiều mã vạch: trả cùng `sku` cho từng mã.
 
@@ -49,11 +49,11 @@ Một mã vạch ứng với một `sku`. Một `sku` có thể có nhiều mã 
 
 `GET /stores/{storeId}/products?updatedSince=<thời điểm>&page=<n>`
 
-Trả danh sách như 2.1, có phân trang và `updatedSince` để chỉ lấy dòng thay đổi. BRG dùng để giữ bản sao tra nhanh và đồng bộ mỗi phút.
+Trả danh sách như 2.1, có phân trang và `updatedSince` để chỉ lấy dòng thay đổi. BRG Scan & Checkout dùng để giữ bản sao tra nhanh và đồng bộ mỗi phút.
 
 ### 2.3 Tính giá cả giỏ theo khuyến mãi (nên có, để tạm tính khớp POS)
 
-Giá từng mặt hàng chưa đủ để ra đúng số tiền khi có khuyến mãi phụ thuộc cả giỏ (combo, mua kèm, tổng tiền, theo giờ, chương trình theo chi nhánh). Cách chính xác nhất là **để chính bộ tính giá của hệ thống/POS tính**, BRG chỉ gọi.
+Giá từng mặt hàng chưa đủ để ra đúng số tiền khi có khuyến mãi phụ thuộc cả giỏ (combo, mua kèm, tổng tiền, theo giờ, chương trình theo chi nhánh). Cách chính xác nhất là **để chính bộ tính giá của hệ thống/POS tính**, BRG Scan & Checkout chỉ gọi.
 
 `POST /quote`
 
@@ -80,17 +80,17 @@ Trả về:
 - `unknown`: các mã vạch không có trong hệ thống của chi nhánh.
 - Hàng ngừng bán hoặc hết hạn khuyến mãi: trả như POS sẽ làm khi quét.
 
-**Cách BRG dùng:** lúc khách quét từng mặt hàng thì hiện đơn giá (từ 2.1). Khi khách bấm Thanh toán thì BRG gọi `/quote` để lấy tổng chính xác. Mất mạng hoặc API không trả lời thì BRG tính tạm theo giá thường và khuyến mãi đơn giản, ghi rõ "tạm tính, có thể chênh lệch khuyến mãi tại quầy".
+**Cách BRG Scan & Checkout dùng:** lúc khách quét từng mặt hàng thì hiện đơn giá (từ 2.1). Khi khách bấm Thanh toán thì BRG Scan & Checkout gọi `/quote` để lấy tổng chính xác. Mất mạng hoặc API không trả lời thì BRG Scan & Checkout tính tạm theo giá thường và khuyến mãi đơn giản, ghi rõ "tạm tính, có thể chênh lệch khuyến mãi tại quầy".
 
 ## 2c. Mã điểm
 
-Mỗi chi nhánh trong BRG có **mã điểm**: mã của siêu thị đó trong hệ thống giá của bạn. Quản trị chuỗi nhập một lần cho từng chi nhánh (khi thêm chi nhánh, hoặc ở mục Tích hợp), không trùng nhau giữa các chi nhánh. Khi khách quét QR cổng vào, BRG biết chi nhánh theo mã trong link; khi cần giá, BRG đổi sang mã điểm rồi gọi API. Vì vậy `storeId` trong hai lệnh trên là **mã điểm**, và phản hồi nên trả lại đúng mã điểm đó để BRG đối chiếu.
+Mỗi chi nhánh trong BRG Scan & Checkout có **mã điểm**: mã của siêu thị đó trong hệ thống giá của bạn. Quản trị chuỗi nhập một lần cho từng chi nhánh (khi thêm chi nhánh, hoặc ở mục Tích hợp), không trùng nhau giữa các chi nhánh. Khi khách quét QR cổng vào, BRG Scan & Checkout biết chi nhánh theo mã trong link; khi cần giá, BRG Scan & Checkout đổi sang mã điểm rồi gọi API. Vì vậy `storeId` trong hai lệnh trên là **mã điểm**, và phản hồi nên trả lại đúng mã điểm đó để BRG Scan & Checkout đối chiếu.
 
 ## 3. Yêu cầu chung
 
-- Xác thực bằng khoá API trong header (BRG cấp chỗ để lưu khoá), HTTPS.
+- Xác thực bằng khoá API trong header (BRG Scan & Checkout cấp chỗ để lưu khoá), HTTPS.
 - Thời gian trả lời lúc tra mã vạch: dưới 300 ms cho tới 10 mã vạch một lần.
-- Giới hạn gọi: BRG gọi đồng bộ mỗi phút cho từng chi nhánh và tra từng mã khi khách quét. Cho biết giới hạn của bạn để BRG điều chỉnh.
+- Giới hạn gọi: BRG Scan & Checkout gọi đồng bộ mỗi phút cho từng chi nhánh và tra từng mã khi khách quét. Cho biết giới hạn của bạn để BRG Scan & Checkout điều chỉnh.
 - `asOf` cho biết dữ liệu tính tới lúc nào.
 - Lỗi dùng mã HTTP chuẩn và thân JSON `{ "error": "MÃ", "message": "…" }`. Chi nhánh không tồn tại trả 404.
 
@@ -100,10 +100,10 @@ Mỗi chi nhánh trong BRG có **mã điểm**: mã của siêu thị đó trong
    Mã vạch nhận vào gồm dạng nào: EAN-13, UPC-A 12 số, mã của nhà cung cấp, mã nội bộ? Một mã vạch ứng với một hay nhiều `sku`?
 6. Có API **tính giá cả giỏ** (mục 2.3) không? Nếu không, cần bảng khuyến mãi và quy tắc kết hợp (ưu tiên, cộng dồn, làm tròn).
 2. Giá trả về đã là **giá khách thực trả** (đã gồm giá khuyến mãi)? Hay khuyến mãi tách riêng?
-3. Khuyến mãi phức tạp hơn "mua N giảm X" (combo, tặng kèm, theo giờ)? Nếu có, nói rõ để BRG hoặc POS xử lý.
+3. Khuyến mãi phức tạp hơn "mua N giảm X" (combo, tặng kèm, theo giờ)? Nếu có, nói rõ để BRG Scan & Checkout hoặc POS xử lý.
 4. Hàng bán theo cân/ký có mã riêng hay mã chứa giá/khối lượng?
 5. Cùng nguồn này POS cũng dùng để tính tiền không? Nếu cùng nguồn thì POS không cần tính lại.
 
-## 5. Phía BRG sẽ làm khi có API
+## 5. Phía BRG Scan & Checkout sẽ làm khi có API
 
 Viết adapter thay cho bản giả lập (`server/services/pos.js`), theo giao diện trong [11](11-ung-dung.md) mục 3: `sync`, `lookup`, `current`, `lastSync`. Giỏ vẫn khoá giá lúc quét và kiểm tra lại lúc khoá giỏ; không đổi gì ở giao diện khách.

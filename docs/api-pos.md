@@ -4,10 +4,10 @@ Tài liệu cho **nhà cung cấp POS**. Phiên bản API: `v1`.
 
 ## 1. Bối cảnh và luồng
 
-Khách tự quét hàng bằng điện thoại và khoá giỏ. Điện thoại khách hiện **mã QR chứa mã giỏ hàng** dạng `GH-Q7-10001` (QR chỉ chứa đúng chuỗi này, văn bản thuần). Thu ngân quét mã đó **ngay trong POS**. Với mỗi lần quét, POS gọi API của BRG để lấy danh sách mặt hàng, tự nhập vào đơn, thu tiền trên POS (QR, tiền mặt, thẻ...), rồi báo kết quả về BRG. **BRG tự xác nhận khi POS báo đã thanh toán**, khách nhận mã ra cổng hoặc ra luôn; thu ngân không phải thao tác thêm trên BRG.
+Khách tự quét hàng bằng điện thoại và khoá giỏ. Điện thoại khách hiện **mã QR chứa mã giỏ hàng** dạng `GH-Q7-10001` (QR chỉ chứa đúng chuỗi này, văn bản thuần). Thu ngân quét mã đó **ngay trong POS**. Với mỗi lần quét, POS gọi API của BRG Scan & Checkout để lấy danh sách mặt hàng, tự nhập vào đơn, thu tiền trên POS (QR, tiền mặt, thẻ...), rồi báo kết quả về BRG Scan & Checkout. **BRG Scan & Checkout tự xác nhận khi POS báo đã thanh toán**, khách nhận mã ra cổng hoặc ra luôn; thu ngân không phải thao tác thêm trên BRG Scan & Checkout.
 
 ```
-Khách          POS (thu ngân)                 BRG
+Khách          POS (thu ngân)                 BRG Scan & Checkout
   │ đưa mã GH-Q7-10001 │                         │
   │───────────────────►│ POST /carts/{mã}/claim  │
   │                    │────────────────────────►│ trả danh sách mặt hàng
@@ -20,7 +20,7 @@ Khách          POS (thu ngân)                 BRG
 
 Nếu thu ngân huỷ đơn trên POS, POS gọi `POST /orders/{mã đơn}/cancelled`.
 
-Điều kiện: chi nhánh đã bật **chế độ thu tiền qua POS** trong web quản trị của BRG, và POS có **khoá API**.
+Điều kiện: chi nhánh đã bật **chế độ thu tiền qua POS** trong web quản trị của BRG Scan & Checkout, và POS có **khoá API**.
 
 ## 2. Quy ước chung
 
@@ -36,7 +36,7 @@ Nếu thu ngân huỷ đơn trên POS, POS gọi `POST /orders/{mã đơn}/cance
 
 **Idempotent:** mọi lời gọi ghi (`claim`, `paid`, `cancelled`) đều an toàn khi **gọi lại cùng `posOrderRef`** (ví dụ do mất mạng, hết thời gian chờ). Gọi lại không tạo trùng, trả về kết quả như lần đầu kèm `"duplicate": true`. POS nên **thử lại** khi gặp lỗi mạng hoặc 5xx.
 
-`posOrderRef` là **mã đơn của POS**, do POS đặt, duy nhất, tối đa 64 ký tự gồm chữ, số và `. _ : / -`. BRG dùng mã này để nhận ra các lời gọi sau của cùng một đơn.
+`posOrderRef` là **mã đơn của POS**, do POS đặt, duy nhất, tối đa 64 ký tự gồm chữ, số và `. _ : / -`. BRG Scan & Checkout dùng mã này để nhận ra các lời gọi sau của cùng một đơn.
 
 ## 3. Các lời gọi
 
@@ -98,8 +98,8 @@ Thành công (HTTP 200):
 
 Cách dùng dữ liệu:
 
-- **`items`**: mỗi dòng có `barcode` và `sku` của POS (BRG lấy giá từ chính POS, nên mã khớp), `qty` và giá đã chốt lúc khách khoá giỏ. Nếu BRG và POS dùng chung một nguồn giá theo chi nhánh (xem [api-gia-chi-nhanh](api-gia-chi-nhanh.md)) thì POS dùng đúng giá trong `items`; nếu không, POS tính lại theo quy tắc của POS. Dù cách nào, số tiền POS thu mới là số tiền thật (xem 3.5).
-- **`total`** chỉ là **tạm tính** của BRG, để đối chiếu.
+- **`items`**: mỗi dòng có `barcode` và `sku` của POS (BRG Scan & Checkout lấy giá từ chính POS, nên mã khớp), `qty` và giá đã chốt lúc khách khoá giỏ. Nếu BRG Scan & Checkout và POS dùng chung một nguồn giá theo chi nhánh (xem [api-gia-chi-nhanh](api-gia-chi-nhanh.md)) thì POS dùng đúng giá trong `items`; nếu không, POS tính lại theo quy tắc của POS. Dù cách nào, số tiền POS thu mới là số tiền thật (xem 3.5).
+- **`total`** chỉ là **tạm tính** của BRG Scan & Checkout, để đối chiếu.
 - **`buyer`**: thông tin người mua nếu khách nhập trước khi khoá giỏ. Có `email` thì gửi hoá đơn về đó. Có thêm `taxCode`, `companyName`, `address` thì khách muốn **hoá đơn công ty**: POS xuất hoá đơn với các thông tin này. `null` nếu khách không nhập (xuất hoá đơn bán lẻ).
 - **`ageRestricted`**: giỏ có hàng giới hạn độ tuổi (rượu, bia, thuốc lá); thu ngân cần kiểm tra giấy tờ.
 
@@ -134,7 +134,7 @@ Sau khi nhận, **khách không sửa được giỏ** nữa. Giỏ giữ đến
 
 | Trường | Bắt buộc | Ý nghĩa |
 |--------|:--------:|---------|
-| `amount` | có | Số tiền POS **thực thu**, số nguyên dương. Có thể khác `total` tạm tính (khuyến mãi theo hoá đơn, làm tròn). BRG **chấp nhận** và ghi nhận số tiền này, đánh dấu để báo cáo nếu lệch |
+| `amount` | có | Số tiền POS **thực thu**, số nguyên dương. Có thể khác `total` tạm tính (khuyến mãi theo hoá đơn, làm tròn). BRG Scan & Checkout **chấp nhận** và ghi nhận số tiền này, đánh dấu để báo cáo nếu lệch |
 | `method` | có | `cash`, `qr_transfer`, `card`, `ewallet` hoặc `other` |
 | `invoiceNo` | nên có | Số hoá đơn điện tử POS đã phát hành, để hiện cho khách và đối soát |
 | `cashier`, `terminal`, `paidAt` | không | Ghi nhật ký |
@@ -146,7 +146,7 @@ Thành công (HTTP 200):
   "guardCheck": true, "exitStatus": "none", "amountMatches": false }
 ```
 
-Khi nhận lời gọi này BRG **tự xác nhận**: ghi khoản thu, lưu số hoá đơn, và (nếu chi nhánh có bảo vệ) cấp mã QR ra cổng cho khách; (nếu chi nhánh không có bảo vệ) cho khách ra luôn (`exitStatus: "exited"`). Gọi lại với cùng `posOrderRef` là an toàn.
+Khi nhận lời gọi này BRG Scan & Checkout **tự xác nhận**: ghi khoản thu, lưu số hoá đơn, và (nếu chi nhánh có bảo vệ) cấp mã QR ra cổng cho khách; (nếu chi nhánh không có bảo vệ) cho khách ra luôn (`exitStatus: "exited"`). Gọi lại với cùng `posOrderRef` là an toàn.
 
 **Chỉ gọi khi tiền thật sự đã thu xong** (POS đã xác nhận thanh toán, ví dụ tiền QR đã về). Đây là bước quyết định khách được ra.
 
@@ -161,8 +161,8 @@ Khi nhận lời gọi này BRG **tự xác nhận**: ghi khoản thu, lưu số
 | Tình huống | Kết quả |
 |-----------|---------|
 | Đơn **chưa thanh toán** | Giỏ được **nhả về cho khách** (khách sửa giỏ rồi khoá lại sẽ ra mã giỏ mới). `{ "ok": true, "status": "cancelled", "cartReleased": true }` |
-| Đơn **đã thanh toán**, khách chưa ra cổng | Giao dịch bị huỷ theo POS: QR ra cổng mất hiệu lực, khoản thu không tính vào doanh thu của BRG, hoá đơn chuyển "yêu cầu huỷ". `{ "ok": true, "status": "voided", "alreadyExited": false }` |
-| Đơn **đã thanh toán**, khách đã ra | Ghi nhận huỷ theo POS (không tính doanh thu), `alreadyExited: true`. BRG không thể thu hồi hàng; việc xử lý do cửa hàng |
+| Đơn **đã thanh toán**, khách chưa ra cổng | Giao dịch bị huỷ theo POS: QR ra cổng mất hiệu lực, khoản thu không tính vào doanh thu của BRG Scan & Checkout, hoá đơn chuyển "yêu cầu huỷ". `{ "ok": true, "status": "voided", "alreadyExited": false }` |
+| Đơn **đã thanh toán**, khách đã ra | Ghi nhận huỷ theo POS (không tính doanh thu), `alreadyExited: true`. BRG Scan & Checkout không thể thu hồi hàng; việc xử lý do cửa hàng |
 | Đã huỷ từ trước | `{ "ok": true, "duplicate": true, ... }` |
 
 ## 4. Trạng thái
@@ -197,11 +197,11 @@ Với 409 `NOT_PAYABLE` khi nhận giỏ: báo thu ngân giỏ này không còn 
 
 ## 6. Quy tắc quan trọng
 
-1. **POS là nguồn đúng về giá, khuyến mãi và tiền thu.** BRG chỉ cung cấp danh sách mặt hàng; số tiền cuối là `amount` POS báo.
+1. **POS là nguồn đúng về giá, khuyến mãi và tiền thu.** BRG Scan & Checkout chỉ cung cấp danh sách mặt hàng; số tiền cuối là `amount` POS báo.
 2. **Báo `paid` đúng một lần cho mỗi đơn**, sau khi tiền thực sự đã thu. Gọi lại an toàn.
-3. **Hoá đơn điện tử do POS phát hành.** BRG không xuất hoá đơn ở chi nhánh dùng POS; BRG chỉ lưu số hoá đơn POS gửi để hiện cho khách.
-4. **Hoàn tiền, trả hàng làm trên POS**, rồi POS báo `cancelled` để BRG đồng bộ.
-5. Khi POS mất kết nối với BRG, thu ngân có thể vẫn bán bình thường trên POS; khi kết nối lại POS gọi `claim` rồi `paid` (hoặc chỉ `paid` nếu đã nhận). Quản lý có thể chuyển chi nhánh về chế độ thu thủ công trong thời gian sự cố (xem hướng dẫn của BRG).
+3. **Hoá đơn điện tử do POS phát hành.** BRG Scan & Checkout không xuất hoá đơn ở chi nhánh dùng POS; BRG Scan & Checkout chỉ lưu số hoá đơn POS gửi để hiện cho khách.
+4. **Hoàn tiền, trả hàng làm trên POS**, rồi POS báo `cancelled` để BRG Scan & Checkout đồng bộ.
+5. Khi POS mất kết nối với BRG Scan & Checkout, thu ngân có thể vẫn bán bình thường trên POS; khi kết nối lại POS gọi `claim` rồi `paid` (hoặc chỉ `paid` nếu đã nhận). Quản lý có thể chuyển chi nhánh về chế độ thu thủ công trong thời gian sự cố (xem hướng dẫn của BRG Scan & Checkout).
 6. Gọi API từ **máy chủ hoặc dịch vụ trung gian của POS**, không để khoá API trong ứng dụng chạy ở thiết bị người dùng cuối nếu tránh được.
 
 ## 7. Thử nhanh bằng dòng lệnh
@@ -221,11 +221,11 @@ Có sẵn công cụ giả lập POS: `node scripts/pos-simulator.js --base $BAS
 
 ## 8. Môi trường thử
 
-Khách hàng sẽ cấp một bản BRG riêng để thử, kèm khoá API và chi nhánh đã bật chế độ POS. Trong bản thử, quản trị viên có thể tạo giỏ hàng mẫu bằng điện thoại và dùng khung "Giả lập POS" để so sánh kết quả với hệ thống của bạn.
+Khách hàng sẽ cấp một bản BRG Scan & Checkout riêng để thử, kèm khoá API và chi nhánh đã bật chế độ POS. Trong bản thử, quản trị viên có thể tạo giỏ hàng mẫu bằng điện thoại và dùng khung "Giả lập POS" để so sánh kết quả với hệ thống của bạn.
 
 ## 9. Điều cần thống nhất với nhà cung cấp POS
 
 - POS đọc mã giỏ từ QR bằng cách nào (máy quét mã cắm vào máy tính tiền, camera), và thu ngân thao tác ở đâu để gọi `claim`.
 - Thời gian chờ và cơ chế thử lại khi gọi API (đề nghị hết thời gian 5 đến 10 giây, thử lại tối đa vài lần cách quãng).
-- POS có gửi `paid` ngay khi thanh toán xong hay sau khi xuất hoá đơn (nên gửi sau khi có số hoá đơn để BRG lưu cùng lúc).
+- POS có gửi `paid` ngay khi thanh toán xong hay sau khi xuất hoá đơn (nên gửi sau khi có số hoá đơn để BRG Scan & Checkout lưu cùng lúc).
 - Cách POS xử lý đơn treo không được thanh toán (huỷ tự động sau bao lâu và gọi `cancelled`).

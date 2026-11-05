@@ -3,7 +3,7 @@
 Tài liệu này gửi cho đơn vị làm phần mềm POS. Có hai việc POS cần làm:
 
 1. **Đọc mã QR** trên điện thoại khách để tạo đơn hàng và tính tiền (mục 2 và 3).
-2. **Gọi API của BRG** để báo thanh toán thành công (mục 4 và 5). BRG trả lại kết quả cho khách và lưu bill.
+2. **Gọi API của BRG Scan & Checkout** để báo thanh toán thành công (mục 4 và 5). BRG Scan & Checkout trả lại kết quả cho khách và lưu bill.
 
 ## 1. Quy trình tổng thể
 
@@ -23,19 +23,19 @@ sequenceDiagram
 
 | Bước | Ai làm | Nội dung |
 |------|--------|----------|
-| 1 | Khách và BRG | Khách quét mặt hàng bằng điện thoại. Điện thoại hiện **tạm tính**, chỉ để tham khảo |
-| 2 | BRG | Khi khách bấm Thanh toán, tạo **mã giỏ** và mã QR. Mã QR lưu trên điện thoại nên còn khi mất mạng |
+| 1 | Khách và BRG Scan & Checkout | Khách quét mặt hàng bằng điện thoại. Điện thoại hiện **tạm tính**, chỉ để tham khảo |
+| 2 | BRG Scan & Checkout | Khi khách bấm Thanh toán, tạo **mã giỏ** và mã QR. Mã QR lưu trên điện thoại nên còn khi mất mạng |
 | 3 | POS | Thu ngân quét mã QR. POS đọc, kiểm tra, **tạo đơn** với đúng mặt hàng và số lượng |
 | 4 | POS | Tính giá và khuyến mãi **theo hệ thống của POS**, thu tiền (tiền mặt, QR, thẻ), xuất hoá đơn điện tử |
-| 5 | POS | **Báo thanh toán về BRG** bằng API ở mục 4. Số tiền trong báo cáo này là số tiền thật |
-| 6 | BRG | Ghi nhận, màn hình khách hiện hoàn thành, khách xem và tải bill |
+| 5 | POS | **Báo thanh toán về BRG Scan & Checkout** bằng API ở mục 4. Số tiền trong báo cáo này là số tiền thật |
+| 6 | BRG Scan & Checkout | Ghi nhận, màn hình khách hiện hoàn thành, khách xem và tải bill |
 
 **Hai mã định danh cần phân biệt**
 
 | Tên | Do ai sinh | Có trong mã QR | Dùng để |
 |-----|-----------|----------------|---------|
-| **Mã giỏ** (ví dụ `Q7-LM3K2AB`) | BRG (điện thoại khách) | Có | BRG nhận ra giỏ. POS gửi lại trong đường dẫn khi báo thanh toán |
-| **Mã đơn POS** (`posOrderRef`, mã giao dịch hoặc mã bill của POS) | POS | Không | POS gửi lại trong báo thanh toán. BRG dùng để **chống ghi trùng** và đối soát |
+| **Mã giỏ** (ví dụ `Q7-LM3K2AB`) | BRG Scan & Checkout (điện thoại khách) | Có | BRG Scan & Checkout nhận ra giỏ. POS gửi lại trong đường dẫn khi báo thanh toán |
+| **Mã đơn POS** (`posOrderRef`, mã giao dịch hoặc mã bill của POS) | POS | Không | POS gửi lại trong báo thanh toán. BRG Scan & Checkout dùng để **chống ghi trùng** và đối soát |
 
 ## 2. Định dạng mã QR
 
@@ -53,12 +53,12 @@ BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T60800|1E1A
 
 | Phần | Ý nghĩa |
 |------|---------|
-| `BRG1` | Nhận dạng và phiên bản. Chuỗi không bắt đầu bằng `BRG1|` thì không phải mã của BRG |
-| mã điểm | Mã siêu thị trong hệ thống giá và POS, do quản trị BRG nhập cho từng chi nhánh. POS **nên so với điểm bán của máy đang dùng**, khác thì báo thu ngân |
+| `BRG1` | Nhận dạng và phiên bản. Chuỗi không bắt đầu bằng `BRG1|` thì không phải mã của BRG Scan & Checkout |
+| mã điểm | Mã siêu thị trong hệ thống giá và POS, do quản trị BRG Scan & Checkout nhập cho từng chi nhánh. POS **nên so với điểm bán của máy đang dùng**, khác thì báo thu ngân |
 | mã giỏ | Duy nhất. POS **lưu mã này** để không tạo đơn hai lần nếu mã bị quét lại |
 | giờ | Giờ tạo giỏ, giây Unix |
 | mặt hàng | `mã vạch*số lượng`, cách nhau dấu phẩy. Cùng mã vạch đã gộp thành một dòng. Mã vạch là mã **in trên tem** hàng hoá. Số lượng từ 1 đến 999 |
-| `T` | **Tạm tính** của BRG (VND). Chỉ để đối chiếu, **không dùng làm số tiền thu** |
+| `T` | **Tạm tính** của BRG Scan & Checkout (VND). Chỉ để đối chiếu, **không dùng làm số tiền thu** |
 | CRC16 | CRC16-CCITT (đa thức `0x1021`, khởi tạo `0xFFFF`), 4 ký tự hex viết hoa, tính trên toàn bộ chuỗi đứng **trước dấu `|` cuối cùng** |
 
 Mã QR có thể dài với giỏ nhiều mặt hàng. Máy quét nên là loại đọc được mã 2D (không phải máy laser đọc vạch).
@@ -96,16 +96,16 @@ static string Crc16(string s) {
 2. Kiểm tra mã điểm đúng cửa hàng.
 3. Kiểm tra mã giỏ chưa dùng. Đã dùng thì mở lại đơn cũ, không tạo đơn mới.
 4. Với mỗi dòng, tìm sản phẩm theo mã vạch (mã nhà cung cấp hoặc mã nội bộ đều được, tuỳ POS) và thêm đúng số lượng. Mã không có trong POS thì báo thu ngân xử lý tại chỗ.
-5. POS tự tính giá, khuyến mãi, trừ kho. **BRG không quản lý tồn kho và không tính tiền thay POS.**
+5. POS tự tính giá, khuyến mãi, trừ kho. **BRG Scan & Checkout không quản lý tồn kho và không tính tiền thay POS.**
 
-## 3. Thông tin BRG cung cấp cho POS để chạy được
+## 3. Thông tin BRG Scan & Checkout cung cấp cho POS để chạy được
 
 | Thông tin | Cách có |
 |-----------|---------|
-| Địa chỉ API (ví dụ `https://tên-miền-brg`) | BRG cung cấp |
-| Khoá API | Quản trị BRG tạo ở mục Tích hợp, có thể giới hạn theo chi nhánh. Chỉ hiện **một lần** |
-| Mã điểm của từng chi nhánh | Quản trị BRG nhập, hai bên thống nhất với mã điểm trong POS |
-| Môi trường thử và mã QR mẫu | BRG cấp môi trường thử, kèm mã QR mẫu ở `docs/mau/` |
+| Địa chỉ API (ví dụ `https://tên-miền-brg`) | BRG Scan & Checkout cung cấp |
+| Khoá API | Quản trị BRG Scan & Checkout tạo ở mục Tích hợp, có thể giới hạn theo chi nhánh. Chỉ hiện **một lần** |
+| Mã điểm của từng chi nhánh | Quản trị BRG Scan & Checkout nhập, hai bên thống nhất với mã điểm trong POS |
+| Môi trường thử và mã QR mẫu | BRG Scan & Checkout cấp môi trường thử, kèm mã QR mẫu ở `docs/mau/` |
 
 ## 4. API báo thanh toán thành công
 
@@ -146,7 +146,7 @@ Mỗi dòng `lines`: `name` (tên), `qty`, `unitPrice`, `discount` (không bắt
 { "ok": true, "duplicate": false, "transactionId": "SG-Q7-0042", "status": "paid", "amountMatches": true }
 ```
 
-`duplicate: true` nghĩa là BRG đã nhận trước đó (không ghi lần hai). `amountMatches: false` nghĩa là số tiền POS thu khác tạm tính của BRG. Việc này **bình thường** (khuyến mãi khác), BRG vẫn lấy số của POS.
+`duplicate: true` nghĩa là BRG Scan & Checkout đã nhận trước đó (không ghi lần hai). `amountMatches: false` nghĩa là số tiền POS thu khác tạm tính của BRG Scan & Checkout. Việc này **bình thường** (khuyến mãi khác), BRG Scan & Checkout vẫn lấy số của POS.
 
 ### Các lệnh khác
 
@@ -172,13 +172,13 @@ Dạng `{ "error": "MÃ", "message": "…" }`.
 
 ## 5. Quy tắc thử lại (bắt buộc với POS)
 
-Mạng có thể chập chờn, nên **POS phải thử lại cho đến khi BRG trả `200`**. BRG xử lý gửi trùng an toàn (cùng mã giỏ và cùng `posOrderRef`), nên thử lại không thu tiền hai lần.
+Mạng có thể chập chờn, nên **POS phải thử lại cho đến khi BRG Scan & Checkout trả `200`**. BRG Scan & Checkout xử lý gửi trùng an toàn (cùng mã giỏ và cùng `posOrderRef`), nên thử lại không thu tiền hai lần.
 
 - **Lịch:** lần 1 ngay sau khi thu tiền; thử lại sau 5 giây, 30 giây, 2 phút (tổng 4 lần).
 - **Sau 4 lần vẫn chưa được:** POS giữ đơn trong hàng đợi, thử lại **mỗi 5 phút**, tối đa 24 giờ, và báo quản lý cửa hàng.
 - Mọi lần thử gửi **cùng nội dung**.
 - Chỉ thử lại với lỗi ở cột "Thử lại" ở mục 4. Lỗi 400, 401, 403, 409 thì dừng và báo người quản lý.
-- Khách vẫn hoàn tất được nếu POS báo chậm: khách bấm "Đã thanh toán xong", khi POS báo sau thì BRG cập nhật thành đã thanh toán kèm số tiền thật và bill.
+- Khách vẫn hoàn tất được nếu POS báo chậm: khách bấm "Đã thanh toán xong", khi POS báo sau thì BRG Scan & Checkout cập nhật thành đã thanh toán kèm số tiền thật và bill.
 
 Ví dụ gọi thử:
 
