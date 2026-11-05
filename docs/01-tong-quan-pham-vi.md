@@ -47,10 +47,10 @@ Ghi chú: ở giai đoạn 1 quầy vẫn có người (thu tiền và kiểm tr
 
 | Vai trò | Giao diện | Việc chính | Màn hình |
 |---------|-----------|-----------|----------|
-| Khách hàng | PWA khách | Vào cửa hàng, quét sản phẩm, giỏ hàng, chọn cách trả, nhận QR ra cổng | M01–M24 |
+| Khách hàng | PWA khách | Vào cửa hàng, quét sản phẩm, giỏ hàng, chọn cách trả, nhận QR ra cổng | M01–M26 |
 | Nhân viên quầy / cổng | PWA nhân viên (điện thoại hoặc máy cầm tay) | Quét mã giỏ hàng và thu tiền; quét QR ra cổng; kiểm tra ngẫu nhiên; xử lý chênh lệch | N01–N14 |
 | Quản trị viên chi nhánh | Web quản trị | Giao dịch trong ngày, ca nhân viên, tỷ lệ kiểm tra, đối soát tiền | A06–A11 |
-| Quản trị viên chuỗi | Web quản trị | Bật/tắt chi nhánh và cách thanh toán, tích hợp, báo cáo toàn chuỗi, phân quyền | A01–A05 |
+| Quản trị viên chuỗi | Web quản trị | Bật/tắt chi nhánh và cách thanh toán, tích hợp, báo cáo toàn chuỗi, phân quyền | A01–A05, A12 |
 
 Cấu trúc ứng dụng: PWA khách, PWA nhân viên và web quản trị tách riêng (xem [05](05-kien-truc-pwa.md) mục 2).
 

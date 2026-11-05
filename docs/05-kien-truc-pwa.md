@@ -28,11 +28,11 @@
 
 ## 3. Danh sách màn hình (khung)
 
-Danh sách đầy đủ 49 màn hình ở [10](10-man-hinh.md); bản vẽ ở [thiet-ke/man-hinh.html](thiet-ke/man-hinh.html).
+Danh sách đầy đủ 52 màn hình ở [10](10-man-hinh.md); bản vẽ ở [thiet-ke/man-hinh.html](thiet-ke/man-hinh.html).
 
-**Khách (M01–M24):** Chào/nhận diện chi nhánh → Hướng dẫn nhanh → Quét → Giỏ hàng → Chọn cách trả → Chuyển khoản QR hoặc mã giỏ hàng → QR biên nhận → Hoá đơn.
+**Khách (M01–M26):** Chào/nhận diện chi nhánh → Hướng dẫn nhanh → Quét → Giỏ hàng → Chọn cách trả → Chuyển khoản QR hoặc mã giỏ hàng → QR biên nhận → Hoá đơn.
 **Nhân viên (N01–N14):** Đăng nhập → Quét mã giỏ hàng và thu tiền → Quét QR ra cổng → Kiểm tra ngẫu nhiên → Ghi chênh lệch → Đối soát cuối ca.
-**Quản trị (A01–A11):** Tổng quan, chi nhánh và cờ tính năng, tích hợp, báo cáo, phân quyền; trong ngày, truy vết, ca, tỷ lệ kiểm tra, đối soát, mã không tìm thấy.
+**Quản trị (A01–A12):** Tổng quan, chi nhánh và cờ tính năng, tích hợp, báo cáo, phân quyền; trong ngày, truy vết, ca, tỷ lệ kiểm tra, đối soát, mã không tìm thấy.
 
 TODO: wireframe, luồng lỗi (không có quyền camera, mã không đọc được, hết mạng, thanh toán thất bại).
 

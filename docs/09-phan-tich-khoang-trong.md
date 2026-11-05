@@ -35,7 +35,7 @@ Phần A là các quyết định đã chốt với khách hàng trong quá trì
 | G-01 | **Sản phẩm bán theo cân/ký** (rau, thịt, hàng tươi) | Nhiều mặt hàng không có mã cố định theo món | Chốt: loại trừ ở GĐ1 (tem có mã chứa giá/khối lượng) hay hỗ trợ mã cân động. **Chưa chốt** |
 | G-02 | **Hàng giới hạn độ tuổi** (rượu, thuốc lá) | Yêu cầu pháp lý | Nhân viên kiểm tra ở quầy (GĐ1 có người) hoặc loại khỏi Self Checkout. **Chưa chốt** |
 | G-03 | **Khuyến mãi / giá đặc biệt** | `ProductCache` chưa có trường khuyến mãi; M12 đang hiện dòng khuyến mãi | Hỏi POS API có trả khuyến mãi không; thực thể Promotion; M15 đã xử lý giá đổi. **Chưa chốt** |
-| G-04 | **Danh tính khách** | Hoá đơn, lịch sử, dữ liệu cá nhân | Thiết kế hiện tại: khách vãng lai, không đăng nhập. **Cần xác nhận** |
+| G-04 | **Danh tính khách** | Hoá đơn, lịch sử, dữ liệu cá nhân | Thiết kế hiện tại: khách vãng lai, không đăng nhập; lịch sử lưu trên máy (M25), xem máy khác bằng email có mã xác nhận. **Cần xác nhận** |
 | G-05 | **POS là nguồn chân lý nhưng không đồng bộ ngược**: giao dịch Self Checkout vào kế toán, tồn kho, doanh thu chung bằng cách nào? | Tồn kho lệch, doanh thu tách rời | Chốt cơ chế ghi nhận (xuất file / API tạo đơn trên POS) hoặc chấp nhận đối soát thủ công. **Chưa chốt** (liên quan Q-08) |
 | G-06 | **Hoá đơn điện tử cần thông tin người mua** | Thiếu thông tin thì không hợp lệ | Thiết kế có luồng hoá đơn công ty bằng mã số thuế sau thanh toán (M22). **Cần xác nhận với kế toán** |
 | G-07 | **Trả hàng / hoàn tiền / huỷ giao dịch** | Sự cố hằng ngày; nhân viên bấm nhầm xác nhận | **Chưa có thiết kế.** Cần quy trình huỷ có quyền quản lý, để lại dấu vết |

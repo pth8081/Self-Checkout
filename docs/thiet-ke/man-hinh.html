@@ -245,7 +245,7 @@ figure.wide{width:600px;max-width:100%}
 <header class="top">
   <div class="eyebrow">Bản thiết kế giao diện khách hàng</div>
   <h1>BRG Self Checkout</h1>
-  <p class="lead">24 màn hình dành cho khách (M01–M24), từ lúc quét QR vào cửa hàng đến lúc nhận QR ra cổng, 14 màn hình dành cho nhân viên (N01–N14): thu tiền tại quầy, kiểm tra cổng ra, đối soát cuối ca, và 11 màn hình quản trị (A01–A11) cho toàn chuỗi và từng chi nhánh. Nội dung (tên siêu thị, sản phẩm, giá) là dữ liệu mẫu để minh hoạ.</p>
+  <p class="lead">26 màn hình dành cho khách (M01–M26), từ lúc quét QR vào cửa hàng đến lúc nhận QR ra cổng, 14 màn hình dành cho nhân viên (N01–N14): thu tiền tại quầy, kiểm tra cổng ra, đối soát cuối ca, và 12 màn hình quản trị (A01–A12) cho toàn chuỗi và từng chi nhánh. Nội dung (tên siêu thị, sản phẩm, giá) là dữ liệu mẫu để minh hoạ.</p>
   <div class="principles">
     <div><b>Một việc mỗi màn</b>Quét, xem giỏ, thanh toán, ra cổng. Không menu rườm rà.</div>
     <div><b>Nút chính dưới ngón cái</b>Hành động chính luôn nằm cuối màn hình.</div>
@@ -545,6 +545,29 @@ figure.wide{width:600px;max-width:100%}
   </div></div>
   <figcaption><div class="t"><span class="id">M22</span><b>Hoá đơn điện tử</b><span class="fr">FR-CUS-08</span><span class="fr">G-06</span></div><p>Mặc định hoá đơn bán lẻ. Khách cần hoá đơn công ty điền mã số thuế sau khi thanh toán.</p></figcaption></figure>
 
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><b class="sp" style="font-size:16px">Lịch sử mua sắm</b></div>
+    <div class="pad stack" style="gap:10px">
+      <div class="banner ok" style="background:var(--a-soft);color:var(--a-primary)"><span class="ic" data-i="shield"></span><div>Đang lưu trên máy này. Thêm email để xem cả trên máy khác.</div></div>
+      <div class="list" style="gap:0">
+        <div class="it"><div class="sp"><b>Hôm nay · 18:47</b><div class="pr">Chi nhánh Quận 7 · 11 món · Tiền mặt</div></div><div style="text-align:right"><b class="num">182.000₫</b><div><span class="pill" style="font-size:10px">Đã ra cổng</span></div></div></div>
+        <div class="it"><div class="sp"><b>02/11 · 17:20</b><div class="pr">Chi nhánh Quận 7 · 6 món · Chuyển khoản</div></div><div style="text-align:right"><b class="num">96.500₫</b><div><span class="pill" style="font-size:10px">Đã ra cổng</span></div></div></div>
+        <div class="it"><div class="sp"><b>28/10 · 12:05</b><div class="pr">Chi nhánh Thủ Đức · 3 món · Chuyển khoản</div></div><div style="text-align:right"><b class="num">58.000₫</b><div><span class="pill" style="font-size:10px">Đã ra cổng</span></div></div></div>
+        <div class="it"><div class="sp"><b>21/10 · 19:40</b><div class="pr">Chi nhánh Quận 7 · 14 món · Tiền mặt</div></div><div style="text-align:right"><b class="num">241.000₫</b><div><span class="pill" style="font-size:10px">Đã ra cổng</span></div></div></div>
+      </div>
+    </div>
+    <div class="foot"><button class="btn ghost" type="button"><span class="ic" data-i="mail"></span>Xem trên máy khác</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M25</span><b>Lịch sử mua sắm</b><span class="fr">FR-CUS-14</span><span class="fr">G-04</span></div><p>Khách không đăng nhập: lịch sử lưu trên máy. Nhập email (và mã xác nhận gửi về) để xem trên máy khác. Cần chốt với G-04.</p></figcaption></figure>
+
+  <figure><div class="phone"><div class="sb"><b>9:41</b><i></i></div><div class="scr">
+    <div class="top-app"><span class="circ"><span class="ic" data-i="chevl"></span></span><div class="sp"><b style="font-size:15px">Đơn SG-Q7-0384</b><div class="sm-t mut">Hôm nay 18:47 · Quận 7 · đã ra cổng</div></div></div>
+    <div class="pad list compact" data-rows="ro" style="overflow:hidden"></div>
+    <div class="pad" style="margin-top:auto"><div class="sum num"><div><span class="mut">Tạm tính</span><span>195.000₫</span></div><div><span class="mut">Khuyến mãi</span><span style="color:var(--a-ok)">−13.000₫</span></div><div class="tot"><span>Đã trả (tiền mặt)</span><span>182.000₫</span></div></div></div>
+    <div class="foot" style="padding-top:0"><button class="btn ghost sm" type="button"><span class="ic" data-i="mail" style="width:16px;height:16px"></span>Xem hoá đơn điện tử</button><button class="btn txt" type="button">Yêu cầu hoá đơn công ty</button></div>
+  </div></div>
+  <figcaption><div class="t"><span class="id">M26</span><b>Chi tiết đơn đã mua</b><span class="fr">FR-CUS-14</span></div><p>Danh sách món, tổng tiền, cách trả và hoá đơn. QR ra cổng không hiện lại vì mã đã dùng.</p></figcaption></figure>
+
   </div>
 </section>
 
@@ -709,6 +732,25 @@ figure.wide{width:600px;max-width:100%}
   <h2>Quản trị · Toàn chuỗi</h2>
   <p>Trang web quản trị dùng trên máy tính (vẫn mở được trên điện thoại). Người quản trị chuỗi bật/tắt từng chi nhánh, cấu hình tích hợp, xem báo cáo tổng và phân quyền. Số liệu trên các màn là dữ liệu mẫu.</p>
   <div class="grid gw">
+
+  <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / dang-nhap</span></div>
+   <div class="dbody" style="grid-template-columns:1fr 1fr;min-height:420px">
+    <div style="background:var(--a-primary);color:var(--a-on);padding:28px 24px;display:flex;flex-direction:column;gap:10px">
+      <div class="row"><span class="logo" style="background:rgba(255,255,255,.2);color:inherit">BRG</span><b style="font-size:14px">BRG Self Checkout</b></div>
+      <h3 style="margin:auto 0 0;font-size:24px;line-height:1.15;font-weight:800;letter-spacing:-.01em">Quản trị chuỗi và chi nhánh</h3>
+      <div style="opacity:.85">Theo dõi giao dịch, đối soát tiền, cấu hình chi nhánh.</div>
+    </div>
+    <div class="main" style="padding:28px 26px;align-content:center;gap:12px">
+      <div><h3>Đăng nhập</h3><div class="p sm-t" style="margin-top:2px">Dành cho quản trị viên chuỗi và chi nhánh</div></div>
+      <div class="field"><label>Email hoặc mã tài khoản</label><div class="in focus">QT0007</div></div>
+      <div class="field"><label>Mật khẩu</label><div class="in">••••••••••</div></div>
+      <div class="field"><label>Mã xác thực 6 số</label><div class="in num ph">Nhập mã từ app xác thực</div></div>
+      <div class="row"><span class="cb on"><i class="ic" data-i="check"></i></span><span class="sp">Ghi nhớ thiết bị này 7 ngày</span><u style="color:var(--a-primary)">Quên mật khẩu</u></div>
+      <span class="dbtn" style="justify-content:center;height:36px">Đăng nhập</span>
+      <div class="p sm-t">Sai 5 lần liên tiếp thì khoá 15 phút. Mọi lần đăng nhập đều được ghi lại.</div>
+    </div>
+   </div></div></div>
+  <figcaption><div class="t"><span class="id">A12</span><b>Đăng nhập quản trị</b><span class="fr">FR-ADM-12</span><span class="fr">NFR-10</span></div><p>Quản trị có quyền xem toàn bộ doanh thu và tiền thu, nên đề xuất thêm mã xác thực 2 bước. Nhân viên quầy và cổng đăng nhập bằng mã nhân viên và PIN (N01).</p></figcaption></figure>
 
   <figure class="wide"><div class="deskwrap"><div class="desk"><div class="dbar"><i></i><i></i><i></i><span class="url">quantri.example / tong-quan</span></div>
    <div class="dbody"><aside class="side" data-nav="chuoi" data-active="0"></aside>

@@ -13,8 +13,8 @@ Cách đọc: đi từ trên xuống. Mỗi tài liệu có **trạng thái** (`
 | 07 | [Tích hợp & chống thất thoát](07-tich-hop-chong-that-thoat.md) | POS, thanh toán thủ công và online, hoá đơn | Nháp |
 | 08 | [Lộ trình & rủi ro](08-lo-trinh-rui-ro.md) | Các giai đoạn, rủi ro | Nháp |
 | 09 | [Quyết định, khoảng trống & câu hỏi mở](09-phan-tich-khoang-trong.md) | **Quyết định đã chốt** và việc cần chốt | **Đọc đầu tiên** |
-| 10 | [Danh mục màn hình](10-man-hinh.md) | 49 màn hình (khách, nhân viên, quản trị) ánh xạ về yêu cầu | Nháp |
-| — | [Bản thiết kế giao diện](thiet-ke/man-hinh.html) | Mở bằng trình duyệt để xem 49 màn hình | Nháp |
+| 10 | [Danh mục màn hình](10-man-hinh.md) | 52 màn hình (khách, nhân viên, quản trị) ánh xạ về yêu cầu | Nháp |
+| — | [Bản thiết kế giao diện](thiet-ke/man-hinh.html) | Mở bằng trình duyệt để xem 52 màn hình | Nháp |
 | — | [Thuật ngữ](thuat-ngu.md) | | |
 | — | [ADR](adr/) | Các quyết định kiến trúc | |
 

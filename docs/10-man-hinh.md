@@ -2,9 +2,9 @@
 
 **Trạng thái:** Nháp. Bản vẽ: [thiet-ke/man-hinh.html](thiet-ke/man-hinh.html) (mở bằng trình duyệt; cần mạng để tải phông chữ). Tên siêu thị, sản phẩm, giá, số liệu trong bản vẽ là dữ liệu mẫu.
 
-Tổng cộng **49 màn hình**: 24 khách (M), 14 nhân viên (N), 11 quản trị (A).
+Tổng cộng **52 màn hình**: 26 khách (M), 14 nhân viên (N), 12 quản trị (A).
 
-## 1. Khách hàng — PWA khách (M01–M24)
+## 1. Khách hàng — PWA khách (M01–M26)
 
 | Mã | Màn hình | Yêu cầu |
 |----|----------|---------|
@@ -32,6 +32,8 @@ Tổng cộng **49 màn hình**: 24 khách (M), 14 nhân viên (N), 11 quản tr
 | M22 | Hoá đơn điện tử | FR-CUS-08 |
 | M23 | Đang xử lý thanh toán online (GĐ2, tắt ở GĐ1) | FR-PAY-09 |
 | M24 | Thanh toán online thất bại (GĐ2, tắt ở GĐ1) | FR-PAY-09 |
+| M25 | Lịch sử mua sắm | FR-CUS-14 |
+| M26 | Chi tiết đơn đã mua | FR-CUS-14 |
 
 ## 2. Nhân viên — PWA nhân viên (N01–N14)
 
@@ -52,7 +54,7 @@ Tổng cộng **49 màn hình**: 24 khách (M), 14 nhân viên (N), 11 quản tr
 | N13 | Xử lý chênh lệch | FR-GATE-04 |
 | N14 | Đối soát cuối ca | FR-PAY-07 |
 
-## 3. Quản trị — web (A01–A11)
+## 3. Quản trị — web (A01–A12)
 
 | Mã | Màn hình | Vai trò | Yêu cầu |
 |----|----------|---------|---------|
@@ -67,11 +69,12 @@ Tổng cộng **49 màn hình**: 24 khách (M), 14 nhân viên (N), 11 quản tr
 | A09 | Tỷ lệ kiểm tra ngẫu nhiên | Chi nhánh | FR-ADM-06 |
 | A10 | Đối soát tiền | Chi nhánh | FR-ADM-08 |
 | A11 | Mã quét không tìm thấy | Chi nhánh | FR-ADM-10 |
+| A12 | Đăng nhập quản trị (kèm mã xác thực 2 bước) | Chuỗi, Chi nhánh | FR-ADM-12 |
 
 ## 4. Chưa có thiết kế
 
-- Đăng nhập web quản trị; quên mã PIN / đặt lại.
+- Quên mật khẩu / đặt lại; quên mã PIN của nhân viên.
 - Huỷ giao dịch / hoàn tiền có quyền quản lý (G-07).
-- Lịch sử đơn của khách (phụ thuộc G-04).
+- Xác minh email để xem lịch sử trên máy khác (phụ thuộc G-04).
 - Màn hình hướng dẫn riêng cho hàng cân, hàng giới hạn độ tuổi (G-01, G-02).
 - Giao diện quản trị trên điện thoại (hiện vẽ cho màn hình máy tính).

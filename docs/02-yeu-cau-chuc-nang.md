@@ -21,6 +21,7 @@
 | FR-CUS-11 | Được hướng dẫn khi camera bị chặn hoặc link mở trong app khác (Zalo, Facebook) | M | M04, M06 | R6 |
 | FR-CUS-12 | Được hướng dẫn nhanh lần đầu sử dụng | S | M02 | Bỏ qua được |
 | FR-CUS-13 | Đánh giá trải nghiệm sau khi qua cổng | C | M21 | Một chạm, bỏ qua được |
+| FR-CUS-14 | Xem lại lịch sử mua sắm và chi tiết từng đơn, kèm hoá đơn điện tử | S | M25, M26 | Khách không đăng nhập: lưu trên máy; xem trên máy khác bằng email có mã xác nhận (G-04) |
 
 ## 2. Thu tiền tại quầy (giai đoạn 1)
 
@@ -62,6 +63,7 @@
 | FR-ADM-09 | Truy vết một giao dịch từ quét đến ra cổng | Chi nhánh | M | A07 |
 | FR-ADM-10 | Xem mã vạch khách quét nhưng không có trong POS | Chi nhánh | S | A11 |
 | FR-ADM-11 | Chọn cách tạo QR chuyển khoản: app tự tạo hoặc lấy từ nhà cung cấp | Chuỗi | M | A03 |
+| FR-ADM-12 | Đăng nhập quản trị bằng tài khoản và mật khẩu, kèm mã xác thực 2 bước (đề xuất); khoá tạm khi sai nhiều lần; ghi log đăng nhập | Chuỗi, Chi nhánh | M | A12 |
 
 ## 5. Luồng chính giai đoạn 1
 
