@@ -2,6 +2,7 @@
 import { html, render, useState, useEffect, useMemo, useCallback, useRoute, go, toast, Toasts, Header, Drawer, Icon, Logo, Spinner, OfflineBar, Field, registerSW, ErrorBox } from '/shared/lib.js';
 import { api, S, store, ROLE_VI } from '/a/common.js';
 import { Overview, Stores, Integrations, Reports, Users, Audit } from '/a/pages-chain.js';
+import { GuideList, GuideDoc } from '/a/guides.js';
 import { Today, Transactions, TxDetail, Plans, RandomCheck, Reconcile, Unknown } from '/a/pages-store.js';
 
 const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = '/a/admin.css'; document.head.appendChild(link);
@@ -10,12 +11,14 @@ const TOKEN_KEY = 'brg_a_token', STORE_KEY = 'brg_a_store';
 
 const PAGE_TITLES = {
   overview: 'Tổng quan chuỗi', stores: 'Chi nhánh & tính năng', integrations: 'Tích hợp', reports: 'Báo cáo', users: 'Tài khoản & phân quyền', audit: 'Nhật ký',
-  today: 'Hôm nay', transactions: 'Giao dịch', plans: 'Nhân viên & ca', 'random-check': 'Kiểm tra ngẫu nhiên', reconcile: 'Đối soát', 'unknown-barcodes': 'Mã không tìm thấy'
+  today: 'Hôm nay', transactions: 'Giao dịch', plans: 'Nhân viên & ca', 'random-check': 'Kiểm tra ngẫu nhiên', reconcile: 'Đối soát', 'unknown-barcodes': 'Mã không tìm thấy',
+  'huong-dan': 'Hướng dẫn nghiệp vụ', 'huong-dan-he-thong': 'Hướng dẫn hệ thống'
 };
 const CHAIN_ONLY = ['overview', 'stores', 'integrations'];
 
 function navItems(me, storeName) {
   const chain = me.role === 'chain_admin';
+  const guides = [{ group: 'Hướng dẫn' }, { id: 'huong-dan', label: 'Hướng dẫn nghiệp vụ', icon: 'docok' }, { id: 'huong-dan-he-thong', label: 'Hướng dẫn hệ thống', icon: 'settings' }];
   const branch = [
     { id: 'today', label: 'Hôm nay', icon: 'home' }, { id: 'transactions', label: 'Giao dịch', icon: 'receipt' },
     { id: 'plans', label: 'Nhân viên & ca', icon: 'calendar' }, { id: 'random-check', label: 'Kiểm tra ngẫu nhiên', icon: 'shield' },
@@ -24,11 +27,11 @@ function navItems(me, storeName) {
   if (chain) return [
     { id: 'overview', label: 'Tổng quan', icon: 'chart' }, { id: 'stores', label: 'Chi nhánh', icon: 'store' }, { id: 'integrations', label: 'Tích hợp', icon: 'link' },
     { id: 'reports', label: 'Báo cáo', icon: 'doc' }, { id: 'users', label: 'Tài khoản & phân quyền', icon: 'users' }, { id: 'audit', label: 'Nhật ký', icon: 'list' },
-    { group: `Chi nhánh đang xem${storeName ? `: ${storeName}` : ''}` }, ...branch
+    { group: `Chi nhánh đang xem${storeName ? `: ${storeName}` : ''}` }, ...branch, ...guides
   ];
   return [
     { group: storeName || 'Chi nhánh' }, ...branch,
-    { group: 'Quản lý' }, { id: 'reports', label: 'Báo cáo', icon: 'doc' }, { id: 'users', label: 'Tài khoản', icon: 'users' }, { id: 'audit', label: 'Nhật ký', icon: 'list' }
+    { group: 'Quản lý' }, { id: 'reports', label: 'Báo cáo', icon: 'doc' }, { id: 'users', label: 'Tài khoản', icon: 'users' }, { id: 'audit', label: 'Nhật ký', icon: 'list' }, ...guides
   ];
 }
 
@@ -85,6 +88,7 @@ function Shell({ session, setSession, reloadStores, logout }) {
   const { me, stores } = session;
   const route = useRoute();
   const [menu, setMenu] = useState(false);
+  const [guideGroup, setGuideGroup] = useState(null);
   const chain = me.role === 'chain_admin';
   const [storeId, setStoreIdRaw] = useState(() => {
     if (!chain) return me.storeId;
@@ -115,17 +119,20 @@ function Shell({ session, setSession, reloadStores, logout }) {
     case 'random-check': view = html`<${RandomCheck} key=${storeId} ctx=${ctx}/>`; break;
     case 'reconcile': view = html`<${Reconcile} key=${storeId} ctx=${ctx}/>`; break;
     case 'unknown-barcodes': view = html`<${Unknown} key=${storeId} ctx=${ctx}/>`; break;
+    case 'huong-dan': view = seg[1] ? html`<${GuideDoc} key=${seg[1]} id=${decodeURIComponent(seg[1])} query=${route.query} onGroup=${setGuideGroup}/>` : html`<${GuideList} group="nghiep-vu"/>`; break;
+    case 'huong-dan-he-thong': view = html`<${GuideList} group="he-thong"/>`; break;
     default: view = null;
   }
+  const activeNav = page === 'huong-dan' && seg[1] && guideGroup === 'he-thong' ? 'huong-dan-he-thong' : page;
   const isStorePage = ['today', 'transactions', 'plans', 'random-check', 'reconcile', 'unknown-barcodes'].includes(page);
   return html`<div class="shell">
-    <${Sidebar} items=${items} active=${page} onSelect=${onSelect} me=${me} onLogout=${logout}/>
+    <${Sidebar} items=${items} active=${activeNav} onSelect=${onSelect} me=${me} onLogout=${logout}/>
     <div class="mainarea">
       <div class="mobile-only"><${Header} title=${PAGE_TITLES[page] || 'Quản trị'} sub=${isStorePage && storeName ? storeName : undefined} onMenu=${() => setMenu(true)}/></div>
       <${OfflineBar}/>
       <main class="page wide" id="main">${view}</main>
     </div>
-    <${Drawer} open=${menu} onClose=${() => setMenu(false)} items=${items} active=${page} onSelect=${onSelect} user=${me} sub=${`${ROLE_VI[me.role]} · ${me.id}`} onLogout=${logout}/>
+    <${Drawer} open=${menu} onClose=${() => setMenu(false)} items=${items} active=${activeNav} onSelect=${onSelect} user=${me} sub=${`${ROLE_VI[me.role]} · ${me.id}`} onLogout=${logout}/>
   </div>`;
 }
 

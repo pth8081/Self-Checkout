@@ -7,7 +7,7 @@ Khách tự quét mã vạch bằng điện thoại (PWA, không cần cài app)
 |-----------|-----------|----------|
 | PWA khách | `/c/?s=MÃ_CHI_NHÁNH` (mã QR dán ở cổng vào) | Khách: quét, giỏ hàng, thanh toán, QR ra cổng, hoá đơn, lịch sử |
 | PWA nhân viên | `/s/` | Thu ngân (thu tiền mặt, xác nhận chuyển khoản) và nhân viên cổng ra (quét QR, kiểm tra ngẫu nhiên, chênh lệch), quản lý (xử lý ca chờ) |
-| Web quản trị | `/a/` | Quản trị chuỗi và chi nhánh: báo cáo, cờ tính năng, tích hợp, tài khoản, ca, đối soát, truy vết |
+| Web quản trị | `/a/` | Quản trị chuỗi và chi nhánh: báo cáo, cờ tính năng, tích hợp, tài khoản, ca, đối soát, truy vết, và **Hướng dẫn nghiệp vụ** (quy trình có sơ đồ, chỉ quản trị viên xem; nguồn ở `server/guides/`, xem [docs/12](docs/12-huong-dan-nghiep-vu.md)) |
 
 **Giai đoạn 1:** thanh toán tiền mặt hoặc chuyển khoản QR tại quầy, nhân viên xác nhận. Thanh toán online (ví, VNPay, thẻ) giữ chỗ trong giao diện (hiện mờ "Sắp có"), bật bằng cấu hình khi đã tích hợp.
 POS/ERP và hoá đơn điện tử hiện chạy **bản giả lập**; cách gắn hệ thống thật xem [docs/11-ung-dung.md](docs/11-ung-dung.md).
@@ -41,7 +41,7 @@ Chi nhánh bật sẵn: `Q7`, `TD`, `TB`. Xem mã vạch mẫu: đăng nhập qu
 ## Kiểm thử
 
 ```bash
-npm test        # 30 kiểm thử API (máy chủ, nghiệp vụ, phân quyền)
+npm test        # 36 kiểm thử API (máy chủ, nghiệp vụ, phân quyền)
 npm run e2e     # kiểm thử đầu cuối bằng Playwright: khách, camera, nhân viên, quản trị
 ```
 

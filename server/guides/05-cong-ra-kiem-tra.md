@@ -16,7 +16,7 @@ Mở mục **Kiểm tra cổng ra**, chọn cổng (Cổng 1 hoặc Cổng 2), q
 
 ```flow
 title: Kết quả khi quét QR ở cổng
-direction: down
+direction: right
 a[Quét QR biên nhận]
 b{Kết quả}
 c([Xanh: Cho khách qua])
@@ -65,7 +65,7 @@ Thực hiện ở **cổng ra**, hoặc sớm hơn ngay **tại quầy** nếu t
 
 ```seq
 title: Kiểm tra ngẫu nhiên tại cổng ra
-actors: Khách | Nhân viên cổng | Hệ thống | Thu ngân | Quản lý
+actors: Khách | Nhân viên cổng | Hệ thống
 Khách -> Nhân viên cổng: Đưa QR biên nhận
 Nhân viên cổng -> Hệ thống: Quét QR
 Hệ thống --> Nhân viên cổng: Cần kiểm tra, danh sách món và số lượng
