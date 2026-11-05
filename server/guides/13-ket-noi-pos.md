@@ -8,6 +8,8 @@ access: chain
 
 # Kết nối POS
 
+> **Cách làm chính hiện nay là Giỏ QR cho POS.** Khách bấm thanh toán, điện thoại hiện một mã QR chứa mã vạch và số lượng từng món. Thu ngân quét mã vào POS, POS tạo đơn, tính lại giá và thu tiền. POS không cần gọi API của BRG. Công tắc "Giỏ QR cho POS" ở trang Chi nhánh, bật sẵn cho mọi chi nhánh; tắt đi thì quay lại các luồng cũ bên dưới. Mỗi chi nhánh cần nhập **Mã điểm** (mục Tích hợp) để mã QR khớp với điểm bán trên POS. Đặc tả cho nhà cung cấp POS: `docs/api-qr-gio-hang.md`.
+
 Ở chế độ này, **thu ngân quét mã giỏ hàng ngay trong phần mềm POS**. POS gọi API của BRG để lấy món, tính tiền, thu tiền (QR, tiền mặt, thẻ), phát hành hoá đơn điện tử, rồi **báo thanh toán về BRG**. BRG tự xác nhận và cho khách ra. Nhà cung cấp POS làm phần gọi API theo tài liệu `docs/api-pos.md` của dự án.
 
 ```flow

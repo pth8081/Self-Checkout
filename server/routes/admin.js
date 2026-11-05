@@ -126,7 +126,7 @@ export default async function adminRoutes(app) {
         config: { payCash: !!c.pay_cash, payQr: !!c.pay_qr, payOnline: !!c.pay_online, qrProvider: c.qr_provider,
           randomCheckRate: c.random_check_rate, rateFirstTime: c.rate_first_time, rateHighValue: c.rate_high_value, highValueThreshold: c.high_value_threshold,
           bank: { bin: c.bank_bin, name: c.bank_name, account: c.bank_account, holder: c.bank_holder }, posStaleMinutes: c.pos_stale_minutes,
-          paymentSource: c.payment_source, guardCheck: !!c.guard_check }
+          paymentSource: c.payment_source, guardCheck: !!c.guard_check, checkoutMode: c.checkout_mode }
       };
     };
     s.get('/stores', async (req) => ({
@@ -166,7 +166,7 @@ export default async function adminRoutes(app) {
       const posCode = b.posCode === undefined ? st.pos_code : cleanPosCode(b.posCode, id);
       if (b.enabled === true) {
         const c = db.prepare('SELECT * FROM store_config WHERE store_id = ?').get(id);
-        if (c.payment_source !== 'pos' && !c.pay_cash && !(c.pay_qr && c.bank_bin && c.bank_account)) throw conflict('NO_PAYMENT', 'Hãy bật ít nhất một cách thanh toán dùng được trước khi bật chi nhánh');
+        if (c.checkout_mode !== 'basket' && c.payment_source !== 'pos' && !c.pay_cash && !(c.pay_qr && c.bank_bin && c.bank_account)) throw conflict('NO_PAYMENT', 'Hãy bật ít nhất một cách thanh toán dùng được trước khi bật chi nhánh');
         if (!db.prepare('SELECT 1 FROM product_cache WHERE store_id = ? LIMIT 1').get(id)) throw conflict('NO_PRODUCTS', 'Chi nhánh chưa có dữ liệu sản phẩm, hãy đồng bộ POS trước');
       }
       db.prepare('UPDATE stores SET name = ?, address = ?, enabled = ?, pos_code = ? WHERE id = ?')
@@ -217,6 +217,14 @@ export default async function adminRoutes(app) {
         n.payment_source = b.paymentSource;
       }
       if (b.guardCheck !== undefined) n.guard_check = b.guardCheck ? 1 : 0;
+      if (b.checkoutMode !== undefined) {
+        if (!['basket', 'classic'].includes(b.checkoutMode)) throw bad('BAD_MODE', 'Chế độ chỉ có basket hoặc classic');
+        if (b.checkoutMode !== cur.checkout_mode) {
+          const pend = db.prepare(`SELECT COUNT(*) n FROM transactions WHERE store_id = ? AND status = 'awaiting_counter'`).get(id).n;
+          if (pend) throw conflict('CARTS_PENDING', `Còn ${pend} giỏ đang chờ. Hãy xử lý hết rồi mới đổi chế độ`);
+        }
+        n.checkout_mode = b.checkoutMode;
+      }
       if (b.bank) {
         const k = b.bank;
         if (k.bin !== undefined && k.bin !== '' && !/^\d{6}$/.test(k.bin)) throw bad('BAD_BIN', 'Mã ngân hàng (BIN) gồm 6 chữ số');
@@ -225,9 +233,9 @@ export default async function adminRoutes(app) {
       }
       if (n.pay_qr && (!n.bank_bin || !n.bank_account) && b.payQr) throw bad('BANK_REQUIRED', 'Nhập ngân hàng và số tài khoản nhận trước khi bật chuyển khoản QR');
       db.prepare(`UPDATE store_config SET pay_cash=?,pay_qr=?,pay_online=0,qr_provider=?,random_check_rate=?,rate_first_time=?,rate_high_value=?,
-        high_value_threshold=?,bank_bin=?,bank_name=?,bank_account=?,bank_holder=?,pos_stale_minutes=?,payment_source=?,guard_check=? WHERE store_id=?`)
+        high_value_threshold=?,bank_bin=?,bank_name=?,bank_account=?,bank_holder=?,pos_stale_minutes=?,payment_source=?,guard_check=?,checkout_mode=? WHERE store_id=?`)
         .run(n.pay_cash, n.pay_qr, n.qr_provider, n.random_check_rate, n.rate_first_time, n.rate_high_value, n.high_value_threshold,
-          n.bank_bin, n.bank_name, n.bank_account, n.bank_holder, n.pos_stale_minutes, n.payment_source, n.guard_check, id);
+          n.bank_bin, n.bank_name, n.bank_account, n.bank_holder, n.pos_stale_minutes, n.payment_source, n.guard_check, n.checkout_mode, id);
       // Tắt bước bảo vệ: những khách đã thanh toán mà chưa ra cổng coi như đã ra (không còn ai quét QR).
       if (cur.guard_check && !n.guard_check) {
         for (const t of db.prepare(`SELECT * FROM transactions WHERE store_id = ? AND status = 'paid' AND exit_status != 'exited'`).all(id)) markExited(db, t, { id: 'SYSTEM' }, 'Tắt bước bảo vệ');

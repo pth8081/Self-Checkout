@@ -52,7 +52,7 @@ export function claimCart(ctx, scope, code, body = {}) {
   if (tx.pos_order_ref === ref) return { claimed: true, duplicate: true, cart: cartForPos(tx) }; // gọi lại cùng mã đơn
   const other = byRef(db, ref);
   if (other && other.id !== tx.id) throw conflict('REF_IN_USE', 'Mã đơn POS này đã gắn với giỏ hàng khác', { transactionId: other.id });
-  if (tx.status !== 'awaiting_counter') throw conflict('NOT_PAYABLE', `Giỏ hàng đang ở trạng thái "${tx.status}", không nhận được`, { status: tx.status });
+  if (!['awaiting_counter', 'handed_off'].includes(tx.status)) throw conflict('NOT_PAYABLE', `Giỏ hàng đang ở trạng thái "${tx.status}", không nhận được`, { status: tx.status });
   if (tx.pos_status === 'claimed') throw conflict('ALREADY_CLAIMED', 'Giỏ hàng đã được đơn POS khác nhận', { posOrderRef: tx.pos_order_ref });
   db.transaction(() => {
     db.prepare(`UPDATE transactions SET pos_order_ref=?, pos_status='claimed', pos_claimed_at=?, pos_cashier=?, pos_terminal=? WHERE id=?`)
@@ -80,7 +80,7 @@ export function orderPaid(ctx, scope, ref, body = {}) {
     exitStatus: db.prepare('SELECT exit_status FROM transactions WHERE id = ?').get(tx.id).exit_status, amountMatches: money(tx.pos_amount) === tx.total });
   if (tx.status === 'paid') return result(true); // báo lại: không tạo thêm khoản thu
   if (tx.status === 'cancelled' || tx.status === 'voided') throw conflict('ORDER_CANCELLED', 'Đơn này đã bị huỷ');
-  if (tx.status !== 'awaiting_counter') throw conflict('NOT_PAYABLE', 'Đơn không ở trạng thái chờ thanh toán');
+  if (!['awaiting_counter', 'handed_off'].includes(tx.status)) throw conflict('NOT_PAYABLE', 'Đơn không ở trạng thái chờ thanh toán');
   const amount = body.amount;
   if (!Number.isInteger(amount) || amount <= 0) throw bad('BAD_AMOUNT', 'amount là số nguyên dương, đơn vị đồng');
   if (!POS_METHODS.includes(body.method)) throw bad('BAD_METHOD', `method phải là một trong: ${POS_METHODS.join(', ')}`);
@@ -117,6 +117,10 @@ export function orderCancelled(ctx, scope, ref, body = {}) {
   const reason = String(body.reason || 'POS huỷ đơn').slice(0, 200);
   if (tx.status === 'cancelled' || tx.status === 'voided') return { ok: true, duplicate: true, status: tx.status };
   const ts = nowIso();
+  if (tx.status === 'handed_off') {
+    db.prepare(`UPDATE transactions SET status='cancelled', pos_status='cancelled' WHERE id=?`).run(tx.id);
+    return { ok: true, status: 'cancelled' };
+  }
   if (tx.status === 'awaiting_counter') {
     // Chưa thu tiền: nhả giỏ để khách sửa hoặc khoá lại.
     db.transaction(() => {

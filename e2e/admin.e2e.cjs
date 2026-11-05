@@ -82,7 +82,7 @@ let ADMIN_TOKEN;
   await p.fill('[aria-label="Mã ngân hàng BIN"]', '123'); await p.click('text=Lưu thông tin ngân hàng');
   ok('BIN sai báo lỗi', (await p.locator('.errtext').first().textContent()).includes('6 chữ số'));
   await p.fill('[aria-label="Mã ngân hàng BIN"]', '970436');
-  await p.fill('[aria-label="Ngưỡng cảnh báo Chi nhánh Quận 7"]', '9'); await p.locator('tr:has-text("Chi nhánh Quận 7") button:has-text("Lưu")').click(); await p.waitForTimeout(600);
+  await p.fill('[aria-label="Ngưỡng cảnh báo Chi nhánh Quận 7"]', '9'); await p.locator('tr:has-text("Chi nhánh Quận 7") td:nth-child(5) button:has-text("Lưu")').click(); await p.waitForTimeout(600);
   ok('lưu ngưỡng POS', (await j('GET', '/api/a/stores', null, { authorization: 'Bearer ' + ADMIN_TOKEN })).stores.find((s) => s.id === 'Q7').config.posStaleMinutes === 9);
   await p.locator('tr:has-text("Chi nhánh Quận 7") button:has-text("Đồng bộ ngay")').click(); await p.waitForTimeout(500);
   await p.selectOption('[aria-label="Chi nhánh thử nghiệm"]', 'Q7'); await p.waitForTimeout(500);

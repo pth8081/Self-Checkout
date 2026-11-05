@@ -17,7 +17,7 @@ export function Welcome({ store, onStart, busy, error }) {
     <div class="page pad-b">
       <div class="stack-lg" style="margin-top:8px">
         <h1 style="font-size:30px">Mua sắm không phải xếp hàng</h1>
-        <p class="muted">Quét mã từng món, ${store.payment?.pos ? 'thanh toán tại quầy' : 'chọn cách thanh toán'} rồi ${store.guardCheck === false ? 'ra về' : 'ra cổng bằng mã QR'}. Không cần cài ứng dụng.</p>
+        <p class="muted">${store.basket ? 'Quét mã từng món, bấm thanh toán để hiện mã QR, đưa thu ngân quét vào máy tính tiền. Không phải đứng chờ quét từng món.' : html`Quét mã từng món, ${store.payment?.pos ? 'thanh toán tại quầy' : 'chọn cách thanh toán'} rồi ${store.guardCheck === false ? 'ra về' : 'ra cổng bằng mã QR'}. Không cần cài ứng dụng.`}</p>
       </div>
       <div class="card">
         <div class="row"><div class="ico-tile"><${Icon} name="store"/></div>
@@ -26,7 +26,7 @@ export function Welcome({ store, onStart, busy, error }) {
       </div>
       ${error && html`<${ErrorBox} error=${error}/>`}
       <div class="stack" style="margin-top:4px">
-        ${[['scan', 'Quét mã vạch từng món bằng camera'], ['cash', store.payment?.pos ? 'Thanh toán tại quầy, thu ngân quét mã giỏ hàng' : 'Trả tiền mặt hoặc chuyển khoản tại quầy'], ['qr', store.guardCheck === false ? 'Thanh toán xong là ra về' : 'Nhận mã QR để ra cổng']].map(([ic, t]) => html`
+        ${[['scan', 'Quét mã vạch từng món bằng camera'], ['cash', store.basket ? 'Thu ngân quét một mã QR là có đủ món, không quét từng món' : store.payment?.pos ? 'Thanh toán tại quầy, thu ngân quét mã giỏ hàng' : 'Trả tiền mặt hoặc chuyển khoản tại quầy'], ['qr', store.basket ? 'Mã QR lưu trên điện thoại, mất mạng vẫn dùng được' : store.guardCheck === false ? 'Thanh toán xong là ra về' : 'Nhận mã QR để ra cổng']].map(([ic, t]) => html`
           <div class="row"><div class="ico-tile" style="width:40px;height:40px;border-radius:14px"><${Icon} name=${ic}/></div><div>${t}</div></div>`)}
       </div>
       <div class="row wrap" style="justify-content:center;gap:4px">

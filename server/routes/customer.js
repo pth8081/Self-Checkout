@@ -1,7 +1,7 @@
 import { config } from '../config.js';
 import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, randomCode } from '../util.js';
 import {
-  getStoreConfig, storeView, createOrResumeSession, sessionView, applyOps, lockSession, unlockSession, abandonSession, txView
+  getStoreConfig, storeView, createOrResumeSession, sessionView, applyOps, lockSession, lockBasket, finishBasket, unlockSession, abandonSession, txView
 } from '../services/core.js';
 import { issueInvoice } from '../services/invoice.js';
 import { audit } from '../services/audit.js';
@@ -93,6 +93,12 @@ export default async function customerRoutes(app) {
     const transaction = lockSession(ctx, s, { method: req.body?.method, acceptChanges: !!req.body?.acceptChanges, buyer: req.body?.buyer });
     return { session: sessionView(ctx, s.id), transaction };
   });
+  app.post('/sessions/:id/basket', async (req) => {
+    const s = session(req);
+    const transaction = lockBasket(ctx, s, { ref: req.body?.ref });
+    return { session: sessionView(ctx, s.id), transaction };
+  });
+  app.post('/sessions/:id/finish', async (req) => { finishBasket(ctx, session(req)); return { ok: true }; });
   app.post('/sessions/:id/unlock', async (req) => {
     const s = session(req);
     unlockSession(ctx, s);

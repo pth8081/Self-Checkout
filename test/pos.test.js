@@ -291,3 +291,44 @@ test('DELETE không thân gửi từ trình duyệt không bị từ chối (kh�
   assert.equal(r.statusCode, 200);
   await app.close();
 });
+
+test('giỏ QR: khoá giỏ không hỏi cách trả, QR chứa mã vạch và số lượng, gửi lại cùng mã giỏ thì trả kết quả cũ', async () => {
+  const { decodeBasket } = await import('../public/shared/basket.js');
+  const app = await makeApp({ basket: true });
+  const chain = (await adminLogin(app)).body.token;
+  await call(app, 'PUT', '/api/a/stores/Q7', { token: chain, body: { posCode: 'SP-0107' } });
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  const id = s.body.session.id;
+  const bc = (sku) => barcodeOf(app, 'Q7', sku);
+  await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [
+    { id: 'a', type: 'scan', barcode: bc('SUA01') }, { id: 'b', type: 'scan', barcode: bc('SUA01') }, { id: 'c', type: 'scan', barcode: bc('MI01') }] } });
+  // luồng cũ bị khoá
+  assert.equal((await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash' } })).status, 409);
+  const r = await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-LM3K2AB' } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const q = decodeBasket(r.body.transaction.basketQr);
+  assert.equal(q.ok, true);
+  assert.equal(q.point, 'SP-0107');
+  assert.equal(q.ref, 'Q7-LM3K2AB');
+  assert.deepEqual(q.items, [{ barcode: bc('SUA01'), qty: 2 }, { barcode: bc('MI01'), qty: 1 }]);
+  assert.equal(q.total, r.body.transaction.total);
+  const again = await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-LM3K2AB' } });
+  assert.equal(again.body.transaction.id, r.body.transaction.id);
+  // người khác không dùng lại được mã giỏ
+  const s2 = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' }, device: 'other-1234567890abcdef' });
+  await call(app, 'POST', `/api/c/sessions/${s2.body.session.id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: bc('MI01') }] }, device: 'other-1234567890abcdef' });
+  assert.equal((await call(app, 'POST', `/api/c/sessions/${s2.body.session.id}/basket`, { body: { ref: 'Q7-LM3K2AB' }, device: 'other-1234567890abcdef' })).status, 409);
+  // POS (nếu có) vẫn nhận giỏ theo mã giỏ và báo thanh toán; khách bấm xong trước hay sau đều được
+  const fin = await call(app, 'POST', `/api/c/sessions/${id}/finish`);
+  assert.equal(fin.status, 200);
+  assert.equal(app.ctx.db.prepare('SELECT status FROM transactions WHERE id=?').get(r.body.transaction.id).status, 'handed_off');
+  await app.close();
+});
+
+test('mã QR giỏ: sai chữ ký hoặc sai định dạng thì từ chối', async () => {
+  const { encodeBasket, decodeBasket } = await import('../public/shared/basket.js');
+  const t = encodeBasket({ point: 'Q7', ref: 'Q7-ABCDEFGH', at: 1700000000000, items: [{ barcode: '8936036123456', qty: 2 }, { barcode: '8936036123456', qty: 1 }], total: 90000 });
+  assert.deepEqual(decodeBasket(t).items, [{ barcode: '8936036123456', qty: 3 }]);
+  assert.equal(decodeBasket(t.replace('*3', '*9')).error, 'CRC');
+  assert.equal(decodeBasket('hello').error, 'FORMAT');
+});

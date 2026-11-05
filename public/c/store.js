@@ -1,6 +1,7 @@
 // Trạng thái PWA khách: mã thiết bị, phiên mua sắm, hàng đợi thao tác khi mất mạng, đồng bộ.
 // Giỏ hàng luôn lưu trên máy (localStorage) và đồng bộ lên máy chủ khi có mạng.
 import { createApi, useState, useEffect, toast } from '/shared/lib.js';
+import { encodeBasket, makeBasketRef } from '/shared/basket.js';
 
 // ---------- Lưu trữ cục bộ (có thể bị chặn, nên luôn bọc try/catch) ----------
 const LS = {
@@ -31,13 +32,14 @@ let state = {
   queue: saved.queue || [],          // thao tác chưa gửi được
   issues: [],                        // lỗi phát hiện khi đồng bộ nền
   receipt: saved.receipt || null,    // bản lưu QR biên nhận để xem khi mất mạng
+  basket: saved.basket || null,      // giỏ QR đưa cho POS: lưu trên máy để mở lại được khi mất mạng hoặc tắt trình duyệt
   online: navigator.onLine,
   syncing: false,
   booted: false
 };
 const subs = new Set();
 function persist() {
-  LS.set('brg.c.v1', { storeCode: state.storeCode, store: state.store, session: state.session, queue: state.queue, receipt: state.receipt });
+  LS.set('brg.c.v1', { storeCode: state.storeCode, store: state.store, session: state.session, queue: state.queue, receipt: state.receipt, basket: state.basket });
 }
 export function setState(patch) {
   state = { ...state, ...patch };
@@ -112,6 +114,7 @@ export async function refreshSession() {
       if (!r.session || ['abandoned', 'exited'].includes(r.session.status)) return null;
       setState({ session: r.session, online: true });
       if (r.session.transaction?.status === 'paid') saveReceipt(r.session.transaction);
+      adoptBasket(r.session);
       return { session: r.session, ended: false };
     } catch { return null; }
   }
@@ -120,12 +123,78 @@ export async function refreshSession() {
     const ended = ['abandoned', 'exited'].includes(r.session.status) || (r.session.status === 'paid' && r.session.transaction?.exitStatus === 'exited');
     setState({ session: r.session, online: true });
     if (r.session.transaction?.status === 'paid') saveReceipt(r.session.transaction);
+    adoptBasket(r.session);
     return { session: r.session, ended };
   } catch (e) {
     if (e.status === 0) { setState({ online: false }); return null; }
     if (e.code === 'SESSION_NOT_FOUND') { setState({ session: null, queue: [] }); return null; }
     throw e;
   }
+}
+
+// ---------- Giỏ QR cho POS ----------
+/** Món để đưa vào QR: giỏ đã đồng bộ cộng cả món quét lúc mất mạng (chỉ cần mã vạch và số lượng). */
+export function basketItems(st) {
+  const v = cartView(st);
+  const m = new Map();
+  for (const it of v.items) m.set(it.barcode, (m.get(it.barcode) || 0) + it.qty);
+  for (const p of v.pending) m.set(p.barcode, (m.get(p.barcode) || 0) + p.qty);
+  return [...m].map(([barcode, qty]) => ({ barcode, qty }));
+}
+
+/** Máy chủ đã có giỏ khoá (mở lại trên trình duyệt khác, mất dữ liệu trang): lấy lại QR từ máy chủ. */
+function adoptBasket(session) {
+  const tx = session?.transaction;
+  if (tx?.method === 'basket' && tx.basketQr && (tx.status === 'awaiting_counter' || tx.status === 'paid')) {
+    const b = state.basket;
+    if (!b || b.ref !== tx.code) setState({ basket: { ref: tx.code, qr: tx.basketQr, total: tx.total, count: tx.itemCount, pending: 0, synced: true, at: Date.parse(tx.createdAt) } });
+    else if (!b.synced || b.total !== tx.total) setState({ basket: { ...b, qr: tx.basketQr, total: tx.total, count: tx.itemCount, pending: 0, synced: true } });
+  }
+}
+
+/** Bấm Thanh toán: tạo QR ngay từ giỏ trên máy (không cần mạng), rồi đồng bộ lên máy chủ khi có thể. */
+export function makeBasket() {
+  const items = basketItems(state);
+  if (!items.length) throw new Error('Giỏ hàng đang trống');
+  const v = cartView(state);
+  const ref = makeBasketRef(state.storeCode);
+  const qr = encodeBasket({ point: state.store?.pointCode || state.storeCode, ref, items, total: v.total });
+  setState({ basket: { ref, qr, total: v.total, count: v.itemCount + v.pendingCount, pending: v.pendingCount, synced: false, at: Date.now(), error: null } });
+  syncBasket();
+}
+
+let syncing = null;
+export async function syncBasket() {
+  if (syncing) return syncing;
+  const b = state.basket;
+  if (!b || b.synced || !state.session) return null;
+  syncing = (async () => {
+    try {
+      if (state.queue.length) { const m = await flush(); if (m === null) return; }
+      if (!state.basket || state.basket.ref !== b.ref) return;
+      const r = await api.post(`/sessions/${state.session.id}/basket`, { ref: b.ref });
+      const tx = r.transaction;
+      setState({ session: r.session, online: true, basket: { ...state.basket, synced: true, total: tx.total, count: tx.itemCount, qr: tx.basketQr || state.basket.qr, pending: 0, error: null } });
+    } catch (e) {
+      if (e.status === 0) { setState({ online: false }); return; }
+      if (state.basket?.ref === b.ref) setState({ basket: { ...state.basket, error: e.message } });
+    } finally { syncing = null; }
+  })();
+  return syncing;
+}
+
+/** Sửa giỏ: bỏ mã QR hiện tại, mở khoá giỏ trên máy chủ nếu có thể. */
+export async function editBasket() {
+  const synced = state.basket?.synced;
+  setState({ basket: null });
+  if (synced && state.session) { try { await unlock(); } catch { /* sẽ mở khoá khi có mạng */ } }
+}
+
+/** Đã thanh toán xong: kết thúc giỏ. */
+export async function finishBasket() {
+  const sid = state.session?.id;
+  setState({ basket: null, session: null, queue: [] });
+  if (sid) { try { await api.post(`/sessions/${sid}/finish`); } catch { /* máy chủ sẽ tự dọn giỏ bỏ quên */ } }
 }
 
 function saveReceipt(tx) {
@@ -135,10 +204,19 @@ function saveReceipt(tx) {
 
 // ---------- Đồng bộ thao tác ----------
 let flushing = null;
+let flushRetry = false;
 const enqueue = (op) => setState({ queue: [...state.queue, op] });
 
 /** Gửi toàn bộ thao tác đang chờ. Trả về Map(id -> kết quả) hoặc null nếu chưa gửi được. */
 export async function flush(immediate = new Set()) {
+  const r = await flushOnce(immediate);
+  if (r !== 'LOCKED') return r;
+  flushRetry = true;
+  try { await api.post(`/sessions/${state.session.id}/unlock`); return await flushOnce(immediate); }
+  catch { await refreshSession(); return new Map(); }
+  finally { flushRetry = false; }
+}
+async function flushOnce(immediate) {
   while (flushing) await flushing.catch(() => {});
   if (!state.queue.length || !state.session) return new Map();
   const ops = [...state.queue];
@@ -158,6 +236,7 @@ export async function flush(immediate = new Set()) {
     } catch (e) {
       setState({ syncing: false });
       if (e.status === 0) { setState({ online: false }); return null; }
+      if (e.code === 'SESSION_LOCKED' && !state.basket && !flushRetry) return 'LOCKED'; // khách đã sửa giỏ nhưng máy chủ còn khoá
       if (e.code === 'SESSION_LOCKED' || e.code === 'SESSION_NOT_FOUND') {
         setState({ queue: [] });
         await refreshSession();
@@ -205,8 +284,8 @@ export async function unlock() {
 }
 
 // ---------- Theo dõi kết nối ----------
-addEventListener('online', async () => { setState({ online: true }); try { await flush(); await refreshSession(); } catch { /* lần sau */ } });
+addEventListener('online', async () => { setState({ online: true }); try { await flush(); await syncBasket(); await refreshSession(); } catch { /* lần sau */ } });
 addEventListener('offline', () => setState({ online: false }));
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && state.session) { flush().then(() => refreshSession()).catch(() => {}); }
+  if (document.visibilityState === 'visible' && state.session) { flush().then(() => syncBasket()).then(() => refreshSession()).catch(() => {}); }
 });

@@ -9,12 +9,15 @@ import { vietQrPayload, makeReceiptToken, parseReceiptToken } from './qr.js';
 import { audit } from './audit.js';
 import { issueInvoice } from './invoice.js';
 import { canCash, canGate, isManager } from '../auth.js';
+import { encodeBasket, makeBasketRef } from '../../public/shared/basket.js';
 
 // ====================== Chi nhánh ======================
 export function getStoreConfig(db, storeId) {
   const store = db.prepare('SELECT * FROM stores WHERE id = ?').get(storeId);
   if (!store) throw notFound('STORE_NOT_FOUND', 'Không tìm thấy chi nhánh');
-  const cfg = db.prepare('SELECT * FROM store_config WHERE store_id = ?').get(storeId);
+  const raw = db.prepare('SELECT * FROM store_config WHERE store_id = ?').get(storeId);
+  // Chế độ "giỏ QR cho POS": POS thu tiền, không có bước bảo vệ. Các luồng cũ (thu tại quầy, cổng ra) bị khoá, không xoá.
+  const cfg = raw.checkout_mode === 'basket' ? { ...raw, payment_source: 'pos', guard_check: 0 } : raw;
   return { store, cfg };
 }
 
@@ -25,6 +28,7 @@ export function storeView(db, storeId) {
   return {
     id: store.id, name: store.name, address: store.address, enabled: !!store.enabled,
     paymentSource: cfg.payment_source, guardCheck: !!cfg.guard_check,
+    basket: cfg.checkout_mode === 'basket', pointCode: store.pos_code || store.id,
     payment: { cash: !pos && !!cfg.pay_cash, qrTransfer: !pos && !!cfg.pay_qr && bankOk, pos, online: false /* chưa tích hợp */ }
   };
 }
@@ -205,6 +209,11 @@ export function txView(ctx, tx, { staff = false } = {}) {
     receipt: paid && !tx.guard_skipped ? { token: makeReceiptToken(tx.id, tx.receipt_expires_at), expiresAt: tx.receipt_expires_at, expired: !!expired } : null,
     invoice: inv ? { type: inv.type, status: inv.status, number: inv.number, email: inv.email } : null
   };
+  if (tx.method === 'basket') {
+    const st = db.prepare('SELECT pos_code FROM stores WHERE id = ?').get(tx.store_id);
+    v.basketQr = encodeBasket({ point: st?.pos_code || tx.store_id, ref: tx.cart_code, at: Date.parse(tx.created_at), total: tx.total,
+      items: JSON.parse(tx.items_json).map((i) => ({ barcode: i.barcode, qty: i.qty })) });
+  }
   if (tx.status === 'awaiting_counter' && tx.method === 'qr_transfer' && cfg.bank_bin && cfg.bank_account) {
     const b = bankInfo(cfg);
     v.transfer = {
@@ -246,6 +255,7 @@ export function lockSession(ctx, session, { method, acceptChanges = false, buyer
   const { db } = ctx;
   const { store, cfg } = getStoreConfig(db, session.store_id);
   if (!store.enabled) throw conflict('STORE_DISABLED', 'Chi nhánh này chưa bật Self Checkout');
+  if (cfg.checkout_mode === 'basket') throw conflict('BASKET_MODE', 'Chi nhánh dùng giỏ QR cho POS, không dùng luồng thanh toán này');
   const posMode = cfg.payment_source === 'pos';
   if (posMode) {
     if (method && method !== 'pos') throw bad('METHOD_UNAVAILABLE', 'Chi nhánh thu tiền tại quầy qua máy tính tiền');
@@ -301,6 +311,64 @@ export function lockSession(ctx, session, { method, acceptChanges = false, buyer
     audit(db, { storeId: session.store_id, actorType: 'customer', actorId: session.device_id.slice(0, 8), action: 'cart.locked', entity: 'transaction', entityId: id,
       data: { total: t.total, method, items: fresh.length, checkRequired: check, changes: changes.length } });
     return txView(ctx, db.prepare('SELECT * FROM transactions WHERE id = ?').get(id));
+  })();
+}
+
+/**
+ * Chế độ giỏ QR: khoá giỏ để ghi nhận tạm tính theo giá của đúng chi nhánh. Không hỏi cách thanh toán.
+ * `ref` do điện thoại sinh (có trong mã QR), gửi lại cùng ref thì trả kết quả cũ.
+ */
+export function lockBasket(ctx, session, { ref } = {}) {
+  const { db } = ctx;
+  const { store, cfg } = getStoreConfig(db, session.store_id);
+  if (!store.enabled) throw conflict('STORE_DISABLED', 'Chi nhánh này chưa bật Self Checkout');
+  if (cfg.checkout_mode !== 'basket') throw conflict('NOT_BASKET', 'Chi nhánh này không dùng giỏ QR');
+  const code = String(ref || '').toUpperCase();
+  if (!/^[A-Z0-9]{1,6}-[A-Z0-9]{6,12}$/.test(code)) throw bad('BAD_REF', 'Mã giỏ không hợp lệ');
+  const same = db.prepare('SELECT * FROM transactions WHERE store_id = ? AND cart_code = ?').get(session.store_id, code);
+  if (same) {
+    if (same.session_id !== session.id) throw conflict('REF_USED', 'Mã giỏ đã dùng, hãy tạo lại');
+    return txView(ctx, same);
+  }
+  if (session.status === 'locked') {
+    // Khách đổi ý: bỏ giao dịch cũ chưa thu rồi khoá lại với mã mới.
+    unlockSession(ctx, session);
+    session = db.prepare('SELECT * FROM scan_sessions WHERE id = ?').get(session.id);
+  }
+  if (session.status !== 'active') throw conflict('SESSION_CLOSED', 'Phiên này đã kết thúc');
+  const items = itemsOf(db, session.id);
+  if (!items.length) throw bad('EMPTY_CART', 'Giỏ hàng đang trống');
+  const { cur } = freshnessChanges(ctx, session, items);
+  return db.transaction(() => {
+    for (const it of items) {
+      const c = cur.get(it.sku);
+      if (c && c.active) db.prepare('UPDATE cart_items SET unit_price=?, promo_min_qty=?, promo_off=?, name=? WHERE id=?').run(c.price, c.promo_min_qty, c.promo_off, c.name, it.id);
+    }
+    const fresh = itemsOf(db, session.id); // món ngừng bán vẫn nằm trong giỏ để POS quyết định
+    const t = totals(fresh);
+    const seq = nextCounter(db, session.store_id, 'tx');
+    const id = `SG-${session.store_id}-${String(seq).padStart(4, '0')}`;
+    const snapshot = fresh.map((i) => ({ sku: i.sku, barcode: i.barcode, name: i.name, price: i.unit_price, qty: i.qty, discount: lineDiscount(i), ageRestricted: !!i.age_restricted }));
+    const ts = nowIso();
+    db.prepare(`INSERT INTO transactions(id,session_id,store_id,device_id,cart_code,transfer_content,subtotal,discount,total,method,status,
+      check_required,items_json,item_count,age_restricted,created_at,guard_skipped) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(id, session.id, session.store_id, session.device_id, code, code, t.subtotal, t.discount, t.total, 'basket', 'awaiting_counter', 0,
+        JSON.stringify(snapshot), itemCount(fresh), fresh.some((i) => i.age_restricted) ? 1 : 0, ts, 1);
+    db.prepare(`UPDATE scan_sessions SET status='locked', locked_at=?, last_activity=? WHERE id=?`).run(ts, ts, session.id);
+    logScan(db, session, 'cart_locked', null, id);
+    audit(db, { storeId: session.store_id, actorType: 'customer', actorId: session.device_id.slice(0, 8), action: 'basket.created', entity: 'transaction', entityId: id, data: { total: t.total, items: fresh.length, ref: code } });
+    return txView(ctx, db.prepare('SELECT * FROM transactions WHERE id = ?').get(id));
+  })();
+}
+
+/** Khách bấm "Đã thanh toán xong": kết thúc giỏ, giao dịch chuyển sang `handed_off` (đã chuyển POS) nếu POS chưa báo. */
+export function finishBasket(ctx, session) {
+  const { db } = ctx;
+  const tx = db.prepare(`SELECT * FROM transactions WHERE session_id = ? ORDER BY created_at DESC LIMIT 1`).get(session.id);
+  db.transaction(() => {
+    if (tx && tx.status === 'awaiting_counter') db.prepare(`UPDATE transactions SET status='handed_off' WHERE id=?`).run(tx.id);
+    db.prepare(`UPDATE scan_sessions SET status='exited', ended_at=? WHERE id=?`).run(nowIso(), session.id);
+    if (tx) audit(db, { storeId: tx.store_id, actorType: 'customer', actorId: session.device_id.slice(0, 8), action: 'basket.finished', entity: 'transaction', entityId: tx.id });
   })();
 }
 

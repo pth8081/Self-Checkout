@@ -23,6 +23,10 @@
 - Huỷ giao dịch đã thu: chỉ quản lý, bắt buộc lý do, chưa ra cổng; QR trở nên vô hiệu, hoá đơn đã xuất chuyển sang "yêu cầu huỷ".
 - Mọi thao tác quan trọng ghi `audit_events` (truy vết ở A07, nhật ký ở trang quản trị).
 
+## 2a. Giỏ QR cho POS (hướng chính)
+
+Từ 2026-11-05 chế độ mặc định của chi nhánh là **giỏ QR** (`checkout_mode = basket`). Khách quét món, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng ([api-qr-gio-hang](api-qr-gio-hang.md)); POS quét, tạo đơn, tính lại giá, thu tiền. Chế độ này bật sẵn thu tiền qua POS và tắt bước cổng ra; luồng cũ bị khoá, không xoá: quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở A02 để dùng lại (không còn giỏ chờ). Tồn kho không dùng.
+
 ## 2b. Chế độ POS và bỏ bước bảo vệ (cờ theo chi nhánh)
 
 - **`paymentSource = pos`:** POS gọi API `/api/pos/v1` của BRG (nhận giỏ, báo thanh toán, báo huỷ), xem [api-pos.md](api-pos.md). BRG tự xác nhận khi POS báo thanh toán; thu tiền thủ công trong BRG bị chặn ở chi nhánh này.

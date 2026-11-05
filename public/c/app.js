@@ -1,8 +1,9 @@
 // PWA khách BRG Self Checkout: điều hướng, khởi động, chốt chặn theo trạng thái giao dịch.
 import { html, render, useRoute, go, useEffect, useState, useRef, Toasts, OfflineBar, registerSW, Loading, ErrorBox, Header, toast } from '/shared/lib.js';
-import { useStore, lastUnlockAt, loadStore, setStoreCode, openSession, refreshSession, resetSession, getState, local, setState } from './store.js';
+import { useStore, lastUnlockAt, loadStore, setStoreCode, openSession, refreshSession, resetSession, getState, local, setState, syncBasket } from './store.js';
 import { Welcome, Guide, CameraPermission, CameraBlocked, StoreDisabled, Stores, WebviewNotice, Resume, isWebview } from './screens-start.js';
 import { Scan, Manual, Cart } from './screens-scan.js';
+import { Basket } from './screens-basket.js';
 import { PayMethod, Transfer, Wait, Receipt, Done, Invoice, History, Order } from './screens-pay.js';
 
 // Thanh toán xong là ra luôn: chi nhánh không có bảo vệ, hoặc khách đã ra cổng.
@@ -41,6 +42,7 @@ function App() {
         const seen = local.get('brg.c.seen', 0);
         const hasRoute = location.hash.length > 2;
         if (!st.store.enabled && !cur) go('/closed', true);
+        else if (st.store.basket && (st.basket || (cur && cur.method === 'basket' && cur.status !== 'handed_off'))) { syncBasket(); go('/basket', true); }
         else if (cur?.status === 'paid') go(noGate(cur) ? '/done' : '/receipt', true);
         else if (cur?.status === 'awaiting_counter') go('/wait', true);
         else if (st.session?.items.length && st.session.status === 'active' && Date.now() - seen > 10 * 60_000) go('/resume', true);
@@ -58,6 +60,13 @@ function App() {
   useEffect(() => { if (tx) prevTx.current = tx; else if (path !== '/wait' && path !== '/transfer') prevTx.current = null; }, [tx, path]);
   useEffect(() => {
     if (!boot.done) return;
+    if (s.store?.basket) {
+      // Giỏ QR: không có chọn cách trả, chờ chuyển khoản hay biên nhận. Có mã QR thì luôn về màn mã QR.
+      if (s.basket && [...FLOW, '/receipt'].includes(path)) go('/basket', true);
+      else if (!s.basket && path === '/basket') go(s.session ? '/cart' : '/', true);
+      else if (!s.basket && ['/pay', '/transfer', '/wait'].includes(path)) go(s.session ? '/cart' : '/', true);
+      return;
+    }
     const inFlow = FLOW.includes(path);
     if (tx?.status === 'paid' && inFlow) go(noGate(tx) ? '/done' : '/receipt', true);
     else if (tx?.status === 'awaiting_counter' && inFlow && !['/wait', '/transfer'].includes(path)) go(tx.method === 'qr_transfer' && path === '/pay' ? '/transfer' : '/wait', true);
@@ -68,7 +77,7 @@ function App() {
     }
     else if (tx?.status === 'paid' && path === '/receipt' && noGate(tx)) go('/done', true);
     else if (!s.session && (inFlow || path === '/receipt' || path === '/done') && !(path === '/receipt' && s.receipt)) go('/', true);
-  }, [boot.done, path, tx?.status, tx?.exitStatus, !!s.session]);
+  }, [boot.done, path, tx?.status, tx?.exitStatus, !!s.session, !!s.basket]);
 
   if (!boot.done) return html`<div class="page"><${Loading}/></div>`;
   if (boot.error) return html`<div class="page" style="justify-content:center"><${ErrorBox} error=${boot.error} retry=${() => location.reload()}/></div>`;
@@ -81,7 +90,7 @@ function App() {
     try {
       if (isWebview() && !local.get('brg.webview-ok')) { go('/browser'); return; }
       const r = await openSession();
-      if (r.session.transaction?.status === 'awaiting_counter') return go('/wait');
+      if (r.session.transaction?.status === 'awaiting_counter') return go(getState().store?.basket ? '/basket' : '/wait');
       if (r.resumed) return go('/resume');
       await next();
     } catch (e) {
@@ -105,11 +114,12 @@ function App() {
     case path === '/blocked': return html`<${CameraBlocked} onRetry=${() => go('/scan', true)} onManual=${() => go('/manual')}/><${Toasts}/>`;
     case path === '/resume' && !!s.session && !!store:
       return html`<${Resume} session=${s.session} store=${store} busy=${busy}
-        onContinue=${() => go(s.session.status === 'locked' ? '/wait' : '/scan', true)}
+        onContinue=${() => go(s.session.status === 'locked' ? (store.basket ? '/basket' : '/wait') : '/scan', true)}
         onFresh=${async () => { setBusy(true); try { await openSession({ fresh: true }); await next(); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } }}/><${Toasts}/>`;
     case path === '/scan' && !!s.session && !!store: return html`<${Scan} s=${s} store=${store} onBlocked=${() => go('/blocked', true)}/><${Toasts}/>`;
     case path === '/manual' && !!s.session && !!store: return html`<${Manual} s=${s} store=${store}/><${Toasts}/>`;
     case path === '/cart' && !!s.session && !!store: return html`<${OfflineBar}/><${Cart} s=${s} store=${store}/><${Toasts}/>`;
+    case path === '/basket' && !!s.basket && !!store: return html`<${OfflineBar}/><${Basket} s=${s} store=${store}/><${Toasts}/>`;
     case path === '/pay' && !!s.session && !!store: return html`<${OfflineBar}/><${PayMethod} s=${s} store=${store}/><${Toasts}/>`;
     case path === '/transfer' && !!s.session: return html`<${OfflineBar}/><${Transfer} s=${s}/><${Toasts}/>`;
     case path === '/wait' && !!s.session: return html`<${OfflineBar}/><${Wait} s=${s}/><${Toasts}/>`;

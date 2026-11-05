@@ -1,15 +1,17 @@
 // Tạo tự động bởi scripts/build-sw.js, không sửa tay.
-const VERSION = '73610d4b0b6f';
+const VERSION = 'f6217be654a3';
 const CACHE = 'brg-c-' + VERSION;
 const SHELL = [
  "/c/",
  "/c/app.js",
  "/c/index.html",
  "/c/manifest.webmanifest",
+ "/c/screens-basket.js",
  "/c/screens-pay.js",
  "/c/screens-scan.js",
  "/c/screens-start.js",
  "/c/store.js",
+ "/shared/basket.js",
  "/shared/fonts.css",
  "/shared/fonts/inter-latin-ext.woff2",
  "/shared/fonts/inter-latin.woff2",

@@ -6,9 +6,10 @@ cd "$(dirname "$0")/.."
 export PORT=3400 DB_FILE=/tmp/brg-e2e.db BASE=http://localhost:3400
 rm -f "$DB_FILE"*
 node scripts/build-sw.js >/dev/null
-fresh() { rm -f "$DB_FILE"*; node server/seed.js --reset --demo >/dev/null 2>&1; node server/index.js >/tmp/brg-e2e-server.log 2>&1 & SRV=$!; sleep 2.5; }
+fresh() { rm -f "$DB_FILE"*; node server/seed.js --reset --demo ${SEEDARG:-} >/dev/null 2>&1; node server/index.js >/tmp/brg-e2e-server.log 2>&1 & SRV=$!; sleep 2.5; }
 fail=0
-for t in customer customer-camera staff admin resilience; do
+for t in customer customer-camera staff admin resilience basket; do
+  SEEDARG=--classic; [ "$t" = basket ] && SEEDARG=
   fresh
   echo "=== $t ==="
   if ! node e2e/$t.e2e.cjs; then fail=1; fi

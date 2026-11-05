@@ -1,6 +1,6 @@
 // Quét sản phẩm và giỏ hàng: M08 quét, M09 vừa quét, M10 lỗi mã, M11 nhập tay, M12–M15 giỏ hàng.
 import { html, useState, useEffect, useRef, Header, Icon, Scanner, Sheet, Banner, Pill, Spinner, Empty, Confirm, Keypad, go, fmt, toast, useOnline } from '/shared/lib.js';
-import { api, scan, setQty, removeItem, cartView, dismissIssue } from './store.js';
+import { api, scan, setQty, removeItem, cartView, dismissIssue, makeBasket } from './store.js';
 
 export function Help({ onClose }) {
   return html`<${Sheet} onClose=${onClose}>
@@ -153,7 +153,7 @@ export function Cart({ s, store }) {
   const [confirm, setConfirm] = useState(null); // item cần xoá
   const [busy, setBusy] = useState(false);
   const empty = !cart.items.length && !cart.pendingCount;
-  const canPay = online && cart.items.length > 0 && !s.syncing;
+  const canPay = (store.basket ? cart.items.length + cart.pendingCount > 0 : online && cart.items.length > 0 && !s.syncing);
 
   async function change(it, qty) {
     const r = await setQty(it.id, qty);
@@ -184,7 +184,7 @@ export function Cart({ s, store }) {
     </div>
     ${!empty && html`<div class="bar-bottom"><div class="in" style="flex-direction:row">
       <button class="btn line" style="width:auto;padding:0 20px" onClick=${() => go('/scan')}>Quét thêm</button>
-      <button class="btn primary" disabled=${!canPay} onClick=${() => go('/pay')}>${online ? `Thanh toán ${fmt.money(cart.total)}` : 'Cần có mạng để thanh toán'}</button></div></div>`}
+      <button class="btn primary" disabled=${!canPay} onClick=${() => { if (store.basket) { try { makeBasket(); go('/basket'); } catch (e) { toast(e.message, 'err'); } } else go('/pay'); }}>${store.basket || online ? `Thanh toán ${fmt.money(cart.total)}` : 'Cần có mạng để thanh toán'}</button></div></div>`}
     ${confirm && html`<${Confirm} title="Bỏ sản phẩm này?" text=${confirm.name} ok="Bỏ khỏi giỏ" danger busy=${busy} onCancel=${() => setConfirm(null)}
       onOk=${async () => { setBusy(true); try { await removeItem(confirm.id); } finally { setBusy(false); setConfirm(null); } }}/>`}
   </div>`;

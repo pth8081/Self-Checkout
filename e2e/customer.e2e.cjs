@@ -4,6 +4,7 @@ const BASE=process.env.BASE||'http://localhost:3400';const sleep=ms=>new Promise
 async function api(method,url,body,headers={}){const r=await fetch(BASE+url,{method,headers:{'content-type':'application/json',...headers},body:body?JSON.stringify(body):undefined});return {status:r.status,body:await r.json().catch(()=>null)};}
 (async()=>{
  const adm=(await api('POST','/api/a/login',{account:'QT0001',password:'Admin@123'})).body.token;const AH={authorization:'Bearer '+adm};
+ await api('PUT','/api/a/stores/Q7/config',{randomCheckRate:0,rateFirstTime:0,rateHighValue:0},AH); // tránh bốc ngẫu nhiên làm kịch bản chập chờn
  const prods=(await api('GET','/api/a/dev/pos-products?storeId=Q7',null,AH)).body.products;
  const P=n=>prods.find(x=>x.name.startsWith(n));
  const b=await chromium.launch({args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream']});

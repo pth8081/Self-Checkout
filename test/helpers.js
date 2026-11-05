@@ -1,9 +1,11 @@
 import { buildApp } from '../server/app.js';
 import { seed } from '../server/seed.js';
 
-export async function makeApp({ rng = () => 0.99, demo = false } = {}) {
+export async function makeApp({ rng = () => 0.99, demo = false, basket = false } = {}) {
   const app = buildApp({ dbFile: ':memory:', rng });
   seed(app.ctx.db, { demo });
+  // Các kiểm thử cũ chạy luồng cổ điển (thu tại quầy, cổng ra). Chế độ giỏ QR bật bằng { basket: true }.
+  if (!basket) app.ctx.db.prepare(`UPDATE store_config SET checkout_mode = 'classic'`).run();
   await app.ready();
   return app;
 }

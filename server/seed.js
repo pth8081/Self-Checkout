@@ -155,5 +155,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
   if (db.prepare('SELECT COUNT(*) n FROM stores').get().n) { console.error('CSDL đã có dữ liệu. Dùng --reset để tạo lại.'); process.exit(1); }
   seed(db, { demo: process.argv.includes('--demo') });
+  if (process.argv.includes('--classic')) db.prepare(`UPDATE store_config SET checkout_mode = 'classic'`).run(); // luồng cũ: thu tại quầy và cổng ra
   console.log('Đã tạo dữ liệu mẫu. Tài khoản thử: xem README.');
 }

@@ -109,24 +109,27 @@ export function Stores({ me, reloadStores, setStoreId }) {
       ${msg.code === 'NO_POS_KEY' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => go('/integrations')}><${Icon} name="link" size=${18}/>Đi tới mục Tích hợp để tạo khoá</button></div>`}
       ${msg.code === 'CARTS_PENDING' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => { if (msg.storeId) setStoreId(msg.storeId); go('/transactions'); }}>Xem giao dịch</button></div>`}<//>`}
     <${Async} state=${st}>${(d) => html`<div class="card"><div class="tblwrap"><table class="tbl">
-      <thead><tr><th>Chi nhánh</th><th class="tc">Self Checkout</th><th>Thu tiền</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Bảo vệ cổng ra</th><th class="tc">Online</th><th></th></tr></thead>
+      <thead><tr><th>Chi nhánh</th><th class="tc">Self Checkout</th><th class="tc">Giỏ QR cho POS</th><th>Thu tiền</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Bảo vệ cổng ra</th><th class="tc">Online</th><th></th></tr></thead>
       <tbody>${d.stores.map((s) => {
-        const pos = isPos(s.config);
+        const basket = s.config.checkoutMode === 'basket'; // giỏ QR: POS thu tiền, không bảo vệ; các luồng cũ bị khoá
+        const pos = isPos(s.config) || basket;
         const dis = !chain || !!busyKey;
         const sw = (key, checked, path, body, label, extra = {}) => html`<${Switch} checked=${checked} disabled=${dis || extra.off} label=${`${label} ${s.name}`} onChange=${(v) => toggle(`${s.id}${key}`, path, body(v))}/>`;
         const mute = (node) => (pos ? html`<span class="soon">${node}Dùng POS</span>` : node);
         return html`<tr key=${s.id}><td><b>${s.name}</b><div class="sub">${s.id} · ${s.address || 'Chưa có địa chỉ'}</div></td>
           <td class="tc">${sw('e', s.enabled, `/stores/${s.id}`, (v) => ({ enabled: v }), 'Bật Self Checkout')}</td>
-          <td><select class="input sm" style="width:auto;min-width:175px" value=${s.config.paymentSource || 'manual'} disabled=${dis} aria-label=${`Thu tiền ${s.name}`}
+          <td class="tc">${sw('m', basket, `/stores/${s.id}/config`, (v) => ({ checkoutMode: v ? 'basket' : 'classic' }), 'Giỏ QR cho POS')}</td>
+          <td><select class="input sm" style="width:auto;min-width:175px" value=${basket ? 'pos' : (s.config.paymentSource || 'manual')} disabled=${dis || basket} aria-label=${`Thu tiền ${s.name}`}
             onChange=${(e) => { const v = e.target.value; e.target.value = s.config.paymentSource || 'manual'; if (v !== (s.config.paymentSource || 'manual')) { setMsg(null); setAsk({ kind: 'source', s, value: v }); } }}>
             ${Object.entries(PAY_SOURCE).map(([k, l]) => html`<option value=${k} key=${k}>${l}</option>`)}</select>
             ${!chain && html`<div class="xs muted" style="margin-top:4px"><${Icon} name="lock" size=${12}/> Chỉ quản trị chuỗi đổi</div>`}</td>
           <td class="tc">${mute(sw('c', s.config.payCash, `/stores/${s.id}/config`, (v) => ({ payCash: v }), 'Tiền mặt', { off: pos }))}</td>
           <td class="tc">${mute(sw('q', s.config.payQr, `/stores/${s.id}/config`, (v) => ({ payQr: v }), 'Chuyển khoản QR', { off: pos }))}</td>
-          <td class="tc"><${Switch} checked=${s.config.guardCheck !== false} disabled=${dis} label=${`Bảo vệ cổng ra ${s.name}`} onChange=${(v) => onGuard(s, v)}/></td>
+          <td class="tc"><${Switch} checked=${!basket && s.config.guardCheck !== false} disabled=${dis || basket} label=${`Bảo vệ cổng ra ${s.name}`} onChange=${(v) => onGuard(s, v)}/></td>
           <td class="tc"><span class="soon"><${Switch} checked=${false} disabled=${true} label=${`Thanh toán online ${s.name}`} onChange=${() => {}}/>Sắp có</span></td>
           <td><button class="btn sm line" onClick=${() => setQr(s)}><${Icon} name="qr" size=${18}/>Mã QR dán cổng vào</button></td></tr>`;
       })}</tbody></table></div>
+      <div class="hint"><b>Giỏ QR cho POS</b> (đang dùng): khách bấm thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng từng món, thu ngân quét vào POS. POS tạo đơn, tính tiền, thu tiền. Các cột bên phải (thu tiền trong BRG, bảo vệ cổng ra) bị khoá và dùng lại được nếu tắt chế độ này.</div>
       <div class="hint">Chi nhánh chỉ bật được khi có ít nhất một cách thanh toán dùng được và đã có dữ liệu sản phẩm từ POS. Đổi cách thu tiền cần có khoá API cho POS (mục Tích hợp) và không còn giỏ chờ thu.</div></div>`}<//>
     ${ask && ask.kind === 'source' && html`<${Confirm} title=${ask.value === 'pos' ? `Chuyển ${ask.s.name} sang thu tiền qua POS?` : `Chuyển ${ask.s.name} về tự thu trong BRG?`}
       text=${ask.value === 'pos' ? 'Khách chọn "Thanh toán tại quầy" và nhận mã giỏ hàng. Thu ngân quét mã trong phần mềm POS, thu tiền trên POS (QR, tiền mặt, hoá đơn điện tử do POS xuất). POS báo về BRG và BRG tự xác nhận. Tiền mặt và chuyển khoản QR trong BRG tạm dừng.' : 'Khách chọn tiền mặt hoặc chuyển khoản QR, thu ngân xác nhận thu tiền trong ứng dụng thu ngân của BRG. POS không còn nhận giỏ hàng nữa.'}

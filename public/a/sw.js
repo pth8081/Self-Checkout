@@ -1,5 +1,5 @@
 // Tạo tự động bởi scripts/build-sw.js, không sửa tay.
-const VERSION = 'e9223b2c081a';
+const VERSION = '6c5c7c743461';
 const CACHE = 'brg-a-' + VERSION;
 const SHELL = [
  "/a/",
@@ -13,6 +13,7 @@ const SHELL = [
  "/a/manifest.webmanifest",
  "/a/pages-chain.js",
  "/a/pages-store.js",
+ "/shared/basket.js",
  "/shared/fonts.css",
  "/shared/fonts/inter-latin-ext.woff2",
  "/shared/fonts/inter-latin.woff2",
