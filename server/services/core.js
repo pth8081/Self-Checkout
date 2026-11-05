@@ -192,6 +192,7 @@ export function txView(ctx, tx, { staff = false } = {}) {
     ageRestricted: !!tx.age_restricted, rating: tx.rating,
     paymentSource: cfg.payment_source, guardCheck: !tx.guard_skipped,
     posStatus: tx.pos_status, posOrderRef: tx.pos_order_ref, posAmount: tx.pos_amount, posInvoiceNo: tx.pos_invoice_no,
+    posClaimedAt: tx.pos_claimed_at, posCashier: tx.pos_cashier, posTerminal: tx.pos_terminal,
     buyer: tx.buyer_json ? JSON.parse(tx.buyer_json) : null,
     // Chi nhánh không có bảo vệ: khách ra thẳng, không có mã QR ra cổng.
     receipt: paid && !tx.guard_skipped ? { token: makeReceiptToken(tx.id, tx.receipt_expires_at), expiresAt: tx.receipt_expires_at, expired: !!expired } : null,

@@ -126,7 +126,7 @@ export default async function customerRoutes(app) {
       WHERE t.device_id IN (${ids.map(() => '?').join(',')}) AND t.status = 'paid' ORDER BY t.paid_at DESC LIMIT 100`).all(...ids);
     return {
       linkedEmails: db.prepare('SELECT email FROM device_emails WHERE device_id = ?').all(req.deviceId).map((r) => r.email),
-      orders: rows.map((t) => ({ id: t.id, storeId: t.store_id, storeName: t.store_name, paidAt: t.paid_at, itemCount: t.item_count, total: t.total, method: t.method, exitStatus: t.exit_status }))
+      orders: rows.map((t) => ({ id: t.id, storeId: t.store_id, storeName: t.store_name, paidAt: t.paid_at, itemCount: t.item_count, total: t.total, posAmount: t.pos_amount, guardCheck: !t.guard_skipped, method: t.method, exitStatus: t.exit_status }))
     };
   });
   app.get('/history/:id', async (req) => {

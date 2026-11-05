@@ -56,6 +56,7 @@ const ACTION_VI = {
   'pos.key_created': () => 'Tạo khoá API cho POS',
   'pos.key_revoked': () => 'Thu hồi khoá API của POS',
   'pos.claimed': () => 'POS nhận giỏ hàng',
+  'pos.released': () => 'Quản lý nhả giỏ khỏi POS',
   'pos.amount_differs': () => 'Số tiền POS lệch với BRG',
   'pos.cancel_after_exit': () => 'POS báo huỷ sau khi khách đã ra',
   'shift.started': () => 'Bắt đầu ca',

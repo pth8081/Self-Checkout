@@ -504,7 +504,13 @@ export default async function adminRoutes(app) {
           'cart.locked': ['info', `Khoá giỏ, chọn ${d.method === 'cash' ? 'tiền mặt' : 'chuyển khoản'}, ${d.total?.toLocaleString('vi-VN')}₫`],
           'cart.unlocked': ['info', 'Khách quay lại sửa giỏ hàng'],
           'cart.cancelled': ['warn', `Nhân viên huỷ giỏ chờ thu${d.reason ? `: ${d.reason}` : ''}`],
-          'payment.collected': ['ok', `${who} thu ${d.method === 'cash' ? `tiền mặt${d.cashReceived ? `, khách đưa ${d.cashReceived.toLocaleString('vi-VN')}₫, thối ${d.change?.toLocaleString('vi-VN')}₫` : ''}` : 'chuyển khoản (đã đối chiếu)'}`],
+          'payment.collected': ['ok', d.source === 'pos'
+            ? `${who} báo đã thanh toán ${d.amount?.toLocaleString('vi-VN')}₫ (${({ cash: 'tiền mặt', qr_transfer: 'chuyển khoản', card: 'thẻ', ewallet: 'ví điện tử' })[d.method] || 'cách khác'})${d.invoiceNo ? `, hoá đơn ${d.invoiceNo}` : ''}`
+            : `${who} thu ${d.method === 'cash' ? `tiền mặt${d.cashReceived ? `, khách đưa ${d.cashReceived.toLocaleString('vi-VN')}₫, thối ${d.change?.toLocaleString('vi-VN')}₫` : ''}` : 'chuyển khoản (đã đối chiếu)'}`],
+          'pos.claimed': ['info', `${who} nhận giỏ vào đơn POS ${d.posOrderRef}${d.cashier ? `, thu ngân ${d.cashier}` : ''}`],
+          'pos.amount_differs': ['warn', `Số tiền POS ${d.posAmount?.toLocaleString('vi-VN')}₫ khác tạm tính ${d.brgTotal?.toLocaleString('vi-VN')}₫`],
+          'pos.released': ['warn', `${who} nhả giỏ vì POS không báo kết quả: ${d.reason}`],
+          'pos.cancel_after_exit': ['warn', `POS huỷ đơn sau khi khách đã ra: ${d.reason}`],
           'payment.extra_collected': ['ok', `${who} thu bổ sung ${d.amount?.toLocaleString('vi-VN')}₫`],
           'invoice.issued': ['ok', `Hoá đơn điện tử ${d.number} (${d.type === 'company' ? 'công ty' : 'bán lẻ'})`],
           'invoice.failed': ['warn', `Xuất hoá đơn lỗi: ${d.error}`],
@@ -513,7 +519,7 @@ export default async function adminRoutes(app) {
           'check.mismatch': ['warn', `${who} kiểm tra ngẫu nhiên: chênh lệch${d.amount ? ` ${d.amount.toLocaleString('vi-VN')}₫` : ''}${d.note ? ` (${d.note})` : ''}`],
           'check.resolved_allow': ['ok', `${who} duyệt cho qua${d.note ? `: ${d.note}` : ''}`],
           'check.resolved_deny': ['warn', `${who} từ chối cho qua${d.note ? `: ${d.note}` : ''}`],
-          'gate.exited': ['ok', `${who} quét QR ở ${d.gate || 'cổng ra'}, cho qua`],
+          'gate.exited': ['ok', a.actor_id === 'SYSTEM' ? `Hệ thống ghi nhận khách ra (${d.gate || 'không có bảo vệ'})` : `${who} quét QR ở ${d.gate || 'cổng ra'}, cho qua`],
           'transaction.voided': ['warn', `${who} huỷ giao dịch: ${d.reason}`]
         };
         const m = map[a.action]; events.push({ ts: a.ts, tone: m?.[0] || 'info', text: m?.[1] || a.action });
@@ -540,13 +546,15 @@ export default async function adminRoutes(app) {
       const staff = db.prepare(`SELECT * FROM staff WHERE store_id = ? AND role IN ('cashier','gate','cashier_gate') AND active = 1 ORDER BY id`).all(storeId);
       const plans = db.prepare('SELECT * FROM shift_plans WHERE store_id = ? AND date BETWEEN ? AND ?').all(storeId, days[0], days[6]);
       const today = localDate();
+      const cfgPlan = getStoreConfig(db, storeId).cfg;
+      const posMode = cfgPlan.payment_source === 'pos', guardOn = !!cfgPlan.guard_check; // POS: thu ngân làm trên POS; không bảo vệ: không cần người ở cổng
       const warnings = [];
       for (const date of days) {
         if (date < today) continue;
         for (const kind of ['sang', 'chieu']) {
           const who = plans.filter((p) => p.date === date && p.kind === kind).map((p) => staff.find((u) => u.id === p.staff_id)).filter(Boolean);
-          if (!who.some((u) => u.role === 'cashier' || u.role === 'cashier_gate')) warnings.push({ date, kind, missing: 'cashier' });
-          if (!who.some((u) => u.role === 'gate' || u.role === 'cashier_gate')) warnings.push({ date, kind, missing: 'gate' });
+          if (!posMode && !who.some((u) => u.role === 'cashier' || u.role === 'cashier_gate')) warnings.push({ date, kind, missing: 'cashier' });
+          if (guardOn && !who.some((u) => u.role === 'gate' || u.role === 'cashier_gate')) warnings.push({ date, kind, missing: 'gate' });
         }
       }
       return { storeId, days, staff: staff.map(userView), plans: plans.map((p) => ({ staffId: p.staff_id, date: p.date, kind: p.kind })), warnings };

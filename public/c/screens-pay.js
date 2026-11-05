@@ -43,6 +43,7 @@ export function PayMethod({ s, store }) {
       else { setChanges(null); setError(e); }
     } finally { setBusy(false); }
   }
+  useEffect(() => { if (error) document.querySelector('.errtext')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [error]);
   const fe = (...codes) => (pos && error && codes.includes(error.code) ? error.message : null);
   const taxErr = fe('BAD_TAX_CODE');
   const compErr = fe('COMPANY_INFO_REQUIRED');
@@ -134,7 +135,7 @@ export function Wait({ s }) {
       <div class="center stack" style="align-items:center">${head}</div>
       ${claimed ? html`<div class="center small muted">Mã giỏ hàng: <b class="num">${tx.code}</b></div>`
         : html`<div class="qrbox"><${QR} text=${tx.code} label="Mã giỏ hàng"/><div class="code">${tx.code}</div></div>`}
-      <div class="card flat tight row"><div class="grow"><div class="small muted">${pos ? 'Tạm tính' : 'Cần thanh toán'}</div><b class="num" style="font-size:20px">${fmt.money(tx.total + tx.extraDue)}</b>${pos && html`<div class="xs muted">Số tiền cuối cùng do máy tính tiền quyết định</div>`}</div><${Pill} tone="brand">${pos ? 'Tại quầy' : fmt.method(tx.method)}<//></div>
+      <div class="card flat tight"><div class="row"><div class="grow"><div class="small muted">${pos ? 'Tạm tính' : 'Cần thanh toán'}</div><b class="num" style="font-size:20px">${fmt.money(tx.total + tx.extraDue)}</b></div><${Pill} tone="brand">${pos ? 'Tại quầy' : fmt.method(tx.method)}<//></div>${pos && html`<div class="xs muted">Số tiền cuối cùng do máy tính tiền quyết định</div>`}</div>
       ${transfer && html`<button class="btn soft" onClick=${() => go('/transfer')}><${Icon} name="qr"/>Xem lại QR chuyển khoản</button>`}
       <ol class="stack small" style="padding:0;list-style:none;gap:10px">
         ${steps.map((t, i) => html`<li class="row" style="align-items:flex-start"><span class="avatar" style="width:26px;height:26px;font-size:12px">${i + 1}</span><span>${t}</span></li>`)}
@@ -247,8 +248,8 @@ export function Invoice({ id }) {
     const comp = (inv?.type || (tx.buyer?.taxCode ? 'company' : 'retail')) === 'company';
     return html`<div style="display:flex;flex-direction:column;flex:1"><${Header} onBack=${() => history.back()} title="Hoá đơn điện tử"/>
     <div class="page pad-b">
-      <div class="card flat tight row"><div class="ico-tile"><${Icon} name="receipt"/></div><div class="grow"><b>${tx.id}</b><div class="small muted">${fmt.when(tx.paidAt)} · ${fmt.money(paidAmount(tx))}</div></div>
-        <${Pill} tone=${no ? 'ok' : 'warn'}>${no ? 'Đã xuất' : 'Đang chờ'}<//></div>
+      <div class="card flat tight"><div class="row"><div class="ico-tile"><${Icon} name="receipt"/></div><div class="grow"><b>${tx.id}</b><div class="small muted">${fmt.when(tx.paidAt)} · ${fmt.money(paidAmount(tx))}</div></div>
+        <${Pill} tone=${no ? 'ok' : 'warn'}>${no ? 'Đã xuất' : 'Đang chờ'}<//></div></div>
       ${no ? html`<div class="card stack small" style="gap:8px"><div class="row"><span class="muted grow">Số hoá đơn</span><b class="num">${no}</b></div>
         <div class="row"><span class="muted grow">Loại</span><b>${comp ? 'Hoá đơn công ty' : 'Hoá đơn bán lẻ'}</b></div>
         ${comp && tx.buyer?.companyName && html`<div class="row"><span class="muted grow">Công ty</span><b style="text-align:right">${tx.buyer.companyName}</b></div>`}
@@ -259,8 +260,8 @@ export function Invoice({ id }) {
   }
   return html`<div style="display:flex;flex-direction:column;flex:1"><${Header} onBack=${() => history.back()} title="Hoá đơn điện tử"/>
     <div class="page pad-b">
-      <div class="card flat tight row"><div class="ico-tile"><${Icon} name="receipt"/></div><div class="grow"><b>${tx.id}</b><div class="small muted">${fmt.when(tx.paidAt)} · ${fmt.money(paidAmount(tx))}</div></div>
-        ${posMode ? html`<${Pill} tone=${(inv?.number || tx.posInvoiceNo) ? 'ok' : 'warn'}>${(inv?.number || tx.posInvoiceNo) ? 'Đã xuất' : 'Đang chờ'}<//>` : inv ? html`<${Pill} tone=${inv.status === 'issued' ? 'ok' : 'warn'}>${inv.status === 'issued' ? 'Đã xuất' : 'Đang xuất'}<//>` : html`<${Pill}>Chưa có<//>`}</div>
+      <div class="card flat tight"><div class="row"><div class="ico-tile"><${Icon} name="receipt"/></div><div class="grow"><b>${tx.id}</b><div class="small muted">${fmt.when(tx.paidAt)} · ${fmt.money(paidAmount(tx))}</div></div>
+        ${posMode ? html`<${Pill} tone=${(inv?.number || tx.posInvoiceNo) ? 'ok' : 'warn'}>${(inv?.number || tx.posInvoiceNo) ? 'Đã xuất' : 'Đang chờ'}<//>` : inv ? html`<${Pill} tone=${inv.status === 'issued' ? 'ok' : 'warn'}>${inv.status === 'issued' ? 'Đã xuất' : 'Đang xuất'}<//>` : html`<${Pill}>Chưa có<//>`}</div></div>
       ${inv?.number && html`<div class="small muted">Số hoá đơn: <b class="num">${inv.number}</b> · ${inv.type === 'company' ? 'hoá đơn công ty' : 'hoá đơn bán lẻ'}${inv.email ? ` · gửi về ${inv.email}` : ''}</div>`}
       <${Field} label="Email nhận hoá đơn" error=${field('BAD_EMAIL')}><input class="input" type="email" inputmode="email" autocomplete="email" placeholder="ten@email.com" value=${email} onInput=${(e) => setEmail(e.target.value)}/><//>
       <div class="row"><div class="grow"><b>Xuất hoá đơn cho công ty</b><div class="small muted">Điền mã số thuế. Chỉ xuất được trong ngày phát sinh giao dịch.</div></div><${Switch} checked=${company} onChange=${setCompany} label="Xuất hoá đơn cho công ty"/></div>
@@ -314,7 +315,7 @@ export function History() {
           : html`<div class="card" style="padding:4px 16px"><div class="list">${data.orders.map((o) => html`
             <button class="item" style="background:none;border:0;width:100%;text-align:left" onClick=${() => go(`/order/${o.id}`)}>
               <div class="grow"><b>${fmt.when(o.paidAt)}</b><div class="small muted">${o.storeName} · ${o.itemCount} món · ${fmt.method(o.method)}</div></div>
-              <div style="text-align:right"><b class="num">${fmt.money(o.posAmount ?? o.total)}</b><div>${o.exitStatus === 'exited' ? html`<${Pill} tone="ok">Đã ra cổng<//>` : html`<${Pill} tone="warn">Chưa ra cổng<//>`}</div></div></button>`)}</div></div>`}`}
+              <div style="text-align:right"><b class="num">${fmt.money(o.posAmount ?? o.total)}</b><div>${o.exitStatus === 'exited' || o.guardCheck === false ? html`<${Pill} tone="ok">${o.guardCheck === false ? 'Hoàn tất' : 'Đã ra cổng'}<//>` : html`<${Pill} tone="warn">Chưa ra cổng<//>`}</div></div></button>`)}</div></div>`}`}
     </div>
     <div class="bar-bottom"><div class="in"><button class="btn" onClick=${() => setLink(true)}><${Icon} name="mail"/>Xem trên máy khác</button></div></div>
     ${link && html`<${LinkEmail} onClose=${() => setLink(false)} onLinked=${() => { setLink(false); reload(); }}/>`}

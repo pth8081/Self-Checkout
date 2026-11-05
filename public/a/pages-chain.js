@@ -1,6 +1,6 @@
 // Các trang quản trị: tổng quan, chi nhánh, tích hợp, báo cáo, tài khoản, nhật ký.
 import { html, useState, useEffect, useMemo, useAsync, fmt, go, toast, Sheet, Switch, Field, Spinner, QR, copyText, saveBlob, todayStr } from '/shared/lib.js';
-import { api, ROLE_VI, STAFF_ROLES, BIN_NOTE, PAY_SOURCE, isPos, noGuard, cfgOf, PageHead, Tile, Async, BarChart, StoreBar, useBusy, useDebounced, dm, addDays, actionLabel, ACTOR_VI, auditDetail, Icon, Pill, Banner, Empty, Confirm, ErrorBox } from '/a/common.js';
+import { api, S, ROLE_VI, STAFF_ROLES, BIN_NOTE, PAY_SOURCE, isPos, noGuard, cfgOf, PageHead, Tile, Async, BarChart, StoreBar, useBusy, useDebounced, dm, addDays, actionLabel, ACTOR_VI, auditDetail, Icon, Pill, Banner, Empty, Confirm, ErrorBox } from '/a/common.js';
 
 // ============================== A01 Tổng quan chuỗi ==============================
 export function Overview({ stores, setStoreId }) {
@@ -116,7 +116,7 @@ export function Stores({ me, reloadStores, setStoreId }) {
         const mute = (node) => (pos ? html`<span class="soon">${node}Dùng POS</span>` : node);
         return html`<tr key=${s.id}><td><b>${s.name}</b><div class="sub">${s.id} · ${s.address || 'Chưa có địa chỉ'}</div></td>
           <td class="tc">${sw('e', s.enabled, `/stores/${s.id}`, (v) => ({ enabled: v }), 'Bật Self Checkout')}</td>
-          <td><select class="input sm" style="width:auto;min-width:150px" value=${s.config.paymentSource || 'manual'} disabled=${dis} aria-label=${`Thu tiền ${s.name}`}
+          <td><select class="input sm" style="width:auto;min-width:175px" value=${s.config.paymentSource || 'manual'} disabled=${dis} aria-label=${`Thu tiền ${s.name}`}
             onChange=${(e) => { const v = e.target.value; e.target.value = s.config.paymentSource || 'manual'; if (v !== (s.config.paymentSource || 'manual')) { setMsg(null); setAsk({ kind: 'source', s, value: v }); } }}>
             ${Object.entries(PAY_SOURCE).map(([k, l]) => html`<option value=${k} key=${k}>${l}</option>`)}</select>
             ${!chain && html`<div class="xs muted" style="margin-top:4px"><${Icon} name="lock" size=${12}/> Chỉ quản trị chuỗi đổi</div>`}</td>
@@ -246,7 +246,9 @@ function PosApiCard({ d, stores, reload }) {
   const t = a.last24h || {};
   const hasGuide = (guides.data?.guides || []).some((g) => g.id === '13-ket-noi-pos');
   const sname = (id) => (id ? stores.find((x) => x.id === id)?.name || id : 'Tất cả chi nhánh');
-  const doRevoke = async () => { const r = await run(async () => { await api.del(`/pos/keys/${revoke.id}`); await keys.reload(); await reload(); }, 'Đã thu hồi khoá'); if (r) setRevoke(null); };
+  const doRevoke = async () => { const r = await run(async () => { // api.del của thư viện chung gửi Content-Type json với thân rỗng nên Fastify từ chối (400); gọi trực tiếp không kèm Content-Type.
+      const res = await fetch(`/api/a/pos/keys/${revoke.id}`, { method: 'DELETE', headers: S.token ? { Authorization: `Bearer ${S.token}` } : {} });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Không thu hồi được khoá'); await keys.reload(); await reload(); }, 'Đã thu hồi khoá'); if (r) setRevoke(null); };
   return html`<div class="card" id="pos-api">
     <div class="cardhead"><div class="ico-tile green"><${Icon} name="link"/></div><div class="grow"><h2>POS gọi vào BRG</h2>
       <div class="small muted">Phần mềm POS dùng khoá API để nhận giỏ hàng, báo đã thanh toán hoặc báo huỷ. BRG tự xác nhận khi POS báo.</div></div>

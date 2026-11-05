@@ -266,3 +266,28 @@ test('quản lý nhả giỏ khi POS nhận rồi không báo kết quả; POS b
   assert.equal((await pos(app, key, 'POST', '/orders/R-1/paid', { amount: tx.total, method: 'cash' })).body.error, 'ORDER_CANCELLED');
   await app.close();
 });
+
+test('lịch ca không cảnh báo thiếu cổng ra khi tắt bảo vệ, không cảnh báo thiếu thu ngân khi dùng POS', async () => {
+  const app = await makeApp();
+  const chain = (await adminLogin(app)).body.token;
+  const q7 = (await adminLogin(app, 'QT0007')).body.token;
+  const has = async (m) => (await call(app, 'GET', '/api/a/plans', { token: q7 })).body.warnings.some((w) => w.missing === m);
+  app.ctx.db.prepare('DELETE FROM shift_plans').run();
+  assert.equal(await has('gate'), true);
+  await call(app, 'PUT', '/api/a/stores/Q7/config', { token: chain, body: { guardCheck: false } });
+  assert.equal(await has('gate'), false);
+  assert.equal(await has('cashier'), true);
+  await call(app, 'POST', '/api/a/pos/keys', { token: chain, body: { name: 'POS' } });
+  await call(app, 'PUT', '/api/a/stores/Q7/config', { token: chain, body: { paymentSource: 'pos' } });
+  assert.equal(await has('cashier'), false);
+  await app.close();
+});
+
+test('DELETE không thân gửi từ trình duyệt không bị từ chối (không gửi Content-Type khi không có thân)', async () => {
+  const app = await makeApp();
+  const { admin } = await setup(app, { posMode: false });
+  const id = (await call(app, 'GET', '/api/a/pos/keys', { token: admin })).body.keys[0].id;
+  const r = await app.inject({ method: 'DELETE', url: `/api/a/pos/keys/${id}`, headers: { authorization: `Bearer ${admin}` } });
+  assert.equal(r.statusCode, 200);
+  await app.close();
+});

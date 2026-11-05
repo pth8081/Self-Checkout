@@ -118,7 +118,7 @@ export function createApi({ base, headers = () => ({}), onUnauthorized }) {
   async function request(method, path, body) {
     let res;
     try {
-      res = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', ...headers() }, body: body === undefined ? undefined : JSON.stringify(body) });
+      res = await fetch(base + path, { method, headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...headers() }, body: body === undefined ? undefined : JSON.stringify(body) });
     } catch {
       throw new ApiError(0, 'NETWORK', 'Không kết nối được máy chủ. Hãy kiểm tra mạng.');
     }
