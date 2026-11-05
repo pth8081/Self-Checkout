@@ -41,7 +41,7 @@ Trả về, mỗi mã vạch tìm thấy là một phần tử (mã không có t
 | `price` | Giá bán lẻ **đang áp dụng tại chi nhánh**, VND, số nguyên, đã gồm thuế |
 | `active` | `false` nếu ngừng bán tại chi nhánh |
 | `ageRestricted` | `true` với rượu, thuốc lá… (thu ngân sẽ kiểm tra ở quầy) |
-| `promo` | Khuyến mãi đang chạy, `null` nếu không. Hiện BRG hiểu dạng "mua từ N món, giảm X đồng mỗi món" |
+| `promo` | Khuyến mãi đang chạy, `null` nếu không. Hiện BRG hiểu dạng "mua từ N mặt hàng, giảm X đồng mỗi mặt hàng" |
 
 Một mã vạch ứng với một `sku`. Một `sku` có thể có nhiều mã vạch: trả cùng `sku` cho từng mã.
 
@@ -53,7 +53,7 @@ Trả danh sách như 2.1, có phân trang và `updatedSince` để chỉ lấy 
 
 ### 2.3 Tính giá cả giỏ theo khuyến mãi (nên có, để tạm tính khớp POS)
 
-Giá từng món chưa đủ để ra đúng số tiền khi có khuyến mãi phụ thuộc cả giỏ (combo, mua kèm, tổng tiền, theo giờ, chương trình theo chi nhánh). Cách chính xác nhất là **để chính bộ tính giá của hệ thống/POS tính**, BRG chỉ gọi.
+Giá từng mặt hàng chưa đủ để ra đúng số tiền khi có khuyến mãi phụ thuộc cả giỏ (combo, mua kèm, tổng tiền, theo giờ, chương trình theo chi nhánh). Cách chính xác nhất là **để chính bộ tính giá của hệ thống/POS tính**, BRG chỉ gọi.
 
 `POST /quote`
 
@@ -80,7 +80,7 @@ Trả về:
 - `unknown`: các mã vạch không có trong hệ thống của chi nhánh.
 - Hàng ngừng bán hoặc hết hạn khuyến mãi: trả như POS sẽ làm khi quét.
 
-**Cách BRG dùng:** lúc khách quét từng món thì hiện đơn giá (từ 2.1). Khi khách bấm Thanh toán thì BRG gọi `/quote` để lấy tổng chính xác. Mất mạng hoặc API không trả lời thì BRG tính tạm theo giá thường và khuyến mãi đơn giản, ghi rõ "tạm tính, có thể chênh lệch khuyến mãi tại quầy".
+**Cách BRG dùng:** lúc khách quét từng mặt hàng thì hiện đơn giá (từ 2.1). Khi khách bấm Thanh toán thì BRG gọi `/quote` để lấy tổng chính xác. Mất mạng hoặc API không trả lời thì BRG tính tạm theo giá thường và khuyến mãi đơn giản, ghi rõ "tạm tính, có thể chênh lệch khuyến mãi tại quầy".
 
 ## 2c. Mã điểm
 

@@ -8,7 +8,7 @@ access: all
 
 # Quy trình thanh toán tại quầy
 
-> **Luồng hiện hành là "Giỏ QR cho POS"** (bật sẵn cho mọi chi nhánh): khách quét món, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào POS, POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở trang Chi nhánh. Xem thêm bài "Kết nối POS".
+> **Luồng hiện hành là "Giỏ QR cho POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào POS, POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở trang Chi nhánh. Xem thêm bài "Kết nối POS".
 
 Ở giai đoạn 1, khách **không tự thanh toán trên điện thoại**. Khách chọn cách trả, nhận mã giỏ hàng, đến **quầy Scan & Checkout**, và **thu ngân xác nhận** đã thu. Chỉ sau xác nhận đó khách mới có QR để ra cổng.
 
@@ -29,7 +29,7 @@ title: Thanh toán tiền mặt
 actors: Khách | Thu ngân | Hệ thống
 Khách -> Thu ngân: Đưa mã giỏ hàng
 Thu ngân -> Hệ thống: Quét mã, mở giỏ
-Hệ thống --> Thu ngân: Danh sách món, tổng cần thu
+Hệ thống --> Thu ngân: Danh sách mặt hàng, tổng cần thu
 Khách -> Thu ngân: Đưa tiền mặt
 Thu ngân -> Thu ngân: Nhập số khách đưa, xem tiền thừa
 Thu ngân -> Khách: Trả tiền thừa
@@ -128,8 +128,8 @@ Hệ thống BRG --> Khách: Mã giỏ hàng GH-... (QR)
 Khách -> Thu ngân: Đưa mã giỏ hàng
 Thu ngân -> POS: Quét mã trong POS
 POS -> Hệ thống BRG: Nhận giỏ
-Hệ thống BRG --> POS: Danh sách món, thông tin hoá đơn khách đã nhập
-POS --> Thu ngân: Đơn đã có đủ món
+Hệ thống BRG --> POS: Danh sách mặt hàng, thông tin hoá đơn khách đã nhập
+POS --> Thu ngân: Đơn đã có đủ mặt hàng
 Khách -> Thu ngân: Trả tiền trên POS bằng QR, tiền mặt hoặc thẻ
 POS -> POS: Xuất hoá đơn điện tử
 POS -> Hệ thống BRG: Báo đã thanh toán, số tiền, cách trả, số hoá đơn
@@ -138,7 +138,7 @@ Hệ thống BRG --> Khách: Tự xác nhận
 
 **Khách** chỉ có một lựa chọn "Thanh toán tại quầy". Trước khi khoá giỏ khách có thể nhập **email** nhận hoá đơn và, nếu cần, **thông tin hoá đơn công ty** (mã số thuế, tên, địa chỉ), để POS xuất đúng hoá đơn ngay từ đầu.
 
-**Thu ngân** quét mã giỏ hàng bằng máy quét của POS. POS nhận món từ BRG và tạo đơn, thu ngân không gõ tay. Khi thu xong, POS báo về BRG. Không còn bước thu ngân tick hay bấm xác nhận trong BRG, vì **POS đã biết tiền thu thật hay chưa**.
+**Thu ngân** quét mã giỏ hàng bằng máy quét của POS. POS nhận mặt hàng từ BRG và tạo đơn, thu ngân không gõ tay. Khi thu xong, POS báo về BRG. Không còn bước thu ngân tick hay bấm xác nhận trong BRG, vì **POS đã biết tiền thu thật hay chưa**.
 
 **Trạng thái giỏ hàng** mà khách thấy trên điện thoại:
 - Chờ thu ngân quét: "Đưa mã này cho thu ngân quét vào máy tính tiền".

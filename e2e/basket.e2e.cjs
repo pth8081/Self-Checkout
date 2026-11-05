@@ -1,4 +1,4 @@
-// Giỏ QR cho POS: quét, bấm thanh toán, QR chứa món; mất mạng, tắt tab, xoá bộ nhớ trang đều không mất mã.
+// Giỏ QR cho POS: quét, bấm thanh toán, QR chứa mặt hàng; mất mạng, tắt tab, xoá bộ nhớ trang đều không mất mã.
 const {chromium}=require('playwright');
 const BASE=process.env.BASE||'http://localhost:3400';const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function api(method,url,body,headers={}){const r=await fetch(BASE+url,{method,headers:{'content-type':'application/json',...headers},body:body?JSON.stringify(body):undefined});return {status:r.status,body:await r.json().catch(()=>null)};}

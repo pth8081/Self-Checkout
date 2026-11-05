@@ -12,7 +12,7 @@ sequenceDiagram
     participant K as Khách (điện thoại)
     participant B as BRG Scan & Checkout
     participant P as Phần mềm POS
-    K->>K: Quét mã vạch từng món, thấy tạm tính
+    K->>K: Quét mã vạch từng mặt hàng, thấy tạm tính
     K->>K: Bấm Thanh toán, điện thoại hiện mã QR
     K->>P: Thu ngân quét mã QR (mã vạch, số lượng, mã điểm, mã giỏ)
     P->>P: Tạo đơn, tính giá và khuyến mãi, thu tiền, xuất hoá đơn
@@ -23,9 +23,9 @@ sequenceDiagram
 
 | Bước | Ai làm | Nội dung |
 |------|--------|----------|
-| 1 | Khách và BRG | Khách quét món bằng điện thoại. Điện thoại hiện **tạm tính**, chỉ để tham khảo |
+| 1 | Khách và BRG | Khách quét mặt hàng bằng điện thoại. Điện thoại hiện **tạm tính**, chỉ để tham khảo |
 | 2 | BRG | Khi khách bấm Thanh toán, tạo **mã giỏ** và mã QR. Mã QR lưu trên điện thoại nên còn khi mất mạng |
-| 3 | POS | Thu ngân quét mã QR. POS đọc, kiểm tra, **tạo đơn** với đúng món và số lượng |
+| 3 | POS | Thu ngân quét mã QR. POS đọc, kiểm tra, **tạo đơn** với đúng mặt hàng và số lượng |
 | 4 | POS | Tính giá và khuyến mãi **theo hệ thống của POS**, thu tiền (tiền mặt, QR, thẻ), xuất hoá đơn điện tử |
 | 5 | POS | **Báo thanh toán về BRG** bằng API ở mục 4. Số tiền trong báo cáo này là số tiền thật |
 | 6 | BRG | Ghi nhận, màn hình khách hiện hoàn thành, khách xem và tải bill |
@@ -57,11 +57,11 @@ BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T60800|1E1A
 | mã điểm | Mã siêu thị trong hệ thống giá và POS, do quản trị BRG nhập cho từng chi nhánh. POS **nên so với điểm bán của máy đang dùng**, khác thì báo thu ngân |
 | mã giỏ | Duy nhất. POS **lưu mã này** để không tạo đơn hai lần nếu mã bị quét lại |
 | giờ | Giờ tạo giỏ, giây Unix |
-| món | `mã vạch*số lượng`, cách nhau dấu phẩy. Cùng mã vạch đã gộp thành một dòng. Mã vạch là mã **in trên tem** hàng hoá. Số lượng từ 1 đến 999 |
+| mặt hàng | `mã vạch*số lượng`, cách nhau dấu phẩy. Cùng mã vạch đã gộp thành một dòng. Mã vạch là mã **in trên tem** hàng hoá. Số lượng từ 1 đến 999 |
 | `T` | **Tạm tính** của BRG (VND). Chỉ để đối chiếu, **không dùng làm số tiền thu** |
 | CRC16 | CRC16-CCITT (đa thức `0x1021`, khởi tạo `0xFFFF`), 4 ký tự hex viết hoa, tính trên toàn bộ chuỗi đứng **trước dấu `|` cuối cùng** |
 
-Mã QR có thể dài với giỏ nhiều món. Máy quét nên là loại đọc được mã 2D (không phải máy laser đọc vạch).
+Mã QR có thể dài với giỏ nhiều mặt hàng. Máy quét nên là loại đọc được mã 2D (không phải máy laser đọc vạch).
 
 ### Tính CRC16 (ví dụ)
 

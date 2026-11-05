@@ -47,7 +47,7 @@ i -- Còn lỗi --> b
 6. **Tạo tài khoản nhân viên** (Tài khoản và phân quyền): gán đúng vai trò và chi nhánh, đặt PIN 4 đến 6 chữ số. Đảm bảo có người làm thu ngân và người làm cổng ra. **Xếp ca** (Nhân viên và ca) và xử lý các cảnh báo thiếu người.
 7. **Đặt tỷ lệ kiểm tra ngẫu nhiên** (bỏ qua nếu tắt bảo vệ) (Kiểm tra ngẫu nhiên). Khi thí điểm nên đặt cao.
 8. **In mã QR dán ở cổng vào** (Chi nhánh và tính năng, **Mã QR dán cổng vào**): hiện QR của đường dẫn `.../c/?s=<MÃ>` kèm nút sao chép link và nút in. Dán ở cổng vào, nơi khách dễ quét.
-9. **Chạy thử trọn quy trình:** dùng điện thoại thật quét vài món, khoá giỏ, thu bằng tiền mặt và bằng chuyển khoản (số tiền nhỏ), quét QR ở cổng, thử một lần kiểm tra ngẫu nhiên, kết thúc ca và đối soát. Dùng chi nhánh còn **tắt** thì khách thật chưa vào được; khi thử, bật chi nhánh trong giờ thử rồi tắt lại nếu chưa sẵn sàng.
+9. **Chạy thử trọn quy trình:** dùng điện thoại thật quét vài mặt hàng, khoá giỏ, thu bằng tiền mặt và bằng chuyển khoản (số tiền nhỏ), quét QR ở cổng, thử một lần kiểm tra ngẫu nhiên, kết thúc ca và đối soát. Dùng chi nhánh còn **tắt** thì khách thật chưa vào được; khi thử, bật chi nhánh trong giờ thử rồi tắt lại nếu chưa sẵn sàng.
 10. **Bật Scan & Checkout** cho chi nhánh. Từ lúc này khách quét mã QR cổng vào là mua sắm được.
 
 > **Lưu ý:** Tắt một chi nhánh bất kỳ lúc nào (ví dụ khi sự cố) không ảnh hưởng chi nhánh khác. Khách mở link của chi nhánh đang tắt sẽ thấy thông báo "Chi nhánh này chưa có Scan & Checkout".

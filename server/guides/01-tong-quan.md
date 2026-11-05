@@ -9,14 +9,14 @@ access: all
 # Tổng quan nghiệp vụ
 
 > **Cách vận hành hiện nay (Giỏ QR cho POS):**
-> 1. Khách mở link QR ở cổng vào, quét mã vạch từng món bằng điện thoại và thấy **tạm tính** theo giá của đúng chi nhánh.
-> 2. Khách bấm **Thanh toán**: điện thoại hiện **mã QR** chứa mã vạch và số lượng từng món. Mã được lưu trên điện thoại nên không mất khi mất mạng, tắt máy hoặc tắt trình duyệt.
-> 3. Thu ngân **quét mã QR vào phần mềm POS**. POS tạo đơn, tính giá và khuyến mãi, thu tiền, xuất hoá đơn. Thu ngân không quét từng món, khách không đứng chờ.
+> 1. Khách mở link QR ở cổng vào, quét mã vạch từng mặt hàng bằng điện thoại và thấy **tạm tính** theo giá của đúng chi nhánh.
+> 2. Khách bấm **Thanh toán**: điện thoại hiện **mã QR** chứa mã vạch và số lượng từng mặt hàng. Mã được lưu trên điện thoại nên không mất khi mất mạng, tắt máy hoặc tắt trình duyệt.
+> 3. Thu ngân **quét mã QR vào phần mềm POS**. POS tạo đơn, tính giá và khuyến mãi, thu tiền, xuất hoá đơn. Thu ngân không quét từng mặt hàng, khách không đứng chờ.
 > 4. POS **tự báo thanh toán về BRG** (thử lại khi mạng lỗi). Màn hình khách chuyển sang "Đã hoàn thành thanh toán", khách xem bill và tải PDF.
 >
 > Không có thanh toán trên web, không có bước bảo vệ cổng ra, BRG không quản lý tồn kho. Phần còn lại của bài này mô tả luồng cũ, đang khoá, để dùng lại sau.
 
-BRG Scan & Checkout cho khách **tự quét mã vạch từng món bằng điện thoại**, xem giỏ hàng và tổng tiền ngay, rồi **thanh toán tại quầy Scan & Checkout** và ra cổng bằng **mã QR biên nhận**. Nhân viên không phải quét từng món, chỉ đối chiếu giỏ, thu tiền và kiểm tra.
+BRG Scan & Checkout cho khách **tự quét mã vạch từng mặt hàng bằng điện thoại**, xem giỏ hàng và tổng tiền ngay, rồi **thanh toán tại quầy Scan & Checkout** và ra cổng bằng **mã QR biên nhận**. Nhân viên không phải quét từng mặt hàng, chỉ đối chiếu giỏ, thu tiền và kiểm tra.
 
 > **Lưu ý:** Giai đoạn 1 chưa có thanh toán online trong BRG. Mỗi chi nhánh chọn **một trong hai cách thu tiền** (xem bên dưới). Ví điện tử, VNPay, thẻ sẽ bật sau bằng cấu hình, hoặc dùng sẵn trên POS ở chế độ thu tiền qua POS.
 
@@ -27,7 +27,7 @@ Quản trị chuỗi chọn cho **từng chi nhánh**:
 | Cài đặt | Lựa chọn | Hệ quả |
 |---------|----------|--------|
 | **Thu tiền** | **Tự thu trong BRG** (mặc định) | Khách trả **tiền mặt** hoặc **chuyển khoản QR** tại quầy, **thu ngân xác nhận** trong app nhân viên |
-| | **Qua POS** | Thu ngân quét mã giỏ **trong phần mềm POS**. POS lấy món từ BRG qua API, thu tiền (QR, tiền mặt, thẻ), phát hành hoá đơn điện tử và **báo thanh toán về BRG; BRG tự xác nhận**, thu ngân không thao tác thêm trong BRG |
+| | **Qua POS** | Thu ngân quét mã giỏ **trong phần mềm POS**. POS lấy mặt hàng từ BRG qua API, thu tiền (QR, tiền mặt, thẻ), phát hành hoá đơn điện tử và **báo thanh toán về BRG; BRG tự xác nhận**, thu ngân không thao tác thêm trong BRG |
 | **Bảo vệ cổng ra** | **Bật** (mặc định) | Khách nhận QR ra cổng, bảo vệ quét, có kiểm tra ngẫu nhiên |
 | | **Tắt** (chi nhánh không có bảo vệ) | Thanh toán xong khách **ra luôn**, **không có QR ra cổng**, không có kiểm tra ngẫu nhiên |
 
@@ -37,7 +37,7 @@ Hai cài đặt độc lập, nên có bốn tổ hợp. Các hướng dẫn ngh
 
 | Vai trò | Dùng gì | Việc chính |
 |---------|---------|-----------|
-| Khách hàng | Điện thoại, mở đường dẫn từ mã QR dán ở cổng vào | Quét món, kiểm tra giỏ, chọn cách trả, đưa mã giỏ hàng cho thu ngân, đưa QR biên nhận ở cổng |
+| Khách hàng | Điện thoại, mở đường dẫn từ mã QR dán ở cổng vào | Quét mặt hàng, kiểm tra giỏ, chọn cách trả, đưa mã giỏ hàng cho thu ngân, đưa QR biên nhận ở cổng |
 | Thu ngân | App nhân viên `/s/` | Bắt đầu ca, quét mã giỏ, đối chiếu giỏ, thu tiền mặt hoặc xác nhận chuyển khoản, kết thúc ca và đối soát tiền mặt |
 | Nhân viên cổng ra | App nhân viên `/s/` | Quét QR biên nhận, thực hiện kiểm tra ngẫu nhiên, ghi chênh lệch |
 | Quản lý chi nhánh | Web quản trị `/a/` và app nhân viên | Xem giao dịch trong ngày, xếp ca, đặt tỷ lệ kiểm tra, xử lý ca bị giữ, đối soát, huỷ giao dịch khi cần |
@@ -53,7 +53,7 @@ title: Từ lúc vào cửa hàng đến lúc ra cổng
 actors: Khách | Hệ thống | Thu ngân | Cổng ra
 Khách -> Hệ thống: Quét mã QR ở cổng vào, mở ứng dụng
 Hệ thống --> Khách: Nhận diện chi nhánh, tạo giỏ hàng
-Khách -> Hệ thống: Quét mã vạch từng món
+Khách -> Hệ thống: Quét mã vạch từng mặt hàng
 Hệ thống --> Khách: Tên, giá, tổng tiền
 Khách -> Hệ thống: Chọn cách thanh toán, khoá giỏ
 Hệ thống --> Khách: Mã giỏ hàng GH-...
@@ -89,7 +89,7 @@ actors: Khách | POS | Hệ thống BRG | Cổng ra
 Khách -> Hệ thống BRG: Khoá giỏ, nhận mã giỏ hàng
 Khách -> POS: Đưa mã, thu ngân quét trong POS
 POS -> Hệ thống BRG: Nhận giỏ bằng mã giỏ hàng
-Hệ thống BRG --> POS: Danh sách món
+Hệ thống BRG --> POS: Danh sách mặt hàng
 POS -> POS: Tạo đơn, thu tiền, phát hành hoá đơn
 POS -> Hệ thống BRG: Báo đã thanh toán, kèm số hoá đơn
 Hệ thống BRG --> Khách: Tự xác nhận, hiện QR ra cổng hoặc cho ra luôn

@@ -4,13 +4,13 @@ Tài liệu cho **nhà cung cấp POS**. Phiên bản API: `v1`.
 
 ## 1. Bối cảnh và luồng
 
-Khách tự quét hàng bằng điện thoại và khoá giỏ. Điện thoại khách hiện **mã QR chứa mã giỏ hàng** dạng `GH-Q7-10001` (QR chỉ chứa đúng chuỗi này, văn bản thuần). Thu ngân quét mã đó **ngay trong POS**. Với mỗi lần quét, POS gọi API của BRG để lấy danh sách món, tự nhập vào đơn, thu tiền trên POS (QR, tiền mặt, thẻ...), rồi báo kết quả về BRG. **BRG tự xác nhận khi POS báo đã thanh toán**, khách nhận mã ra cổng hoặc ra luôn; thu ngân không phải thao tác thêm trên BRG.
+Khách tự quét hàng bằng điện thoại và khoá giỏ. Điện thoại khách hiện **mã QR chứa mã giỏ hàng** dạng `GH-Q7-10001` (QR chỉ chứa đúng chuỗi này, văn bản thuần). Thu ngân quét mã đó **ngay trong POS**. Với mỗi lần quét, POS gọi API của BRG để lấy danh sách mặt hàng, tự nhập vào đơn, thu tiền trên POS (QR, tiền mặt, thẻ...), rồi báo kết quả về BRG. **BRG tự xác nhận khi POS báo đã thanh toán**, khách nhận mã ra cổng hoặc ra luôn; thu ngân không phải thao tác thêm trên BRG.
 
 ```
 Khách          POS (thu ngân)                 BRG
   │ đưa mã GH-Q7-10001 │                         │
   │───────────────────►│ POST /carts/{mã}/claim  │
-  │                    │────────────────────────►│ trả danh sách món
+  │                    │────────────────────────►│ trả danh sách mặt hàng
   │                    │◄────────────────────────│
   │                    │ tạo đơn, thu tiền, xuất hoá đơn
   │                    │ POST /orders/{mã đơn}/paid
@@ -197,7 +197,7 @@ Với 409 `NOT_PAYABLE` khi nhận giỏ: báo thu ngân giỏ này không còn 
 
 ## 6. Quy tắc quan trọng
 
-1. **POS là nguồn đúng về giá, khuyến mãi và tiền thu.** BRG chỉ cung cấp danh sách món; số tiền cuối là `amount` POS báo.
+1. **POS là nguồn đúng về giá, khuyến mãi và tiền thu.** BRG chỉ cung cấp danh sách mặt hàng; số tiền cuối là `amount` POS báo.
 2. **Báo `paid` đúng một lần cho mỗi đơn**, sau khi tiền thực sự đã thu. Gọi lại an toàn.
 3. **Hoá đơn điện tử do POS phát hành.** BRG không xuất hoá đơn ở chi nhánh dùng POS; BRG chỉ lưu số hoá đơn POS gửi để hiện cho khách.
 4. **Hoàn tiền, trả hàng làm trên POS**, rồi POS báo `cancelled` để BRG đồng bộ.

@@ -56,7 +56,7 @@ export function useStore() {
 // ---------- Tính giỏ hàng (cộng thao tác đang chờ đồng bộ) ----------
 const lineDiscount = (it) => (it.promoMin && it.promoOff ? Math.floor(it.qty / it.promoMin) * it.promoOff : 0);
 
-/** Giỏ hàng để hiển thị: bản từ máy chủ + thao tác chưa gửi (đổi số lượng, xoá) + món quét khi mất mạng. */
+/** Giỏ hàng để hiển thị: bản từ máy chủ + thao tác chưa gửi (đổi số lượng, xoá) + mặt hàng quét khi mất mạng. */
 export function cartView(s) {
   const server = s.session?.items || [];
   const over = new Map(); // itemId -> qty mới
@@ -133,7 +133,7 @@ export async function refreshSession() {
 }
 
 // ---------- Giỏ QR cho POS ----------
-/** Món để đưa vào QR: giỏ đã đồng bộ cộng cả món quét lúc mất mạng (chỉ cần mã vạch và số lượng). */
+/** Mặt hàng để đưa vào QR: giỏ đã đồng bộ cộng cả mặt hàng quét lúc mất mạng (chỉ cần mã vạch và số lượng). */
 export function basketItems(st) {
   const v = cartView(st);
   const m = new Map();

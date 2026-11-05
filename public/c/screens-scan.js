@@ -18,7 +18,7 @@ function ScanSheet({ result, onClose, onManual, onHelp }) {
     return html`<div class="overlay" style="background:transparent;pointer-events:none"><div class="sheet" style="pointer-events:auto">
       <${Pill} tone="warn"><${Icon} name="wifioff" size=${14}/>Đã lưu trên máy<//>
       <p>Mã <b class="num">${result.barcode}</b> sẽ được thêm vào giỏ và cập nhật giá khi có mạng.</p>
-      <button class="btn primary" onClick=${onClose}>Quét món tiếp theo</button></div></div>`;
+      <button class="btn primary" onClick=${onClose}>Quét mặt hàng tiếp theo</button></div></div>`;
   }
   if (result.kind === 'error') {
     const titles = { NOT_FOUND: 'Không tìm thấy sản phẩm', INVALID_BARCODE: 'Không đọc được mã vạch', INACTIVE: 'Sản phẩm đang ngừng bán', OUT_OF_STOCK: 'Sản phẩm đã hết hàng' };
@@ -36,8 +36,8 @@ function ScanSheet({ result, onClose, onManual, onHelp }) {
       <div class="grow"><b>${it.name}</b><div class="muted small num">${fmt.money(it.price)}${it.promo ? ` · ${it.promo}` : ''}</div></div>
       <div class="stepper"><button onClick=${() => result.dec(it)} aria-label="Giảm"><${Icon} name="minus" size=${16}/></button><span class="num">${result.qty ?? it.qty}</span><button onClick=${() => result.inc(it)} aria-label="Tăng"><${Icon} name="plus" size=${16}/></button></div></div>
     ${it.ageRestricted && html`<${Banner} icon="info">Sản phẩm giới hạn độ tuổi. Nhân viên sẽ kiểm tra giấy tờ khi thanh toán.<//>`}
-    <div class="row"><span class="muted grow">Tổng giỏ hàng · ${result.count} món</span><b class="num" style="font-size:18px">${fmt.money(result.total)}</b></div>
-    <button class="btn primary" onClick=${onClose}>Quét món tiếp theo</button></div></div>`;
+    <div class="row"><span class="muted grow">Tổng giỏ hàng · ${result.count} mặt hàng</span><b class="num" style="font-size:18px">${fmt.money(result.total)}</b></div>
+    <button class="btn primary" onClick=${onClose}>Quét mặt hàng tiếp theo</button></div></div>`;
 }
 
 export function Scan({ s, store, onBlocked }) {
@@ -85,7 +85,7 @@ export function Scan({ s, store, onBlocked }) {
         <button class="btn auto sm" style="background:rgba(255,255,255,.18);color:#fff;backdrop-filter:blur(6px)" onClick=${() => setHelp(true)}><${Icon} name="info" size=${16}/>Cần giúp</button>
       </div>
       <button class="row" style="background:#fff;color:#1F2430;border:0;border-radius:20px;padding:10px 10px 10px 16px;text-align:left" onClick=${() => go('/cart')}>
-        <${Icon} name="bag"/><div class="grow"><b class="num" style="font-size:17px;display:block">${fmt.money(cart.total)}</b><span class="xs" style="color:#6B7280">${cart.itemCount} món trong giỏ${cart.pendingCount ? ` · ${cart.pendingCount} chờ đồng bộ` : ''}</span></div>
+        <${Icon} name="bag"/><div class="grow"><b class="num" style="font-size:17px;display:block">${fmt.money(cart.total)}</b><span class="xs" style="color:#6B7280">${cart.itemCount} mặt hàng trong giỏ${cart.pendingCount ? ` · ${cart.pendingCount} chờ đồng bộ` : ''}</span></div>
         <span class="btn primary sm auto">Xem giỏ <${Icon} name="chev" size=${16}/></span></button>
     </div>
     ${live && html`<${ScanSheet} result=${live} onClose=${() => { setSheet(null); }} onManual=${() => go('/manual')} onHelp=${() => setHelp(true)}/>`}
@@ -133,7 +133,7 @@ export function Manual({ s, store }) {
     </div>
     <div class="bar-bottom"><div class="in">
       <button class="btn primary" disabled=${busy || !(p && p.active && p.inStock)} onClick=${add}>${busy ? html`<${Spinner} sm/>` : 'Thêm vào giỏ'}</button>
-      <button class="btn txt" onClick=${() => go('/cart')}>Xong, xem giỏ (${cart.itemCount} món)</button>
+      <button class="btn txt" onClick=${() => go('/cart')}>Xong, xem giỏ (${cart.itemCount} mặt hàng)</button>
     </div></div></div>`;
 }
 
@@ -160,7 +160,7 @@ export function Cart({ s, store }) {
     if (r.ok === false) toast(r.message || 'Không đổi được số lượng', 'err');
   }
   return html`<div style="display:flex;flex-direction:column;flex:1">
-    <${Header} onBack=${() => go('/scan')} title="Giỏ hàng" sub=${`${cart.itemCount + cart.pendingCount} món`}
+    <${Header} onBack=${() => go('/scan')} title="Giỏ hàng" sub=${`${cart.itemCount + cart.pendingCount} mặt hàng`}
       right=${s.syncing ? html`<${Spinner} sm/>` : s.queue.length ? html`<${Pill} tone="warn">Chờ đồng bộ<//>` : html`<${Pill} tone="ok"><span class="dot"></span>Đã đồng bộ<//>`}/>
     <div class="page pad-b">
       ${!online && html`<${Banner} icon="wifioff" title="Mất kết nối">Giỏ hàng đã được lưu trên máy. Bạn vẫn quét tiếp được. Hệ thống tự đồng bộ khi có mạng.<//>`}
@@ -178,7 +178,7 @@ export function Cart({ s, store }) {
           ${cart.pending.map((p) => html`<div class="item"><div class="tile" style="--h:40"><${Icon} name="clock" size=${18}/></div><div class="grow"><div class="name num">Mã ${p.barcode}</div><div class="small muted">Chờ đồng bộ để lấy tên và giá</div></div><${Pill} tone="warn">× ${p.qty}<//></div>`)}
         </div></div>
         <div class="card flat"><div class="sum num">
-          <div><span class="muted">Tạm tính${cart.pendingCount ? ' (chưa gồm món chờ đồng bộ)' : ''}</span><span>${fmt.money(cart.subtotal)}</span></div>
+          <div><span class="muted">Tạm tính${cart.pendingCount ? ' (chưa gồm mặt hàng chờ đồng bộ)' : ''}</span><span>${fmt.money(cart.subtotal)}</span></div>
           ${cart.discount > 0 && html`<div><span class="muted">Khuyến mãi</span><span style="color:var(--ok)">−${fmt.money(cart.discount)}</span></div>`}
           <div class="tot"><span>Tổng cộng</span><span>${fmt.money(cart.total)}</span></div></div></div>`}
     </div>

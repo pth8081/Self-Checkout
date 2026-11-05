@@ -16,7 +16,7 @@ Cần dùng được trong khoảng 2 tháng (D-06). Các hình thức thanh to�
 Chọn phương án 2. Khách tự quét hàng, đến quầy Scan & Checkout đưa mã giỏ hàng, nhân viên đối chiếu và thu tiền rồi bấm xác nhận; khách nhận QR biên nhận để ra cổng. Mỗi cách trả bật/tắt riêng theo chi nhánh. Giao diện online giữ chỗ và hiện mờ.
 
 ## Hệ quả
-- Quầy vẫn có người; thời gian chờ giảm vì không phải quét từng món (G1), nhưng giảm thu ngân (G2) chỉ rõ khi có thanh toán tự động.
+- Quầy vẫn có người; thời gian chờ giảm vì không phải quét từng mặt hàng (G1), nhưng giảm thu ngân (G2) chỉ rõ khi có thanh toán tự động.
 - Xác nhận thủ công là điểm yếu: bắt buộc ghi người/cách/thời điểm, không sửa/xoá, đối soát tiền mặt theo ca và chuyển khoản với sao kê (NFR-16, R11, G-15).
 - Cần màn hình nhân viên (N01–N14) ngay từ GĐ1.
 - Bật thanh toán online sau này bằng cờ, không phải làm lại luồng (ADR-0002).

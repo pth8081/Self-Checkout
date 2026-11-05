@@ -17,7 +17,7 @@ export function Welcome({ store, onStart, busy, error }) {
     <div class="page pad-b">
       <div class="stack-lg" style="margin-top:8px">
         <h1 style="font-size:30px">Mua sắm không phải xếp hàng</h1>
-        <p class="muted">${store.basket ? 'Quét mã từng món, bấm thanh toán để hiện mã QR, đưa thu ngân quét vào máy tính tiền. Không phải đứng chờ quét từng món.' : html`Quét mã từng món, ${store.payment?.pos ? 'thanh toán tại quầy' : 'chọn cách thanh toán'} rồi ${store.guardCheck === false ? 'ra về' : 'ra cổng bằng mã QR'}. Không cần cài ứng dụng.`}</p>
+        <p class="muted">${store.basket ? 'Quét mã từng mặt hàng, bấm thanh toán để hiện mã QR, đưa thu ngân quét vào máy tính tiền. Không phải đứng chờ quét từng mặt hàng.' : html`Quét mã từng mặt hàng, ${store.payment?.pos ? 'thanh toán tại quầy' : 'chọn cách thanh toán'} rồi ${store.guardCheck === false ? 'ra về' : 'ra cổng bằng mã QR'}. Không cần cài ứng dụng.`}</p>
       </div>
       <div class="card">
         <div class="row"><div class="ico-tile"><${Icon} name="store"/></div>
@@ -26,7 +26,7 @@ export function Welcome({ store, onStart, busy, error }) {
       </div>
       ${error && html`<${ErrorBox} error=${error}/>`}
       <div class="stack" style="margin-top:4px">
-        ${[['scan', 'Quét mã vạch từng món bằng camera'], ['cash', store.basket ? 'Thu ngân quét một mã QR là có đủ món, không quét từng món' : store.payment?.pos ? 'Thanh toán tại quầy, thu ngân quét mã giỏ hàng' : 'Trả tiền mặt hoặc chuyển khoản tại quầy'], ['qr', store.basket ? 'Mã QR lưu trên điện thoại, mất mạng vẫn dùng được' : store.guardCheck === false ? 'Thanh toán xong là ra về' : 'Nhận mã QR để ra cổng']].map(([ic, t]) => html`
+        ${[['scan', 'Quét mã vạch từng mặt hàng bằng camera'], ['cash', store.basket ? 'Thu ngân quét một mã QR là có đủ mặt hàng, không quét từng mặt hàng' : store.payment?.pos ? 'Thanh toán tại quầy, thu ngân quét mã giỏ hàng' : 'Trả tiền mặt hoặc chuyển khoản tại quầy'], ['qr', store.basket ? 'Mã QR lưu trên điện thoại, mất mạng vẫn dùng được' : store.guardCheck === false ? 'Thanh toán xong là ra về' : 'Nhận mã QR để ra cổng']].map(([ic, t]) => html`
           <div class="row"><div class="ico-tile" style="width:40px;height:40px;border-radius:14px"><${Icon} name=${ic}/></div><div>${t}</div></div>`)}
       </div>
       <div class="row wrap" style="justify-content:center;gap:4px">
@@ -42,8 +42,8 @@ export function Welcome({ store, onStart, busy, error }) {
 }
 
 const STEPS = [
-  { icon: 'barcode', title: 'Quét mã vạch từng món', text: 'Đưa mã vạch trên sản phẩm vào khung camera. Món được thêm vào giỏ ngay.' },
-  { icon: 'bag', title: 'Kiểm tra giỏ hàng', text: 'Xem lại món, số lượng và tổng tiền. Sửa hoặc bỏ món trước khi thanh toán.' },
+  { icon: 'barcode', title: 'Quét mã vạch từng mặt hàng', text: 'Đưa mã vạch trên sản phẩm vào khung camera. Mặt hàng được thêm vào giỏ ngay.' },
+  { icon: 'bag', title: 'Kiểm tra giỏ hàng', text: 'Xem lại mặt hàng, số lượng và tổng tiền. Sửa hoặc bỏ mặt hàng trước khi thanh toán.' },
   { icon: 'qr', title: 'Thanh toán và ra cổng', text: 'Trả tiền tại quầy, rồi ra về theo hướng dẫn trên màn hình (có thể là mã QR đưa nhân viên ở cổng).' }
 ];
 export function Guide({ onDone }) {
@@ -140,7 +140,7 @@ export function Resume({ session, store, onContinue, onFresh, busy }) {
     <div class="page" style="align-items:center;text-align:center;justify-content:center;gap:20px">
       <div class="ico-tile lg"><${Icon} name="bag"/></div>
       <h1>Bạn có giỏ hàng đang dở</h1>
-      <p class="muted">${items} món · ${fmt.money(session.total)}<br/>Bắt đầu lúc ${fmt.time(session.startedAt)} tại ${store.name}.</p>
+      <p class="muted">${items} mặt hàng · ${fmt.money(session.total)}<br/>Bắt đầu lúc ${fmt.time(session.startedAt)} tại ${store.name}.</p>
       ${locked && html`<${Banner} tone="brand" icon="info">Giỏ này đã chuyển sang bước thanh toán.<//>`}
     </div>
     <div class="bar-bottom"><div class="in">

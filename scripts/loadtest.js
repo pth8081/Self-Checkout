@@ -1,4 +1,4 @@
-// Thử tải đơn giản: nhiều "khách" cùng quét món. Dùng để ước lượng sức chịu tải của MỘT tiến trình.
+// Thử tải đơn giản: nhiều "khách" cùng quét mặt hàng. Dùng để ước lượng sức chịu tải của MỘT tiến trình.
 //   BASE=http://localhost:3000 STORE=Q7 CLIENTS=100 SECONDS=15 npm run loadtest
 // Cần chi nhánh đã bật và có dữ liệu sản phẩm (xem README). Tạo nhiều phiên thử, không dùng ở máy chủ thật đang bán hàng.
 const BASE = process.env.BASE || 'http://localhost:3000';

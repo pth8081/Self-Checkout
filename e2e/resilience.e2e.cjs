@@ -10,7 +10,7 @@ async function api(method,url,body,headers={}){const r=await fetch(BASE+url,{met
  const ctx=await b.newContext({viewport:{width:390,height:800},permissions:['camera']});let p=await ctx.newPage();
  await p.goto(BASE+'/c/?s=Q7');await p.evaluate(()=>navigator.serviceWorker.ready);await p.reload();await sleep(800);
  await p.click('text=Bắt đầu mua sắm');await p.click('text=Bỏ qua');await p.waitForURL(/#\/scan/);
- // nhập tay một món rồi khoá giỏ bằng tiền mặt
+ // nhập tay một mặt hàng rồi khoá giỏ bằng tiền mặt
  const bc=prods.find(x=>x.name.startsWith('Sữa')).barcode;
  const dev=await p.evaluate(()=>JSON.parse(localStorage.getItem('brg.device')));
  const h={'x-device-id':dev};

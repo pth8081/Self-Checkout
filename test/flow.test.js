@@ -173,7 +173,7 @@ test('kiểm tra ngẫu nhiên: khớp thì cho qua, lệch thì thu bổ sung r
   assert.equal((await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.transaction.exitStatus, 'checking');
 
   // Chênh lệch: yêu cầu thu thêm
-  let c = await call(app, 'POST', '/api/s/checks', { token: gate, body: { transactionId: tx.id, result: 'mismatch', action: 'collect_extra', amount: 20000, kind: 'missing_scan', note: 'Quên quét 1 món' } });
+  let c = await call(app, 'POST', '/api/s/checks', { token: gate, body: { transactionId: tx.id, result: 'mismatch', action: 'collect_extra', amount: 20000, kind: 'missing_scan', note: 'Quên quét 1 mặt hàng' } });
   assert.equal(c.status, 200, JSON.stringify(c.body));
   let g2 = await call(app, 'POST', '/api/s/gate/scan', { token: gate, body: { raw: receipt } });
   assert.equal(g2.body.outcome, 'extra_due');

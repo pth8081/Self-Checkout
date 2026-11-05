@@ -515,7 +515,7 @@ export default async function adminRoutes(app) {
       const events = [];
       if (started) events.push({ ts: started.ts, tone: 'info', text: 'Khách bắt đầu phiên mua sắm' });
       const sc = scans.find((x) => x.type === 'scan'), rm = scans.find((x) => x.type === 'remove'), qy = scans.find((x) => x.type === 'qty'), fl = scans.find((x) => x.type === 'scan_fail');
-      if (sc) events.push({ ts: sc.last, tone: 'info', text: `Quét ${sc.n} lần, giữ ${tx.item_count} món${rm ? `, xoá ${rm.n} lần` : ''}${qy ? `, sửa số lượng ${qy.n} lần` : ''}${fl ? `, ${fl.n} lần quét lỗi` : ''}` });
+      if (sc) events.push({ ts: sc.last, tone: 'info', text: `Quét ${sc.n} lần, giữ ${tx.item_count} mặt hàng${rm ? `, xoá ${rm.n} lần` : ''}${qy ? `, sửa số lượng ${qy.n} lần` : ''}${fl ? `, ${fl.n} lần quét lỗi` : ''}` });
       for (const a of db.prepare(`SELECT * FROM audit_events WHERE entity='transaction' AND entity_id = ? ORDER BY id`).all(tx.id)) {
         const d = a.data ? JSON.parse(a.data) : {};
         const who = a.actor_id?.startsWith('POS:') ? `POS (${a.actor_id.slice(4)})` : a.actor_type === 'staff' ? `NV ${a.actor_id}` : a.actor_type === 'admin' ? `Quản trị ${a.actor_id}` : a.actor_type === 'customer' ? 'Khách' : 'Hệ thống';

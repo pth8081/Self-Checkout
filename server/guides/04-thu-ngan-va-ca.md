@@ -8,7 +8,7 @@ access: all
 
 # Thu ngân và ca làm việc
 
-> **Luồng hiện hành là "Giỏ QR cho POS"** (bật sẵn cho mọi chi nhánh): khách quét món, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào POS, POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở trang Chi nhánh. Xem thêm bài "Kết nối POS".
+> **Luồng hiện hành là "Giỏ QR cho POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào POS, POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở trang Chi nhánh. Xem thêm bài "Kết nối POS".
 
 > **Lưu ý:** Hướng dẫn này cho chi nhánh **tự thu trong BRG**. Ở chi nhánh **thu tiền qua POS**, thu ngân làm việc hoàn toàn trên POS: quét mã giỏ trong POS, thu tiền, và hệ thống tự xác nhận. Các chức năng thu tiền trong app nhân viên (quét mã giỏ, hàng đợi, thu tiền mặt, xác nhận chuyển khoản, thu bổ sung, đối soát tiền mặt cuối ca) được **ẩn**; tiền mặt do POS đối soát theo ca của POS.
 
@@ -43,7 +43,7 @@ g --> h
 ## Xử lý một khách
 
 1. **Tìm giỏ:** quét mã giỏ hàng trên điện thoại khách, hoặc nhập tay mã `GH-...` (khi màn hình chói hoặc nứt), hoặc chọn trong **Hàng đợi** (giỏ chờ lâu nhất ở trên).
-2. **Đối chiếu giỏ:** xem danh sách món, số lượng, tổng. Chú ý hai cảnh báo:
+2. **Đối chiếu giỏ:** xem danh sách mặt hàng, số lượng, tổng. Chú ý hai cảnh báo:
    - **Có hàng giới hạn độ tuổi:** kiểm tra giấy tờ của khách trước khi thu.
    - **Được chọn kiểm tra ngẫu nhiên:** có thể đối chiếu hàng thật ngay tại quầy (nút **Đối chiếu ngay tại quầy**), hoặc để nhân viên cổng ra kiểm tra.
 3. **Chọn cách trả** (mặc định theo khách chọn, có thể đổi), rồi thu:
@@ -81,7 +81,7 @@ Tiền **chuyển khoản không đếm** ở bước này. Chuyển khoản đ�
 - Mở sẵn app ngân hàng (hoặc loa báo tiền) để đối chiếu chuyển khoản.
 
 **Mỗi khách**
-- Đúng giỏ (đối chiếu mã, số món, tổng).
+- Đúng giỏ (đối chiếu mã, số mặt hàng, tổng).
 - Hàng giới hạn độ tuổi: đã xem giấy tờ.
 - Chuyển khoản: tận mắt thấy tiền vào tài khoản công ty, đúng số tiền, đúng nội dung.
 - Trả đúng tiền thừa.

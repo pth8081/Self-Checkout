@@ -1,10 +1,10 @@
 # 14. Phương án: giỏ hàng tự vào POS, thu tiền và hoá đơn tại POS
 
-**Trạng thái:** Đã chọn hướng và làm phần máy chủ. Khách hàng trả lời: POS chưa có API nhưng **BRG cung cấp API để POS gọi** (POS quét mã giỏ rồi gọi BRG lấy món), POS sẽ **báo thanh toán thành công về BRG và BRG tự xác nhận** (thu ngân không kiểm nữa), việc **huỷ đơn do POS làm** (và báo về BRG), và khách hàng có **môi trường thử**. Nghĩa là thay vì "BRG đẩy đơn vào POS" (phương án 1 bên dưới), ta làm theo hướng **POS kéo giỏ từ BRG**. Tài liệu cho nhà cung cấp POS: [api-pos.md](api-pos.md). Hướng dẫn cho quản trị: mục "Kết nối POS" trong web quản trị. Phân tích ban đầu giữ lại bên dưới để tham khảo.
+**Trạng thái:** Đã chọn hướng và làm phần máy chủ. Khách hàng trả lời: POS chưa có API nhưng **BRG cung cấp API để POS gọi** (POS quét mã giỏ rồi gọi BRG lấy mặt hàng), POS sẽ **báo thanh toán thành công về BRG và BRG tự xác nhận** (thu ngân không kiểm nữa), việc **huỷ đơn do POS làm** (và báo về BRG), và khách hàng có **môi trường thử**. Nghĩa là thay vì "BRG đẩy đơn vào POS" (phương án 1 bên dưới), ta làm theo hướng **POS kéo giỏ từ BRG**. Tài liệu cho nhà cung cấp POS: [api-pos.md](api-pos.md). Hướng dẫn cho quản trị: mục "Kết nối POS" trong web quản trị. Phân tích ban đầu giữ lại bên dưới để tham khảo.
 
 ## Yêu cầu
 
-Khách quét hàng và khoá giỏ; thu ngân quét mã giỏ hàng thì các món **tự nhập vào POS** để tính tiền. Thu tiền (QR, tiền mặt) và hoá đơn điện tử dùng của POS. Quy trình xác nhận của thu ngân và bảo vệ cổng ra **giữ nguyên**.
+Khách quét hàng và khoá giỏ; thu ngân quét mã giỏ hàng thì các mặt hàng **tự nhập vào POS** để tính tiền. Thu tiền (QR, tiền mặt) và hoá đơn điện tử dùng của POS. Quy trình xác nhận của thu ngân và bảo vệ cổng ra **giữ nguyên**.
 
 ## Ba phương án
 
@@ -50,7 +50,7 @@ Lợi ích thêm: giao dịch Scan & Checkout **tự vào POS** (tồn kho, doan
 ## Cần hỏi bên POS
 
 1. Tên và phiên bản POS; chạy tại quầy hay đám mây.
-2. API tạo đơn (hoặc đơn treo, nháp) từ bên ngoài, nhận món theo mã vạch hoặc SKU và số lượng.
+2. API tạo đơn (hoặc đơn treo, nháp) từ bên ngoài, nhận mặt hàng theo mã vạch hoặc SKU và số lượng.
 3. API hoặc thông báo khi đơn đã thanh toán hoặc huỷ; trả về cách trả, số tiền, **số hoá đơn điện tử**.
 4. Huỷ đơn từ bên ngoài; đơn treo có tự hết hạn không.
 5. Gán đơn cho máy hoặc thu ngân cụ thể, hay thu ngân tìm đơn bằng số.

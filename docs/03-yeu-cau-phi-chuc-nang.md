@@ -31,7 +31,7 @@
 
 ```
 đồng_thời_cao_điểm = Σ_chi_nhánh ( khách_trong_cửa_hàng_cao_điểm × % dùng_Self_Checkout )
-quét/giây          = đồng_thời × (số_món_trung_bình / thời_gian_mua_sắm)
+quét/giây          = đồng_thời × (số_mặt_hàng_trung_bình / thời_gian_mua_sắm)
 ```
 
-TODO: chi nhánh = ?, khách cao điểm/chi nhánh = ?, % dùng Scan & Checkout = ?, món/giỏ = ?, phút/lượt = ?
+TODO: chi nhánh = ?, khách cao điểm/chi nhánh = ?, % dùng Scan & Checkout = ?, mặt hàng/giỏ = ?, phút/lượt = ?

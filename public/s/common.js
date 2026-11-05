@@ -93,7 +93,7 @@ export function txStatus(t) {
   return { text: t.status, tone: '' };
 }
 
-/** Tải giao dịch (kèm danh sách món) theo mã nội bộ. */
+/** Tải giao dịch (kèm danh sách mặt hàng) theo mã nội bộ. */
 export function useTx(id) {
   return useAsync(async () => (await api.get(`/transactions/${enc(id)}`)).transaction, [id]);
 }

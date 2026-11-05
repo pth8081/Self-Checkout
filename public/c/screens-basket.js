@@ -1,4 +1,4 @@
-// Chế độ giỏ QR: khách bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng từng món để thu ngân quét vào POS.
+// Chế độ giỏ QR: khách bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng từng mặt hàng để thu ngân quét vào POS.
 // Mã QR được tạo và lưu ngay trên máy nên vẫn hiện khi mất mạng, tắt điện thoại hoặc tắt trình duyệt.
 import { html, useState, useEffect, Header, Icon, QR, Banner, Pill, Spinner, ErrorBox, Loading, go, fmt, toast, useAsync } from '/shared/lib.js';
 import { editBasket, finishBasket, syncBasket, refreshSession, loadBill, cachedBill, downloadBillPdf } from './store.js';
@@ -26,11 +26,11 @@ export function Basket({ s, store }) {
       ${paid && html`<div class="stack" style="gap:8px"><button class="btn primary" onClick=${() => go(`/bill/${tx.id}`)}><${Icon} name="receipt"/>Xem bill</button>
         <button class="btn line" disabled=${!!busy} onClick=${act('pdf', () => downloadBillPdf(tx.id, tx.code))}>${busy === 'pdf' ? html`<${Spinner} sm/>` : html`<${Icon} name="download"/>Tải bill PDF`}</button></div>`}
       ${!paid && html`<div class="qrbox"><${QR} text=${b.qr} ecc=${long ? 'L' : 'M'} label="Mã QR giỏ hàng"/><div class="code">${b.ref}</div></div>`}
-      <div class="card flat tight"><div class="row"><div class="grow"><div class="small muted">Tạm tính · ${b.count} món</div>
+      <div class="card flat tight"><div class="row"><div class="grow"><div class="small muted">Tạm tính · ${b.count} mặt hàng</div>
         <b class="num" style="font-size:22px">${fmt.money(tx?.posAmount ?? b.total)}</b></div></div>
         <div class="xs muted">${paid ? 'Số tiền đã thanh toán theo máy tính tiền' : 'Số tiền cuối cùng do máy tính tiền tính theo giá và khuyến mãi tại cửa hàng'}</div></div>
       ${!b.synced && html`<${Banner} tone="brand" icon="info">${navigator.onLine ? 'Đang lưu giỏ lên hệ thống…' : 'Đang mất mạng. Mã QR vẫn dùng được, thu ngân vẫn quét được.'}<//>`}
-      ${b.pending > 0 && html`<${Banner} tone="warn" icon="alert">${b.pending} món quét lúc mất mạng chưa có giá trong tạm tính. Thu ngân vẫn tính đủ.<//>`}
+      ${b.pending > 0 && html`<${Banner} tone="warn" icon="alert">${b.pending} mặt hàng quét lúc mất mạng chưa có giá trong tạm tính. Thu ngân vẫn tính đủ.<//>`}
       ${b.error && html`<${Banner} tone="warn" icon="alert">${b.error}<//>`}
       ${!paid && html`<ol class="stack small" style="padding:0;list-style:none;gap:10px">
         <li class="row" style="align-items:flex-start"><span class="avatar" style="width:26px;height:26px;font-size:12px">1</span><span>Thu ngân quét mã QR này, đơn hiện sẵn trên máy tính tiền</span></li>

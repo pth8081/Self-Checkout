@@ -1,6 +1,6 @@
 import { money } from '../util.js';
 
-/** Mỗi nhóm đủ `promo_min_qty` món thì giảm `promo_off`. */
+/** Mỗi nhóm đủ `promo_min_qty` mặt hàng thì giảm `promo_off`. */
 export function lineDiscount(it) {
   if (!it.promo_min_qty || !it.promo_off) return 0;
   return Math.floor(it.qty / it.promo_min_qty) * it.promo_off;

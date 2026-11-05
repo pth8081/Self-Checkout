@@ -134,7 +134,7 @@ function seedDemoHistory(db) {
           if (method === 'cash') cashSum += total;
           if (checked) {
             const mm = rnd() < 0.22;
-            ins.chk.run(id, store, staffOf[store], 'gate', mm ? 'mismatch' : 'match', mm ? 'missing_scan' : null, mm ? 20000 : null, mm ? 'Quên quét 1 món' : null, mm ? 'collect_extra' : null, at);
+            ins.chk.run(id, store, staffOf[store], 'gate', mm ? 'mismatch' : 'match', mm ? 'missing_scan' : null, mm ? 20000 : null, mm ? 'Quên quét 1 mặt hàng' : null, mm ? 'collect_extra' : null, at);
           }
         }
         db.prepare('UPDATE shifts SET ended_at=?, system_cash=?, counted_cash=?, diff=0 WHERE id=?').run(shiftEnd, cashSum, cashSum, shiftId);

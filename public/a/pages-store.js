@@ -6,7 +6,7 @@ const sq = (storeId, extra = '') => `storeId=${encodeURIComponent(storeId)}${ext
 
 function TxTable({ list, empty, hideExit }) {
   if (!list.length) return html`<${Empty} icon="receipt" title=${empty || 'Chưa có giao dịch'} text="Giao dịch sẽ hiện ở đây khi khách bắt đầu thanh toán."/>`;
-  return html`<div class="tblwrap"><table class="tbl"><thead><tr><th>Mã giỏ hàng</th><th>Thời gian</th><th class="r">Số món</th><th class="r">Tổng tiền</th><th>Hình thức</th><th>Trạng thái</th>${!hideExit && html`<th>Cổng ra</th>`}</tr></thead>
+  return html`<div class="tblwrap"><table class="tbl"><thead><tr><th>Mã giỏ hàng</th><th>Thời gian</th><th class="r">Số mặt hàng</th><th class="r">Tổng tiền</th><th>Hình thức</th><th>Trạng thái</th>${!hideExit && html`<th>Cổng ra</th>`}</tr></thead>
     <tbody>${list.map((t) => html`<tr class="click" key=${t.id} tabindex="0" onClick=${() => go(`/transactions/${t.id}`)} onKeyDown=${(e) => e.key === 'Enter' && go(`/transactions/${t.id}`)}>
       <td><b>${t.code}</b></td><td>${fmt.when(t.createdAt)}</td><td class="r">${t.itemCount}</td><td class="r">${fmt.money(t.total)}</td><td>${fmt.method(t.method)}</td><td>${txPill(t.status)}</td>
       ${!hideExit && html`<td>${t.status === 'paid' || t.exitStatus !== 'none' ? exitPill(t.exitStatus) : html`<span class="muted">–</span>`}</td>`}</tr>`)}</tbody></table></div>`;
@@ -139,7 +139,7 @@ export function TxDetail({ ctx, id }) {
               ${po?.claimedAt && html`<span>POS nhận giỏ lúc</span><span>${fmt.dateTime(po.claimedAt)}</span>`}</div>
             ${t.posAmount != null && t.posAmount !== t.total && html`<${Banner} tone="err" title="Số tiền POS lệch với BRG">POS báo ${fmt.money(t.posAmount)}, BRG tính ${fmt.money(t.total)} (${t.posAmount > t.total ? 'POS thu nhiều hơn' : 'POS thu ít hơn'} ${fmt.money(Math.abs(t.posAmount - t.total))}). Hãy đối chiếu với đơn trên POS.<//>`}
             ${waitedLong(t.posStatus, po?.claimedAt) && html`<div class="stack"><div class="small muted">POS đã nhận giỏ hơn 10 phút nhưng chưa báo kết quả. Nếu POS gặp sự cố, bạn có thể nhả giỏ để thu lại.</div><button class="btn sm danger-line auto" onClick=${() => setReleasing(true)}>Nhả giỏ</button></div>`}</div>`}
-          <div class="card"><h2>Món hàng (${t.itemCount})</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Sản phẩm</th><th class="r">Đơn giá</th><th class="r">SL</th><th class="r">Thành tiền</th></tr></thead>
+          <div class="card"><h2>Mặt hàng (${t.itemCount})</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Sản phẩm</th><th class="r">Đơn giá</th><th class="r">SL</th><th class="r">Thành tiền</th></tr></thead>
             <tbody>${(t.items || []).map((i, k) => html`<tr key=${k}><td class="wrap"><b>${i.name}</b><div class="sub">${i.sku}${i.ageRestricted ? ' · hạn chế độ tuổi' : ''}</div></td><td class="r">${fmt.money(i.price ?? i.unit_price)}</td><td class="r">${i.qty}</td><td class="r">${fmt.money((i.price ?? i.unit_price) * i.qty - (i.discount || 0))}${i.discount ? html`<div class="sub">giảm ${fmt.money(i.discount)}</div>` : ''}</td></tr>`)}</tbody></table></div></div>
         </div>
         <div class="stack-lg">

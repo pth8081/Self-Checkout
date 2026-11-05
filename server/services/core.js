@@ -135,7 +135,7 @@ function runOp(ctx, session, op) {
     if (!p.active) { logScan(db, session, 'scan_fail', n.code, 'inactive'); return { ok: false, code: 'INACTIVE', barcode: n.code, name: p.name, message: 'Sản phẩm này đang ngừng bán' }; }
     const cur = db.prepare('SELECT * FROM cart_items WHERE session_id = ? AND sku = ?').get(session.id, p.sku);
     const want = (cur?.qty || 0) + 1;
-    if (want > 99) return { ok: false, code: 'BAD_QTY', message: 'Số lượng tối đa mỗi món là 99' };
+    if (want > 99) return { ok: false, code: 'BAD_QTY', message: 'Số lượng tối đa mỗi mặt hàng là 99' };
     if (cur) db.prepare('UPDATE cart_items SET qty = ? WHERE id = ?').run(want, cur.id);
     else db.prepare(`INSERT INTO cart_items(session_id,sku,barcode,name,unit_price,qty,promo_min_qty,promo_off,age_restricted,added_at)
       VALUES(?,?,?,?,?,?,?,?,?,?)`).run(session.id, p.sku, p.barcode, p.name, p.price, 1, p.promo_min_qty, p.promo_off, p.age_restricted, nowIso());
@@ -345,7 +345,7 @@ export function lockBasket(ctx, session, { ref } = {}) {
       const c = cur.get(it.sku);
       if (c && c.active) db.prepare('UPDATE cart_items SET unit_price=?, promo_min_qty=?, promo_off=?, name=? WHERE id=?').run(c.price, c.promo_min_qty, c.promo_off, c.name, it.id);
     }
-    const fresh = itemsOf(db, session.id); // món ngừng bán vẫn nằm trong giỏ để POS quyết định
+    const fresh = itemsOf(db, session.id); // mặt hàng ngừng bán vẫn nằm trong giỏ để POS quyết định
     const t = totals(fresh);
     const seq = nextCounter(db, session.store_id, 'tx');
     const id = `SG-${session.store_id}-${String(seq).padStart(4, '0')}`;

@@ -8,7 +8,7 @@ access: all
 
 # Tình huống ngoại lệ
 
-> **Luồng hiện hành là "Giỏ QR cho POS"** (bật sẵn cho mọi chi nhánh): khách quét món, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào POS, POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở trang Chi nhánh. Xem thêm bài "Kết nối POS".
+> **Luồng hiện hành là "Giỏ QR cho POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào POS, POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở trang Chi nhánh. Xem thêm bài "Kết nối POS".
 
 Cột **Ứng dụng** cho biết việc đó có công cụ trong ứng dụng hay phải xử lý ngoài hệ thống:
 **Có** = đã hỗ trợ, **Một phần** = hỗ trợ một phần, **Thủ công** = chưa có chức năng, xử lý ngoài ứng dụng và ghi chú lại.
@@ -19,7 +19,7 @@ Cột **Ứng dụng** cho biết việc đó có công cụ trong ứng dụng 
 |-----------|-----------|---------|
 | Camera không quét được mã | Nhập mã tay: gõ dãy số dưới mã vạch. Mã quá mờ thì nhờ nhân viên hỗ trợ | Có |
 | Camera bị chặn | Làm theo hướng dẫn trên màn hình để bật quyền camera. Mở link trong Zalo hoặc Facebook thì chuyển sang Safari hoặc Chrome | Có |
-| Mã báo "chưa có trong hệ thống" | Nhờ nhân viên hỗ trợ. Mã được ghi vào danh sách **Mã không tìm thấy** để bổ sung vào POS. Khách có thể mua món đó ở quầy thường | Một phần |
+| Mã báo "chưa có trong hệ thống" | Nhờ nhân viên hỗ trợ. Mã được ghi vào danh sách **Mã không tìm thấy** để bổ sung vào POS. Khách có thể mua mặt hàng đó ở quầy thường | Một phần |
 | Hàng bán theo cân, hàng tươi không mã cố định | Chưa hỗ trợ. Khách mua ở quầy thường | Thủ công |
 | Khách mất mạng giữa chừng | Giỏ lưu trên máy, quét tiếp được, tự đồng bộ khi có mạng. Thanh toán cần có mạng | Có |
 | Giá hoặc tồn kho đổi lúc khoá giỏ | Khách xem thay đổi và đồng ý, hoặc quay lại giỏ | Có |
@@ -31,7 +31,7 @@ Cột **Ứng dụng** cho biết việc đó có công cụ trong ứng dụng 
 | Tình huống | Cách xử lý | Ứng dụng |
 |-----------|-----------|---------|
 | Khách đổi ý, không mua | Thu ngân **huỷ giỏ** kèm lý do, giỏ mở lại cho khách | Có |
-| Khách muốn bớt món sau khi khoá giỏ, chưa trả | Khách bấm **Quay lại sửa giỏ hàng** (hoặc thu ngân huỷ giỏ), sửa rồi khoá lại. Mã giỏ mới | Có |
+| Khách muốn bớt mặt hàng sau khi khoá giỏ, chưa trả | Khách bấm **Quay lại sửa giỏ hàng** (hoặc thu ngân huỷ giỏ), sửa rồi khoá lại. Mã giỏ mới | Có |
 | Màn hình điện thoại khách chói hoặc nứt | Nhập tay mã giỏ `GH-...` | Có |
 | Khách bỏ đi sau khi khoá giỏ, giỏ nằm mãi trong hàng đợi | Thu ngân huỷ giỏ cũ khi dọn hàng đợi | Một phần |
 | Khách trả chuyển khoản nhưng chưa thấy tiền | Chờ, kiểm tra lại, không xác nhận. Quá lâu thì trả tiền mặt hoặc báo quản lý | Một phần |

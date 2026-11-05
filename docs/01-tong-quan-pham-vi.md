@@ -17,7 +17,7 @@ Chuỗi siêu thị triển khai **BRG Scan & Checkout** (mô hình Scan & Go) c
 | G3 | Thu thập dữ liệu hành vi (quét nhưng không mua, thời gian mua sắm) | Có đủ sự kiện phân tích (xem [06](06-mo-hinh-du-lieu.md) mục 6) |
 | G4 | Lợi thế cạnh tranh về trải nghiệm | Điểm hài lòng khách |
 
-Ghi chú: ở giai đoạn 1 quầy vẫn có người (thu tiền và kiểm tra). Mục tiêu G1 đạt qua việc nhân viên không phải quét từng món, G2 chỉ đạt rõ rệt khi có thanh toán tự động.
+Ghi chú: ở giai đoạn 1 quầy vẫn có người (thu tiền và kiểm tra). Mục tiêu G1 đạt qua việc nhân viên không phải quét từng mặt hàng, G2 chỉ đạt rõ rệt khi có thanh toán tự động.
 
 ## 3. Phạm vi
 

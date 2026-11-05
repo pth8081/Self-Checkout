@@ -8,7 +8,7 @@ access: all
 
 # Cổng ra và kiểm tra ngẫu nhiên
 
-> **Luồng hiện hành là "Giỏ QR cho POS"** (bật sẵn cho mọi chi nhánh): khách quét món, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào POS, POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở trang Chi nhánh. Xem thêm bài "Kết nối POS".
+> **Luồng hiện hành là "Giỏ QR cho POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào POS, POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở trang Chi nhánh. Xem thêm bài "Kết nối POS".
 
 Nhân viên cổng ra dùng **app nhân viên** (điện thoại hoặc máy cầm tay). Mục đích: chỉ cho qua người **đã thanh toán**, mỗi QR **một lần**, và kiểm tra hàng thật với một tỷ lệ khách do hệ thống chọn.
 
@@ -70,7 +70,7 @@ title: Kiểm tra ngẫu nhiên tại cổng ra
 actors: Khách | Nhân viên cổng | Hệ thống
 Khách -> Nhân viên cổng: Đưa QR biên nhận
 Nhân viên cổng -> Hệ thống: Quét QR
-Hệ thống --> Nhân viên cổng: Cần kiểm tra, danh sách món và số lượng
+Hệ thống --> Nhân viên cổng: Cần kiểm tra, danh sách mặt hàng và số lượng
 Hệ thống --> Khách: Hiện thông báo được chọn kiểm tra
 Nhân viên cổng -> Nhân viên cổng: Đối chiếu từng dòng với hàng thật
 note over Nhân viên cổng, Hệ thống: Tick từng dòng, không xem giá
@@ -124,7 +124,7 @@ Chọn **Khách từ chối, gọi quản lý**. Giao dịch được ghi lại 
 ## Quản lý xử lý ca bị giữ
 
 Quản lý (đăng nhập app nhân viên hoặc web quản trị) mở mục **Chờ quản lý**:
-- Xem **lý do** và ghi chú của lần kiểm tra (ví dụ khách từ chối, chênh lệch gì), và mở xem danh sách món.
+- Xem **lý do** và ghi chú của lần kiểm tra (ví dụ khách từ chối, chênh lệch gì), và mở xem danh sách mặt hàng.
 - Chọn **Cho qua** (kèm ghi chú) hoặc **Từ chối** (kèm ghi chú).
 - Sau khi **từ chối**, giao dịch ở trạng thái "bị từ chối". Quản lý vẫn **đổi được quyết định** sau đó (ví dụ khách đã giải quyết xong).
 - Nếu **cho qua** và không còn khoản bổ sung, khách được ghi nhận là đã ra cổng.
@@ -133,7 +133,7 @@ Quản lý (đăng nhập app nhân viên hoặc web quản trị) mở mục **
 
 ## Khách nhìn thấy gì
 
-- Khi được chọn kiểm tra, màn hình khách hiện **"Bạn được chọn kiểm tra ngẫu nhiên"**, giải thích lời lẽ trung tính (chỉ mất khoảng một phút) và danh sách món để khách đối chiếu cùng.
+- Khi được chọn kiểm tra, màn hình khách hiện **"Bạn được chọn kiểm tra ngẫu nhiên"**, giải thích lời lẽ trung tính (chỉ mất khoảng một phút) và danh sách mặt hàng để khách đối chiếu cùng.
 - Khi bị giữ chờ quản lý: **"Nhân viên đang xử lý"**. Khi bị từ chối: **"Vui lòng gặp quản lý"**.
 - Khi hoàn tất: **"Cảm ơn bạn đã mua sắm"** và đánh giá nhanh một chạm (bỏ qua được).
 

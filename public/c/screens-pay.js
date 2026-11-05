@@ -9,7 +9,7 @@ const METHODS = [
   { id: 'qr_transfer', icon: 'qr', title: 'Chuyển khoản QR', text: 'Quét bằng app ngân hàng bất kỳ', key: 'qrTransfer' }
 ];
 
-const POS_METHOD = { id: 'pos', icon: 'store', title: 'Thanh toán tại quầy', text: 'Đưa mã giỏ hàng cho thu ngân, thanh toán bằng QR hoặc tiền mặt trên máy tính tiền. Thu ngân không phải gõ món.' };
+const POS_METHOD = { id: 'pos', icon: 'store', title: 'Thanh toán tại quầy', text: 'Đưa mã giỏ hàng cho thu ngân, thanh toán bằng QR hoặc tiền mặt trên máy tính tiền. Thu ngân không phải gõ mặt hàng.' };
 const paidAmount = (tx) => tx.posAmount ?? tx.total;
 
 export function PayMethod({ s, store }) {
@@ -53,7 +53,7 @@ export function PayMethod({ s, store }) {
     <${Header} onBack=${() => go('/cart')} title="Thanh toán"/>
     <div class="page pad-b">
       <div class="card flat"><div class="row"><div class="grow"><div class="small muted">Số tiền cần trả</div><div class="num" style="font-size:34px;font-weight:800;letter-spacing:-.02em">${fmt.money(cart.total)}</div></div>
-        <div class="small muted" style="text-align:right">${cart.itemCount} món<br/><button class="btn txt auto" style="min-height:28px;padding:0" onClick=${() => go('/cart')}>Xem giỏ</button></div></div></div>
+        <div class="small muted" style="text-align:right">${cart.itemCount} mặt hàng<br/><button class="btn txt auto" style="min-height:28px;padding:0" onClick=${() => go('/cart')}>Xem giỏ</button></div></div></div>
       <b>${pos ? 'Cách thanh toán' : 'Chọn cách thanh toán'}</b>
       <div class="stack">
         ${pos ? html`<button class="option on" aria-pressed="true" onClick=${() => setMethod('pos')}>
@@ -169,7 +169,7 @@ function CheckingView({ tx }) {
       <div class="center stack" style="align-items:center"><div class="ico-tile warn lg"><${Icon} name="shield"/></div>
         <h1>${tx.exitStatus === 'denied' ? 'Vui lòng gặp quản lý' : tx.exitStatus === 'held' ? 'Nhân viên đang xử lý' : 'Bạn được chọn kiểm tra ngẫu nhiên'}</h1>
         <p class="muted" style="max-width:36ch">${tx.exitStatus === 'denied' ? 'Quản lý cần trao đổi thêm về giỏ hàng của bạn. Xin lỗi vì sự bất tiện.' : tx.exitStatus === 'held' ? 'Quản lý sẽ đến hỗ trợ bạn ngay. Vui lòng đợi tại cổng.' : 'Nhân viên sẽ cùng bạn đối chiếu giỏ hàng. Việc này chỉ mất khoảng một phút.'}</p></div>
-      <div class="card"><div class="row"><b class="grow">Giỏ hàng đã thanh toán</b><span class="muted small">${tx.itemCount} món</span></div>
+      <div class="card"><div class="row"><b class="grow">Giỏ hàng đã thanh toán</b><span class="muted small">${tx.itemCount} mặt hàng</span></div>
         <div class="list">${shown.map((i) => html`<div class="item"><${Icon} name="check" class="" /><div class="grow small">${i.name}</div><b class="num small">× ${i.qty}</b></div>`)}</div>
         ${items.length > 3 && html`<button class="btn txt" onClick=${() => setAll(!all)}>${all ? 'Thu gọn' : `Xem đầy đủ (${items.length} dòng)`}</button>`}</div>
       ${tx.extraDue > 0 && html`<${Banner} tone="brand" icon="info" title=${`Cần thanh toán thêm ${fmt.money(tx.extraDue)}`}>Nhân viên sẽ hướng dẫn bạn thanh toán bổ sung.<//>`}
@@ -196,7 +196,7 @@ export function Receipt({ s, store, onDone }) {
       <div class="small muted center">Mã dùng một lần · hiệu lực đến ${fmt.time(tx.receipt.expiresAt)}${tx.receipt.expired ? ' (đã hết hạn, hãy gặp nhân viên)' : ''}</div>
     </div>
     <div class="bar-bottom"><div class="in">
-      <div class="grid2"><button class="btn" onClick=${() => go(`/order/${tx.id}`)}><${Icon} name="bag"/>Các món đã mua</button><button class="btn" onClick=${() => go(`/invoice/${tx.id}`)}><${Icon} name="mail"/>Hoá đơn</button></div></div></div>
+      <div class="grid2"><button class="btn" onClick=${() => go(`/order/${tx.id}`)}><${Icon} name="bag"/>Các mặt hàng đã mua</button><button class="btn" onClick=${() => go(`/invoice/${tx.id}`)}><${Icon} name="mail"/>Hoá đơn</button></div></div></div>
   </div>`;
 }
 
@@ -315,7 +315,7 @@ export function History() {
         ${!data.orders.length ? html`<${Empty} icon="receipt" title="Chưa có đơn hàng" text="Các đơn đã thanh toán sẽ hiện ở đây."/>`
           : html`<div class="card" style="padding:4px 16px"><div class="list">${data.orders.map((o) => html`
             <button class="item" style="background:none;border:0;width:100%;text-align:left" onClick=${() => go(`/order/${o.id}`)}>
-              <div class="grow"><b>${fmt.when(o.paidAt)}</b><div class="small muted">${o.storeName} · ${o.itemCount} món · ${fmt.method(o.method)}</div></div>
+              <div class="grow"><b>${fmt.when(o.paidAt)}</b><div class="small muted">${o.storeName} · ${o.itemCount} mặt hàng · ${fmt.method(o.method)}</div></div>
               <div style="text-align:right"><b class="num">${fmt.money(o.posAmount ?? o.total)}</b><div>${o.exitStatus === 'exited' || o.guardCheck === false ? html`<${Pill} tone="ok">${o.guardCheck === false ? 'Hoàn tất' : 'Đã ra cổng'}<//>` : html`<${Pill} tone="warn">Chưa ra cổng<//>`}</div></div></button>`)}</div></div>`}`}
     </div>
     <div class="bar-bottom"><div class="in"><button class="btn" onClick=${() => setLink(true)}><${Icon} name="mail"/>Xem trên máy khác</button></div></div>

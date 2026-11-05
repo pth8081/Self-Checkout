@@ -1,6 +1,6 @@
 ---
 title: Quy trình mua sắm của khách
-summary: Từng bước khách vào cửa hàng, quét món, xem giỏ, xử lý lỗi và khoá giỏ để thanh toán.
+summary: Từng bước khách vào cửa hàng, quét mặt hàng, xem giỏ, xử lý lỗi và khoá giỏ để thanh toán.
 group: nghiep-vu
 order: 20
 access: all
@@ -14,9 +14,9 @@ access: all
 
 1. **Vào cửa hàng.** Khách dùng camera điện thoại quét **mã QR dán ở cổng vào** (đường dẫn dạng `/c/?s=Q7`). Ứng dụng tự nhận ra chi nhánh, khách không phải chọn. Không cần cài ứng dụng.
 2. **Bắt đầu mua sắm.** Lần đầu có màn hướng dẫn 3 bước (bỏ qua được) và màn xin quyền camera. Camera chỉ dùng để đọc mã vạch, không chụp và không lưu ảnh.
-3. **Quét từng món.** Đưa mã vạch vào khung. Mỗi lần quét thành công hiện thẻ "Đã thêm vào giỏ" với tên, giá, số lượng và tổng giỏ. Khách chỉnh số lượng ngay trên thẻ.
+3. **Quét từng mặt hàng.** Đưa mã vạch vào khung. Mỗi lần quét thành công hiện thẻ "Đã thêm vào giỏ" với tên, giá, số lượng và tổng giỏ. Khách chỉnh số lượng ngay trên thẻ.
 4. **Nhập mã tay** khi mã mờ, nhàu hoặc camera không đọc được: gõ dãy số dưới mã vạch, thấy sản phẩm rồi mới thêm.
-5. **Kiểm tra giỏ hàng.** Xem tên, giá, số lượng, khuyến mãi, tổng. Tăng giảm số lượng, bỏ món.
+5. **Kiểm tra giỏ hàng.** Xem tên, giá, số lượng, khuyến mãi, tổng. Tăng giảm số lượng, bỏ mặt hàng.
 6. **Chọn cách thanh toán** (tiền mặt hoặc chuyển khoản QR) và khoá giỏ. Từ đây hệ thống tạo **mã giỏ hàng** để đưa cho thu ngân.
 
 ## Khi quét một mã vạch
@@ -51,7 +51,7 @@ h --> a
 
 ## Giá thay đổi trước khi khoá giỏ
 
-Lúc bấm thanh toán, hệ thống hỏi lại POS giá, khuyến mãi và tồn kho của từng món. Nếu có khác biệt, khách thấy màn **"Có thay đổi trong giỏ hàng"** liệt kê món nào đổi giá, còn bao nhiêu, hoặc bị bỏ vì ngừng bán. Khách phải **đồng ý** mới khoá được giỏ, hoặc quay lại giỏ để xem.
+Lúc bấm thanh toán, hệ thống hỏi lại POS giá, khuyến mãi và tồn kho của từng mặt hàng. Nếu có khác biệt, khách thấy màn **"Có thay đổi trong giỏ hàng"** liệt kê mặt hàng nào đổi giá, còn bao nhiêu, hoặc bị bỏ vì ngừng bán. Khách phải **đồng ý** mới khoá được giỏ, hoặc quay lại giỏ để xem.
 
 > **Quan trọng:** Đây là cách tránh tranh chấp "giá trên điện thoại khác giá ở quầy". Tổng tiền cuối cùng luôn là tổng đã khách đồng ý.
 
@@ -60,7 +60,7 @@ Lúc bấm thanh toán, hệ thống hỏi lại POS giá, khuyến mãi và t�
 ```seq
 title: Khách mất mạng giữa chừng
 actors: Khách | Ứng dụng | Máy chủ
-Khách -> Ứng dụng: Quét món
+Khách -> Ứng dụng: Quét mặt hàng
 Ứng dụng -> Máy chủ: Gửi thao tác
 Máy chủ --> Ứng dụng: Tên, giá
 == Mất mạng ==
@@ -69,11 +69,11 @@ Khách -> Ứng dụng: Quét tiếp
 Ứng dụng --> Khách: Đã lưu trên máy, chờ đồng bộ
 == Có mạng lại ==
 Ứng dụng -> Máy chủ: Gửi lại các thao tác theo thứ tự
-Máy chủ --> Ứng dụng: Kết quả từng món
+Máy chủ --> Ứng dụng: Kết quả từng mặt hàng
 ```
 
 - Giỏ hàng lưu **trên điện thoại**, không mất khi mất mạng hoặc tải lại trang.
-- Món quét lúc mất mạng hiện là "chờ đồng bộ" (chưa có tên và giá), tự cập nhật khi có mạng.
+- Mặt hàng quét lúc mất mạng hiện là "chờ đồng bộ" (chưa có tên và giá), tự cập nhật khi có mạng.
 - **Thanh toán cần có mạng.** Nút thanh toán bị khoá khi mất mạng.
 - Gửi lại thao tác không bị tính trùng.
 

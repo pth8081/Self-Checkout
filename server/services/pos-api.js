@@ -1,5 +1,5 @@
 // API cho phần mềm POS gọi vào BRG Scan & Checkout (POS là bên gọi):
-//   1. POS quét mã giỏ hàng của khách và "nhận" giỏ (lấy danh sách món để tự nhập vào đơn POS).
+//   1. POS quét mã giỏ hàng của khách và "nhận" giỏ (lấy danh sách mặt hàng để tự nhập vào đơn POS).
 //   2. POS báo đơn đã thanh toán, BRG tự xác nhận và cho khách ra (thu ngân không phải xác nhận lại).
 //   3. POS báo đơn đã huỷ.
 // Mọi lời gọi đều idempotent theo mã đơn POS (posOrderRef), gọi lại không tạo trùng.
@@ -22,7 +22,7 @@ const byCode = (db, code) => db.prepare('SELECT * FROM transactions WHERE cart_c
 const byRef = (db, ref) => db.prepare('SELECT * FROM transactions WHERE pos_order_ref = ? ORDER BY created_at DESC LIMIT 1').get(String(ref || ''));
 function inScope(scope, tx) { if (scope.storeId && scope.storeId !== tx.store_id) throw forbidden('STORE_FORBIDDEN', 'Khoá API này không dùng cho chi nhánh của giỏ hàng'); }
 
-/** Dữ liệu giỏ hàng trả cho POS: các món đã chốt giá (POS tự tính lại theo giá và khuyến mãi của POS). */
+/** Dữ liệu giỏ hàng trả cho POS: các mặt hàng đã chốt giá (POS tự tính lại theo giá và khuyến mãi của POS). */
 export function cartForPos(tx) {
   const items = JSON.parse(tx.items_json).map((i) => ({
     sku: i.sku, barcode: i.barcode, name: i.name, qty: i.qty, unitPrice: i.price, discount: i.discount || 0, lineTotal: i.price * i.qty - (i.discount || 0)
@@ -180,7 +180,7 @@ export { txView };
 
 // ====================== Chế độ giỏ QR: POS báo theo mã giỏ ======================
 /**
- * POS không gọi "nhận giỏ" trước (mã QR đã chứa món), nên kết quả được báo thẳng theo mã giỏ.
+ * POS không gọi "nhận giỏ" trước (mã QR đã chứa mặt hàng), nên kết quả được báo thẳng theo mã giỏ.
  * `posOrderRef` (mã đơn bên POS) bắt buộc và là khoá chống trùng. Chưa thấy giỏ (điện thoại chưa đồng bộ vì mất mạng)
  * thì trả 404 BASKET_NOT_FOUND, POS thử lại sau.
  */
