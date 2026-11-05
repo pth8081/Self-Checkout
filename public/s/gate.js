@@ -178,7 +178,7 @@ export function Mismatch({ c, id, place }) {
 
 // ============================== Chờ quản lý ==============================
 export function HeldList({ c }) {
-  const st = useAsync(async () => (await api.get('/transactions')).transactions.filter((t) => t.exitStatus === 'held' && !flash.denied.has(t.id)), []);
+  const st = useAsync(async () => (await api.get('/transactions')).transactions.filter((t) => ['held', 'denied'].includes(t.exitStatus)), []);
   const [sel, setSel] = useState(null);
   const [decision, setDecision] = useState('allow');
   const [note, setNote] = useState('');
@@ -191,7 +191,6 @@ export function HeldList({ c }) {
     if (decision === 'deny' && !note.trim()) return setErr('Hãy ghi lý do từ chối');
     run(async () => {
       await api.post(`/transactions/${enc(sel.id)}/resolve`, { decision, note: note.trim() });
-      if (decision === 'deny') flash.denied.add(sel.id);
       toast(decision === 'allow' ? 'Đã cho khách qua' : 'Đã từ chối', 'ok');
       setSel(null); st.reload();
     }, (e) => { if (e.code === 'MANAGER_ONLY') { setErr('Chỉ quản lý mới xử lý được. Hãy gọi quản lý đăng nhập ứng dụng này.'); return true; } if (e.code === 'NOT_HELD') { toast(e.message, 'err'); setSel(null); st.reload(); return true; } return false; });
@@ -200,6 +199,7 @@ export function HeldList({ c }) {
     <${Fetching} st=${st}/>
     ${st.data && (st.data.length ? st.data.map((t) => html`<div class="card" key=${t.id}>
       <div class="row"><div class="ico-tile err"><${Icon} name="alert"/></div><div class="grow"><div class="b">${t.code}</div><div class="small muted">${t.itemCount} sản phẩm · ${fmt.method(t.method)} · ${fmt.time(t.paidAt || t.createdAt)}</div></div><div class="b num">${fmt.money(t.total)}</div></div>
+      <div class="banner" style="font-weight:500"><${Icon} name="info"/><div class="grow">${t.exitStatus === 'denied' ? html`<b>Đã từ chối, có thể đổi quyết định</b>` : null}${t.lastCheck?.note || 'Không có ghi chú'}${t.lastCheck?.amount ? ` · chênh lệch ${fmt.money(t.lastCheck.amount)}` : ''}</div></div>
       <button class="btn sm line" onClick=${() => go(`/giao-dich/${enc(t.id)}`)}>Xem giỏ hàng</button>
       <div class="grid2"><button class="btn danger-line" onClick=${() => open(t, 'deny')}>Từ chối</button><button class="btn ok" onClick=${() => open(t, 'allow')}>Cho qua</button></div></div>`)
       : html`<${Empty} icon="shield" title="Không có ca chờ" text="Các giao dịch cần quản lý quyết định sẽ hiện ở đây."/>`)}

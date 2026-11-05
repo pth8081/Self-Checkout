@@ -7,6 +7,7 @@ import { audit } from '../services/audit.js';
 import { retryPendingInvoices } from '../services/invoice.js';
 import { getStoreConfig, txView, voidTransaction, resolveHeld, shiftStats } from '../services/core.js';
 import { userView } from './staff.js';
+import { registerGuides } from './guides.js';
 
 const ROLES = ['chain_admin', 'branch_admin', 'cashier', 'gate', 'cashier_gate'];
 const STAFF_ROLES = ['cashier', 'gate', 'cashier_gate'];
@@ -62,6 +63,8 @@ export default async function adminRoutes(app) {
       if (!tx || (req.user.role === 'branch_admin' && tx.store_id !== req.user.store_id)) throw notFound('TX_NOT_FOUND', 'Không tìm thấy giao dịch');
       return tx;
     };
+
+    registerGuides(s);
 
     s.get('/me', async (req) => ({
       user: userView(req.user), permissions: PERMISSIONS,

@@ -77,7 +77,7 @@ export default async function staffRoutes(app) {
     s.get('/transactions', async (req) => {
       const rows = db.prepare(`SELECT * FROM transactions WHERE store_id = ? AND status IN ('paid','awaiting_counter') AND created_at >= ? ORDER BY created_at DESC LIMIT 40`)
         .all(req.user.store_id, new Date(Date.now() - 12 * 3600_000).toISOString());
-      return { transactions: rows.map((t) => txView(ctx, t)) };
+      return { transactions: rows.map((t) => txView(ctx, t, { staff: true })) };
     });
   });
   void nowIso;

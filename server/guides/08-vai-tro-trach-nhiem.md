@@ -1,0 +1,59 @@
+---
+title: Vai trò và trách nhiệm
+summary: Ai được làm gì trong hệ thống, ai chịu trách nhiệm cho từng bước kiểm soát và nguyên tắc tách biệt nhiệm vụ.
+group: nghiep-vu
+order: 80
+access: all
+---
+
+# Vai trò và trách nhiệm
+
+## Ai làm được gì
+
+| Việc | Khách | Thu ngân | Cổng ra | Quản lý chi nhánh | Quản trị chuỗi |
+|------|:----:|:--------:|:-------:|:-----------------:|:--------------:|
+| Quét món, khoá giỏ, xem lịch sử của mình | ✓ | | | | |
+| Thu tiền, xác nhận chuyển khoản | | ✓ | | | |
+| Huỷ giỏ chờ thu | | ✓ | | | |
+| Quét QR ra cổng, kiểm tra ngẫu nhiên, ghi chênh lệch | | | ✓ | | |
+| Cho qua hoặc từ chối ca bị giữ | | | | ✓ | ✓ |
+| Huỷ giao dịch đã thu | | | | ✓ | ✓ |
+| Xem báo cáo, giao dịch, đối soát của chi nhánh | | | | ✓ | ✓ |
+| Xếp ca, tài khoản nhân viên chi nhánh | | | | ✓ | ✓ |
+| Đặt tỷ lệ kiểm tra ngẫu nhiên | | | | ✓ | ✓ |
+| Bật hoặc tắt chi nhánh và cách thanh toán | | | | | ✓ |
+| Cấu hình ngân hàng nhận tiền, tích hợp | | | | | ✓ |
+| Báo cáo toàn chuỗi, tạo quản trị viên | | | | | ✓ |
+
+Nhân viên có vai trò **thu ngân + cổng ra** làm được cả hai cột. Quản lý đăng nhập app nhân viên bằng PIN cũng làm được các việc của thu ngân, cổng ra và quản lý.
+
+## Tách biệt nhiệm vụ
+
+Các nguyên tắc kiểm soát nội bộ mà ứng dụng hỗ trợ:
+
+- **Người thu tiền không phải người huỷ.** Thu ngân thu và xác nhận; chỉ quản lý huỷ giao dịch đã thu.
+- **Người kiểm tra không phải người thu** (khi có đủ người): nhân viên cổng ra kiểm tra hàng, thu ngân thu tiền.
+- **Người đối soát không phải người thu.** Quản lý đối soát tiền mặt và chuyển khoản, không phải thu ngân tự đối soát cho mình.
+- **Kiểm tra ngẫu nhiên do hệ thống chọn**, không ai chọn hoặc bỏ qua được.
+- **Mọi thao tác có tên người làm** (mã nhân viên), giờ, và được ghi nhật ký không sửa xoá.
+
+> **Cần xác nhận:** Với chi nhánh ít người (một nhân viên vừa thu vừa kiểm tra), nguyên tắc "người kiểm tra không phải người thu" không đạt được. Cần quy định bù (ví dụ quản lý đối soát chặt hơn, tăng tỷ lệ kiểm tra).
+
+## Trách nhiệm theo bước
+
+| Bước | Người chịu trách nhiệm | Cách kiểm soát |
+|------|------------------------|----------------|
+| Giá và tồn kho đúng | Bộ phận POS và hàng hoá | Cảnh báo POS chậm, đối chiếu lại giá lúc khoá giỏ, danh sách mã không tìm thấy |
+| Giỏ hàng khớp hàng thật | Nhân viên cổng ra (và thu ngân khi đối chiếu sớm) | Kiểm tra ngẫu nhiên, nhật ký chênh lệch |
+| Tiền mặt thu đủ | Thu ngân | Số khách đưa, tiền thừa, đối soát cuối ca |
+| Tiền chuyển khoản đã vào | Thu ngân xác nhận, quản lý đối soát | 3 ô tick, đối soát sao kê hằng ngày |
+| Chỉ người đã trả mới ra | Nhân viên cổng ra | QR một lần, ký bởi máy chủ, nhật ký quét |
+| Cho phép ngoại lệ | Quản lý chi nhánh | Ghi lý do, nhật ký |
+| Cấu hình, quyền truy cập | Quản trị chuỗi | Xác thực 2 bước, nhật ký |
+
+## Quy tắc cá nhân cho nhân viên
+
+- Mỗi người dùng **tài khoản và PIN của riêng mình**. Không cho mượn, không ghi PIN ở nơi người khác thấy.
+- Đăng xuất khi rời máy.
+- Báo ngay cho quản lý khi nghi PIN bị lộ.
+- Sai PIN 5 lần liên tiếp, tài khoản bị khoá tạm 15 phút. Quản lý có thể mở khoá và đặt lại PIN.
