@@ -51,6 +51,37 @@ Một mã vạch ứng với một `sku`. Một `sku` có thể có nhiều mã 
 
 Trả danh sách như 2.1, có phân trang và `updatedSince` để chỉ lấy dòng thay đổi. BRG dùng để giữ bản sao tra nhanh và đồng bộ mỗi phút.
 
+### 2.3 Tính giá cả giỏ theo khuyến mãi (nên có, để tạm tính khớp POS)
+
+Giá từng món chưa đủ để ra đúng số tiền khi có khuyến mãi phụ thuộc cả giỏ (combo, mua kèm, tổng tiền, theo giờ, chương trình theo chi nhánh). Cách chính xác nhất là **để chính bộ tính giá của hệ thống/POS tính**, BRG chỉ gọi.
+
+`POST /quote`
+
+```json
+{ "storeId": "SP-0107", "items": [ { "barcode": "8936036123456", "qty": 2 }, { "barcode": "8934567890123", "qty": 1 } ] }
+```
+
+Trả về:
+
+```json
+{
+  "storeId": "SP-0107",
+  "asOf": "2026-11-05T09:30:12+07:00",
+  "lines": [
+    { "barcode": "8936036123456", "sku": "SUA01", "name": "Sữa tươi 1L", "qty": 2, "unitPrice": 29000, "discount": 0, "lineTotal": 58000, "promoNote": null },
+    { "barcode": "8934567890123", "sku": "MI01", "name": "Mì tôm", "qty": 1, "unitPrice": 4800, "discount": 2000, "lineTotal": 2800, "promoNote": "Mua 2 giảm 2.000" }
+  ],
+  "unknown": [],
+  "total": 60800
+}
+```
+
+- Tính **như POS tính cho khách không có thẻ thành viên** (khách vãng lai), cùng bảng giá và quy tắc khuyến mãi tại thời điểm gọi.
+- `unknown`: các mã vạch không có trong hệ thống của chi nhánh.
+- Hàng ngừng bán hoặc hết hạn khuyến mãi: trả như POS sẽ làm khi quét.
+
+**Cách BRG dùng:** lúc khách quét từng món thì hiện đơn giá (từ 2.1). Khi khách bấm Thanh toán thì BRG gọi `/quote` để lấy tổng chính xác. Mất mạng hoặc API không trả lời thì BRG tính tạm theo giá thường và khuyến mãi đơn giản, ghi rõ "tạm tính, có thể chênh lệch khuyến mãi tại quầy".
+
 ## 2c. Mã điểm
 
 Mỗi chi nhánh trong BRG có **mã điểm**: mã của siêu thị đó trong hệ thống giá của bạn. Quản trị chuỗi nhập một lần cho từng chi nhánh (khi thêm chi nhánh, hoặc ở mục Tích hợp), không trùng nhau giữa các chi nhánh. Khi khách quét QR cổng vào, BRG biết chi nhánh theo mã trong link; khi cần giá, BRG đổi sang mã điểm rồi gọi API. Vì vậy `storeId` trong hai lệnh trên là **mã điểm**, và phản hồi nên trả lại đúng mã điểm đó để BRG đối chiếu.
@@ -66,6 +97,8 @@ Mỗi chi nhánh trong BRG có **mã điểm**: mã của siêu thị đó trong
 ## 4. Cần bạn xác nhận
 
 1. API này có trả **giá theo từng chi nhánh** không (hay theo nhóm giá)?
+   Mã vạch nhận vào gồm dạng nào: EAN-13, UPC-A 12 số, mã của nhà cung cấp, mã nội bộ? Một mã vạch ứng với một hay nhiều `sku`?
+6. Có API **tính giá cả giỏ** (mục 2.3) không? Nếu không, cần bảng khuyến mãi và quy tắc kết hợp (ưu tiên, cộng dồn, làm tròn).
 2. Giá trả về đã là **giá khách thực trả** (đã gồm giá khuyến mãi)? Hay khuyến mãi tách riêng?
 3. Khuyến mãi phức tạp hơn "mua N giảm X" (combo, tặng kèm, theo giờ)? Nếu có, nói rõ để BRG hoặc POS xử lý.
 4. Hàng bán theo cân/ký có mã riêng hay mã chứa giá/khối lượng?
