@@ -1,0 +1,4 @@
+# Sao lưu mỗi giờ (giữ BACKUP_KEEP bản gần nhất) và đẩy ra ngoài máy chủ mỗi đêm.
+# Chép vào crontab của người dùng chạy ứng dụng: crontab -e
+5 * * * *  cd /opt/brg-self-checkout && /usr/bin/npm run backup --silent >> /var/log/brg-backup.log 2>&1
+30 2 * * * rsync -a --delete /var/backups/brg/ backup@may-khac:/backup/brg/ >> /var/log/brg-backup.log 2>&1

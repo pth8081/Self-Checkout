@@ -1,0 +1,52 @@
+# Nginx đứng trước ứng dụng: HTTPS (bắt buộc để dùng camera), nén, giới hạn tần suất đăng nhập.
+# Thay self.example.com bằng tên miền thật. Chưa được chạy thử trong môi trường dựng tài liệu này: hãy kiểm tra bằng `nginx -t`.
+limit_req_zone $binary_remote_addr zone=brg_login:10m rate=10r/m;
+
+upstream brg {
+  server 127.0.0.1:3000;
+  keepalive 16;
+}
+
+server {
+  listen 80;
+  server_name self.example.com;
+  location /.well-known/acme-challenge/ { root /var/www/certbot; }
+  location / { return 301 https://$host$request_uri; }
+}
+
+server {
+  listen 443 ssl;
+  http2 on;
+  server_name self.example.com;
+  # certbot tạo hai dòng này
+  ssl_certificate     /etc/letsencrypt/live/self.example.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/self.example.com/privkey.pem;
+
+  add_header Strict-Transport-Security "max-age=31536000" always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header Referrer-Policy "same-origin" always;
+  add_header Permissions-Policy "camera=(self)" always;
+
+  gzip on;
+  gzip_min_length 1024;
+  gzip_types text/css application/javascript application/json image/svg+xml application/manifest+json;
+
+  client_max_body_size 1m;
+
+  proxy_http_version 1.1;
+  proxy_set_header Connection "";
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+
+  # Chống dò mật khẩu và PIN: tối đa khoảng 10 lần mỗi phút cho mỗi địa chỉ IP
+  location ~ ^/api/(s|a)/login$ {
+    limit_req zone=brg_login burst=10 nodelay;
+    proxy_pass http://brg;
+  }
+
+  location / {
+    proxy_pass http://brg;
+  }
+}

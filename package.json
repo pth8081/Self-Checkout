@@ -5,7 +5,7 @@
   "description": "BRG Self Checkout: PWA khách tự quét, thu ngân, kiểm soát cổng và quản trị",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.6"
   },
   "scripts": {
     "prestart": "node scripts/build-sw.js",
@@ -17,7 +17,10 @@
     "create-admin": "node server/create-admin.js",
     "seed:demo": "node server/seed.js --reset --demo",
     "e2e": "bash e2e/run.sh",
-    "build:sw": "node scripts/build-sw.js"
+    "build:sw": "node scripts/build-sw.js",
+    "start:prod": "node --env-file=.env server/index.js",
+    "backup": "node scripts/backup.js",
+    "loadtest": "node scripts/loadtest.js"
   },
   "dependencies": {
     "@fastify/static": "^10.1.10",

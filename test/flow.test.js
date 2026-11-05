@@ -278,8 +278,14 @@ test('hoá đơn lỗi thì để pending và thử lại được', async () =>
   assert.equal(c.status, 200, 'thu tiền vẫn thành công dù hoá đơn lỗi');
   assert.equal(c.body.transaction.invoice.status, 'pending');
   const admin = (await call(app, 'POST', '/api/a/login', { body: { account: 'QT0001', password: 'Admin@123' } })).body.token;
-  const r = await call(app, 'POST', '/api/a/integrations/invoices/retry', { token: admin });
-  assert.equal(r.body.issued, 1);
+  // Hoá đơn vừa treo (chưa quá 30 giây) chưa bị thử lại, tránh chen vào hoá đơn đang xuất.
+  assert.equal((await call(app, 'POST', '/api/a/integrations/invoices/retry', { token: admin })).body.tried, 0);
+  app.ctx.db.prepare(`UPDATE invoices SET created_at = '2020-01-01T00:00:00.000Z'`).run();
+  // Hai lần thử lại chạy cùng lúc: hoá đơn chỉ được xuất một lần.
+  const { retryPendingInvoices } = await import('../server/services/invoice.js');
+  const [x, y] = await Promise.all([retryPendingInvoices(app.ctx.db, app.ctx.invoicer), retryPendingInvoices(app.ctx.db, app.ctx.invoicer)]);
+  assert.equal(x.issued + y.issued, 1);
+  assert.equal(app.ctx.db.prepare(`SELECT COUNT(*) n FROM invoices WHERE status='issued'`).get().n, 1);
   await app.close();
 });
 

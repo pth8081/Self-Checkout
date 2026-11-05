@@ -16,7 +16,7 @@ Tài liệu yêu cầu, kiến trúc, quyết định: [docs/](docs/README.md). 
 
 ## Chạy thử
 
-Cần Node.js 20 trở lên (đã thử trên 22).
+Cần Node.js 20.6 trở lên (đã thử trên 22).
 
 ```bash
 npm install
@@ -64,10 +64,13 @@ Giao diện không cần bước build: các module ES được phục vụ tr�
 
 ## Triển khai thật
 
-1. `APP_SECRET` (chuỗi ngẫu nhiên dài) là **bắt buộc** khi `NODE_ENV=production`; dùng để ký token đăng nhập và QR biên nhận. Đổi khoá sẽ vô hiệu mọi QR chưa dùng.
-2. Không chạy `seed` ở production. Tạo quản trị đầu tiên: `npm run create-admin -- --id QT0001 --name "Quản trị chuỗi" --password "…"`, đăng nhập `/a/`, bật xác thực 2 bước, rồi thêm chi nhánh, tài khoản ngân hàng nhận tiền và nhân viên.
-3. Đặt sau reverse proxy HTTPS. CSDL là một file SQLite (`DB_FILE`, mặc định `data/brg.db`); cần sao lưu định kỳ.
-4. Biến môi trường khác: `PORT`, `HOST`, `DB_FILE`, `RECEIPT_TTL_MIN` (hạn QR biên nhận, mặc định 180 phút), `POS_SYNC_SECONDS`.
-5. Việc còn lại trước khi mở cho khách: gắn POS thật, gắn nhà cung cấp hoá đơn điện tử, kiểm chứng QR chuyển khoản với ngân hàng, thử quét mã trên các điện thoại thật. Danh sách đầy đủ ở [docs/09](docs/09-phan-tich-khoang-trong.md) và [docs/11](docs/11-ung-dung.md).
+Xem **[docs/13-trien-khai.md](docs/13-trien-khai.md)**: cài đặt từng bước (Node, PM2, Nginx, HTTPS), cập nhật phiên bản, sao lưu và khôi phục, giám sát, sự cố, và vì sao khuyến nghị **chạy kiểu fork, một tiến trình** thay vì cluster.
+
+Tóm tắt:
+1. `NODE_ENV=production` và `APP_SECRET` (chuỗi ngẫu nhiên dài) là **bắt buộc**; không chạy `seed`. Tạo quản trị đầu tiên bằng `npm run create-admin -- --id QT0001 --password "…"`.
+2. Chạy sau Nginx có **HTTPS** (camera chỉ chạy trên HTTPS). Mẫu cấu hình ở `deploy/`, `ecosystem.config.cjs` cho PM2, `.env.example` cho biến môi trường.
+3. CSDL là một file SQLite: sao lưu bằng `npm run backup` (chạy được khi máy chủ đang hoạt động), đặt lịch bằng `deploy/backup.cron.example`.
+4. Cập nhật: `bash deploy/update.sh`. Giám sát: `GET /api/health`.
+5. Trước khi mở cho khách: gắn POS thật, gắn nhà cung cấp hoá đơn điện tử, kiểm chứng QR chuyển khoản với ngân hàng, thử quét mã trên điện thoại thật. Xem [docs/09](docs/09-phan-tich-khoang-trong.md) và [docs/11](docs/11-ung-dung.md).
 
 Nguồn gốc: *Tài liệu Yêu cầu & Kiến trúc Hệ thống* (bản .docx, 04/11/2026).

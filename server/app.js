@@ -10,13 +10,13 @@ import staffRoutes from './routes/staff.js';
 import adminRoutes from './routes/admin.js';
 
 /** Dựng ứng dụng. Tham số cho phép thay CSDL, RNG, adapter khi kiểm thử. */
-export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = false, pos, invoicer } = {}) {
+export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = false, pos, invoicer, trustProxy = false } = {}) {
   const db = openDb(dbFile);
   const ctx = { db, rng };
   ctx.pos = pos || createMockPos(db);
   ctx.invoicer = invoicer || createMockInvoicer(db);
 
-  const app = Fastify({ logger, bodyLimit: 1_000_000 });
+  const app = Fastify({ logger, bodyLimit: 1_000_000, trustProxy });
   app.decorate('ctx', ctx);
 
   app.addHook('onSend', async (req, reply) => {
@@ -36,7 +36,11 @@ export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = f
   app.register(customerRoutes, { prefix: '/api/c' });
   app.register(staffRoutes, { prefix: '/api/s' });
   app.register(adminRoutes, { prefix: '/api/a' });
-  app.get('/api/health', async () => ({ ok: true }));
+  // Kiểm tra tình trạng cho giám sát và reverse proxy: 200 khi máy chủ và CSDL đều ổn.
+  app.get('/api/health', async (req, reply) => {
+    try { db.prepare('SELECT 1').get(); return { ok: true, uptime: Math.round(process.uptime()) }; }
+    catch { return reply.code(503).send({ ok: false }); }
+  });
 
   app.register(fastifyStatic, { root: config.publicDir, prefix: '/', index: ['index.html'], wildcard: false, decorateReply: false,
     setHeaders(res, p) {

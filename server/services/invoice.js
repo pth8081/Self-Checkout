@@ -36,14 +36,18 @@ export async function issueInvoice(db, invoicer, tx, buyer = {}) {
 
 /** Thử lại các hoá đơn còn pending. */
 export async function retryPendingInvoices(db, invoicer) {
-  const rows = db.prepare(`SELECT i.*, t.store_id FROM invoices i JOIN transactions t ON t.id = i.transaction_id WHERE i.status='pending'`).all();
+  // Chỉ lấy hoá đơn treo đã quá 30 giây (không chen vào hoá đơn đang xuất) và "nhận việc" bằng cập nhật
+  // nguyên tử, để hai tiến trình chạy cùng lúc không xuất trùng một hoá đơn.
+  const cutoff = new Date(Date.now() - 30_000).toISOString();
+  const rows = db.prepare(`SELECT i.*, t.store_id FROM invoices i JOIN transactions t ON t.id = i.transaction_id WHERE i.status='pending' AND i.created_at < ?`).all(cutoff);
   let ok = 0;
   for (const r of rows) {
+    if (db.prepare(`UPDATE invoices SET status='retrying' WHERE id = ? AND status='pending'`).run(r.id).changes !== 1) continue;
     try {
       const { number } = await invoicer.issue({ id: r.transaction_id, store_id: r.store_id }, { taxCode: r.tax_code, email: r.email });
       db.prepare('UPDATE invoices SET status=?, number=?, error=NULL WHERE id=?').run('issued', number, r.id);
       ok++;
-    } catch (e) { db.prepare('UPDATE invoices SET error=? WHERE id=?').run(String(e.message), r.id); }
+    } catch (e) { db.prepare(`UPDATE invoices SET status='pending', error=? WHERE id=?`).run(String(e.message), r.id); }
   }
   return { tried: rows.length, issued: ok };
 }

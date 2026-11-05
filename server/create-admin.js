@@ -1,5 +1,6 @@
 // Tạo tài khoản quản trị đầu tiên khi triển khai thật (không dùng dữ liệu mẫu).
 //   node server/create-admin.js --id QT0001 --name "Quản trị chuỗi" --password "MatKhauManh123"
+import '../scripts/load-env.js';
 import { config } from './config.js';
 import { openDb } from './db.js';
 import { hashSecret } from './auth.js';

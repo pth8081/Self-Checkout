@@ -140,8 +140,13 @@ export function openDb(file) {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new Database(file);
   db.pragma('journal_mode = WAL');
+  db.pragma('busy_timeout = 5000'); // chờ tối đa 5 giây khi tiến trình khác đang ghi
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
+  // Mọi giao dịch CSDL bắt đầu bằng khoá ghi (BEGIN IMMEDIATE). Giao dịch "trì hoãn" mặc định đọc trước rồi mới xin khoá ghi,
+  // nên khi có tiến trình khác vừa ghi xong sẽ báo "database is locked" ngay, không chờ busy_timeout.
+  const txn = db.transaction.bind(db);
+  db.transaction = (fn) => { const t = txn(fn); const f = (...a) => t.immediate(...a); f.immediate = t.immediate; return f; };
   return db;
 }
 

@@ -1,0 +1,23 @@
+# Cách thay thế PM2: chạy bằng systemd. Chép vào /etc/systemd/system/brg.service rồi:
+#   systemctl daemon-reload && systemctl enable --now brg
+# Chưa được chạy thử trong môi trường dựng tài liệu này.
+[Unit]
+Description=BRG Self Checkout
+After=network.target
+
+[Service]
+Type=simple
+User=brg
+WorkingDirectory=/opt/brg-self-checkout
+EnvironmentFile=/opt/brg-self-checkout/.env
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=15
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/brg /var/backups/brg
+
+[Install]
+WantedBy=multi-user.target
