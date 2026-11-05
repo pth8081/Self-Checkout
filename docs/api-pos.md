@@ -98,7 +98,7 @@ Thành công (HTTP 200):
 
 Cách dùng dữ liệu:
 
-- **`items`**: mỗi dòng có `barcode` và `sku` của POS (BRG lấy giá từ chính POS, nên mã khớp), `qty` và giá đã chốt lúc khách khoá giỏ. **POS nên tự tính lại giá và khuyến mãi theo quy tắc của POS**; số tiền POS thu mới là số tiền thật (xem 3.5).
+- **`items`**: mỗi dòng có `barcode` và `sku` của POS (BRG lấy giá từ chính POS, nên mã khớp), `qty` và giá đã chốt lúc khách khoá giỏ. Nếu BRG và POS dùng chung một nguồn giá theo chi nhánh (xem [api-gia-chi-nhanh](api-gia-chi-nhanh.md)) thì POS dùng đúng giá trong `items`; nếu không, POS tính lại theo quy tắc của POS. Dù cách nào, số tiền POS thu mới là số tiền thật (xem 3.5).
 - **`total`** chỉ là **tạm tính** của BRG, để đối chiếu.
 - **`buyer`**: thông tin người mua nếu khách nhập trước khi khoá giỏ. Có `email` thì gửi hoá đơn về đó. Có thêm `taxCode`, `companyName`, `address` thì khách muốn **hoá đơn công ty**: POS xuất hoá đơn với các thông tin này. `null` nếu khách không nhập (xuất hoá đơn bán lẻ).
 - **`ageRestricted`**: giỏ có hàng giới hạn độ tuổi (rượu, bia, thuốc lá); thu ngân cần kiểm tra giấy tờ.
