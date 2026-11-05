@@ -57,6 +57,9 @@ export function Home({ c }) {
   const last = flash.lastShift;
   return html`<${Top} c=${c}/><${Page}>
     <div class="stack" style="gap:4px"><h1>${hi}, ${user.name}</h1><div class="muted">${store.name} · ${roleName(user)}</div></div>
+    ${f.pos && !f.guard ? html`<${Banner} tone="info" icon="info" title="Không cần dùng ứng dụng này cho thu tiền hay cổng ra">Chi nhánh dùng POS và không có bảo vệ: bạn không cần dùng ứng dụng này cho việc thu tiền hay cổng ra. Thu ngân quét mã giỏ hàng của khách trong phần mềm POS, hệ thống tự xác nhận khi POS báo đã thanh toán.<//>`
+        : f.pos ? html`<${Banner} tone="info" icon="info" title="Thu tiền trên máy tính tiền (POS)">Thu ngân quét mã giỏ hàng của khách trong phần mềm POS. Hệ thống tự xác nhận khi POS báo đã thanh toán.<//>`
+        : !f.guard ? html`<${Banner} tone="info" icon="info" title="Không có bước kiểm tra của bảo vệ">Khách thanh toán xong là ra luôn, không có mã QR ra cổng.<//>` : null}
     ${!shift ? html`
       ${last && html`<div class="card"><div class="row"><div class="ico-tile green"><${Icon} name="docok"/></div><div class="grow"><h2>Ca vừa kết thúc</h2><div class="small muted">Bàn giao lúc ${fmt.time(last.ended_at)}</div></div></div>
         <div class="sum"><div><span>Giao dịch</span><b>${last.stats.transactions}</b></div>${!f.pos && html`<div><span>Tiền mặt hệ thống</span><b class="num">${fmt.money(last.system_cash)}</b></div>
@@ -68,9 +71,6 @@ export function Home({ c }) {
         <button class="btn primary" disabled=${busy} onClick=${start}>${busy ? html`<${Spinner} sm/>` : 'Bắt đầu ca'}</button></div>`
     : html`
       <div class="row"><${Pill} tone="ok"><span class="dot"></span> ${shift.kind === 'sang' ? 'Ca sáng' : 'Ca chiều'}<//><span class="small muted">từ ${fmt.time(shift.started_at)}</span></div>
-      ${f.pos && !f.guard ? html`<${Banner} tone="info" icon="info" title="Không cần dùng ứng dụng này cho thu tiền hay cổng ra">Chi nhánh dùng POS và không có bảo vệ: bạn không cần dùng ứng dụng này cho việc thu tiền hay cổng ra. Thu ngân quét mã giỏ hàng của khách trong phần mềm POS, hệ thống tự xác nhận khi POS báo đã thanh toán.<//>`
-        : f.pos ? html`<${Banner} tone="info" icon="info" title="Thu tiền trên máy tính tiền (POS)">Thu ngân quét mã giỏ hàng của khách trong phần mềm POS. Hệ thống tự xác nhận khi POS báo đã thanh toán.<//>`
-        : !f.guard ? html`<${Banner} tone="info" icon="info" title="Không có bước kiểm tra của bảo vệ">Khách thanh toán xong là ra luôn, không có mã QR ra cổng.<//>` : null}
       <div class="stack">
         ${!f.pos && user.canCash && html`<button class="actcard main" onClick=${() => go('/thu')}><div class="ico-tile"><${Icon} name="cash" size=${28}/></div>
           <div class="grow"><div class="t">Thu tiền giỏ hàng</div><div class="small muted">${queueN === null ? 'Đang tải hàng đợi…' : queueN ? `${queueN} khách đang chờ` : 'Chưa có khách chờ'}</div></div>
@@ -83,8 +83,8 @@ export function Home({ c }) {
         ${f.guard && html`<div class="tilebox"><span class="k">Kiểm tra ngẫu nhiên</span><span class="v">${st?.checks ?? 0}${st?.mismatches ? html`<span class="small muted" style="font-weight:600"> · ${st.mismatches} lệch</span>` : ''}</span></div>`}
         ${!f.pos && html`<div class="tilebox"><span class="k">Tiền mặt</span><span class="v">${fmt.money(st?.cash)}</span></div>
         <div class="tilebox"><span class="k">Chuyển khoản</span><span class="v">${fmt.money(st?.transfer)}</span></div>`}</div></div>
-      ${user.isManager && (f.pos || !f.guard) && html`<button class="btn line" onClick=${() => go('/giao-dich')}><${Icon} name="receipt"/> Giao dịch gần đây</button>`}
       <button class="btn line" onClick=${() => go('/doi-soat')}><${Icon} name="docok"/> ${f.pos ? 'Kết thúc ca' : 'Đối soát & kết thúc ca'}</button>`}
+    ${user.isManager && (f.pos || !f.guard) && html`<button class="btn line" onClick=${() => go('/giao-dich')}><${Icon} name="receipt"/> Giao dịch gần đây</button>`}
   <//>`;
 }
 
