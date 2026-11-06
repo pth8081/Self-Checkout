@@ -26,7 +26,7 @@ export const posPill = (s) => { const [t, tone] = POS_STATUS[s] || [s || '–', 
 export const PAY_SOURCE = { manual: 'Tự thu trong BRG', pos: 'Qua POS' };
 /** Cấu hình của một chi nhánh (từ danh sách chi nhánh đã gộp cấu hình ở app.js). */
 export const cfgOf = (stores, id) => stores?.find((s) => s.id === id)?.config || {};
-export const isPos = (cfg) => cfg?.paymentSource === 'pos';
+export const isPos = (cfg) => cfg?.paymentSource === 'pos' || cfg?.checkoutMode === 'basket'; // giỏ QR cũng là POS thu tiền
 export const noGuard = (cfg) => cfg?.guardCheck === false;
 /** Người thu: khoản thu do POS ghi có dạng "POS:tên" -> "POS (tên)". */
 export const payerLabel = (by) => (String(by || '').startsWith('POS:') ? `POS (${by.slice(4)})` : by);

@@ -90,7 +90,8 @@ Bảng biến môi trường:
 | `PORT`, `HOST` | `3000`, `0.0.0.0` | Đặt `HOST=127.0.0.1` để chỉ Nginx truy cập được |
 | `TRUST_PROXY` | | `1` khi chạy sau Nginx |
 | `DB_FILE` | `data/brg.db` | Đường dẫn file CSDL. Đặt ngoài thư mục mã nguồn, ví dụ `/var/lib/brg/brg.db` |
-| `RECEIPT_TTL_MIN` | `180` | Thời hạn QR biên nhận (phút) |
+| `RECEIPT_TTL_MIN` | `180` | Thời hạn QR biên nhận (phút). Chỉ dùng ở luồng cũ có bảo vệ cổng ra |
+| `CART_TTL_HOURS` | `12` | Giỏ bị bỏ quên quá số giờ này thì được dọn tự động (giỏ POS đã nhận thì giữ) |
 | `POS_SYNC_SECONDS` | `60` | Chu kỳ đồng bộ POS |
 | `RUN_JOBS` | bật | `0` để tắt công việc nền ở một tiến trình (chỉ khi chạy nhiều tiến trình) |
 | `LOG_LEVEL` | `info` | `warn` để giảm nhật ký |
@@ -144,10 +145,10 @@ sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 1. `https://self.congty.vn/api/health` trả `{"ok":true}`.
 2. Mở `https://self.congty.vn/a/`, đăng nhập quản trị, thấy Tổng quan.
 3. Trong Chi nhánh và tính năng, bấm **Mã QR dán cổng vào** của một chi nhánh, quét bằng điện thoại: mở được trang khách bằng HTTPS và hỏi quyền camera.
-4. Thử trọn quy trình bằng một giao dịch nhỏ (khách, thu ngân, cổng ra) theo hướng dẫn trong web quản trị.
+4. Làm tiếp mục 4.8 (nhập chi nhánh, mã điểm, sản phẩm, khoá POS), rồi thử trọn quy trình: khách quét, bấm Thanh toán, POS quét mã QR và báo thanh toán.
 5. Chạy `npm run backup` và kiểm tra có file mới trong `BACKUP_DIR`.
 
-### 4b. Nhập chi nhánh, sản phẩm và khoá cho POS (lần đầu)
+### 4.8 Nhập chi nhánh, sản phẩm và khoá cho POS (lần đầu)
 
 1. Đăng nhập `/a/` bằng tài khoản vừa tạo, bật xác thực 2 bước.
 2. **Chi nhánh:** thêm từng chi nhánh, nhập **Mã điểm** (mã siêu thị trong hệ thống giá và POS).
@@ -170,7 +171,7 @@ Script này: sao lưu CSDL, `git pull --ff-only`, `npm ci --omit=dev`, tạo l�
 
 - Khi khởi động lại, ứng dụng **tắt gọn**: ngừng nhận yêu cầu mới, chờ yêu cầu đang chạy xong rồi thoát (tối đa 8 giây), PM2 bật lại ngay. Gián đoạn khoảng 1 đến 2 giây. Khách đang quét không mất giỏ (giỏ lưu trên điện thoại và gửi lại được); nhân viên thao tác lại nếu đúng lúc đó gặp lỗi mạng.
 - Nên cập nhật ngoài giờ bán hàng đông.
-- **Cấu trúc CSDL:** hiện được tạo bằng `CREATE TABLE IF NOT EXISTS`, chưa có cơ chế di chuyển cấu trúc. Nếu một phiên bản mới thêm cột hoặc bảng, ghi chú phát hành sẽ nói rõ cách nâng cấp. Luôn sao lưu trước khi cập nhật (script đã làm).
+- **Cấu trúc CSDL:** khi khởi động, ứng dụng tự tạo bảng còn thiếu và tự **thêm cột mới** vào bảng đang có (không xoá hay đổi dữ liệu cũ). Vẫn luôn sao lưu trước khi cập nhật (script đã làm).
 - **Quay lại bản cũ:** `git checkout <bản-cũ>`, `npm ci --omit=dev`, `npm run build:sw`, `pm2 restart brg-self-checkout`. Nếu bản mới đã đổi cấu trúc CSDL thì khôi phục thêm bản sao lưu (mục 6).
 
 ## 6. Sao lưu và khôi phục
@@ -237,11 +238,12 @@ Các mức, từ nhẹ đến nặng:
 - [ ] Không dùng dữ liệu và tài khoản mẫu; quản trị chuỗi đã bật xác thực 2 bước
 - [ ] Sao lưu chạy theo lịch, **đã thử khôi phục** một lần, có bản sao ngoài máy chủ
 - [ ] Giám sát `/api/health` và có người nhận cảnh báo
-- [ ] Đã thử trọn quy trình với giao dịch thật nhỏ (tiền mặt, chuyển khoản, cổng ra, kiểm tra ngẫu nhiên)
-- [ ] Tài khoản ngân hàng nhận tiền đã nhập đúng và đã chuyển thử
+- [ ] Mỗi chi nhánh đã có **Mã điểm** đúng với mã trong hệ thống giá và POS
+- [ ] Đã thử trọn quy trình với giao dịch thật nhỏ: khách quét, bấm Thanh toán, POS quét mã QR, POS báo thanh toán, khách thấy bill
+- [ ] POS đã thử: từ chối mã QR của cửa hàng khác (sai mã điểm), báo thanh toán trùng không thu hai lần, thử lại khi mất mạng
 - [ ] Các mục "Điểm cần chốt" mức cao đã có quyết định
 - [ ] Đã thử quét mã vạch trên nhiều điện thoại thật (iPhone và Android đời thấp)
-- [ ] POS và hoá đơn điện tử: còn là bản giả lập, **không bán hàng thật** cho đến khi gắn xong (xem [11](11-ung-dung.md))
+- [ ] Giá: nếu còn nhập bằng file CSV (chưa có API giá thật) thì **chỉ chạy thử**, không bán hàng thật cho đến khi nối API giá (xem [api-gia-chi-nhanh](api-gia-chi-nhanh.md))
 
 ## 11. Xử lý sự cố
 
