@@ -17,6 +17,8 @@ Khách **không phải đăng nhập**. Hệ thống nhận ra khách bằng mã
 
 Cấu hình ở trang **Tích hợp**, thẻ **Email gửi cho khách** (chỉ quản trị chuỗi): máy chủ SMTP, cổng, kiểu bảo mật, tài khoản, mật khẩu, địa chỉ người gửi. Bấm **Lưu**, rồi **Gửi thử** tới email của bạn. Mật khẩu được mã hoá khi lưu và không hiện lại. Nên dùng một tài khoản email riêng chỉ để gửi thư tự động; với Gmail hoặc Microsoft 365 dùng mật khẩu ứng dụng. Muốn email có link xem bill trên web, đặt `PUBLIC_URL` trong file `.env` của máy chủ.
 
+**Máy chủ email dùng chứng chỉ tự ký hoặc CA nội bộ (không có CA công cộng):** kiểu bảo mật (SSL/TLS cổng 465 hay STARTTLS) và cách kiểm tra chứng chỉ là hai lựa chọn **độc lập**. Chọn kiểu bảo mật theo máy chủ của bạn, rồi ở mục **Kiểm tra chứng chỉ của máy chủ email** chọn "Chứng chỉ tự ký hoặc CA nội bộ", chọn tệp chứng chỉ (`.crt`, `.pem`) của máy chủ email hoặc của CA nội bộ. Kết nối vẫn mã hoá và vẫn kiểm tra đúng máy chủ đó. Nếu tên trong chứng chỉ khác địa chỉ máy chủ (ví dụ bạn nhập địa chỉ IP), điền thêm **Tên máy chủ trong chứng chỉ**. Chỉ chọn "Không kiểm tra chứng chỉ" khi chưa có chứng chỉ để nạp, vì cách này kém an toàn. Khi Gửi thử lỗi, thông báo cho biết cần sửa gì (chứng chỉ tự ký, sai tên máy chủ, sai kiểu bảo mật, sai mật khẩu).
+
 Chưa cấu hình email thì khách vẫn thanh toán và xem bill trong ứng dụng bình thường, chỉ không nhận được email.
 
 ## Dữ liệu sản phẩm từ POS

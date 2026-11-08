@@ -1,6 +1,6 @@
 import { config } from '../config.js';
 import { getSetting } from '../db.js';
-import { publicSettings, saveSettings, SECURE_MODES } from '../services/mailer.js';
+import { publicSettings, saveSettings, SECURE_MODES, TLS_MODES, explainMailError } from '../services/mailer.js';
 import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, sqlLocalDate, money, normCode, unauthorized } from '../util.js';
 import { authenticate, sign, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager } from '../auth.js';
 import { verifyTotp, randomSecret, otpauthUri } from '../services/totp.js';
@@ -248,12 +248,12 @@ export default async function adminRoutes(app) {
     });
 
     // ---------------- Email (gửi mã xác nhận và bill cho khách) ----------------
-    s.get('/integrations/email', async (req) => { chainOnly(req); return { email: publicSettings(db), secureModes: SECURE_MODES, publicUrl: config.publicUrl || null }; });
+    s.get('/integrations/email', async (req) => { chainOnly(req); return { email: publicSettings(db), secureModes: SECURE_MODES, tlsModes: TLS_MODES, publicUrl: config.publicUrl || null }; });
     s.put('/integrations/email', async (req) => {
       chainOnly(req);
       let r;
-      try { r = saveSettings(db, req.body || {}); } catch (e) { if (e.code?.startsWith('BAD_')) throw bad(e.code, e.message); throw e; }
-      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'email.config_saved', entity: 'settings', entityId: 'email', data: { host: r.host, port: r.port, secure: r.secure, user: r.user, from: r.from } });
+      try { r = saveSettings(db, req.body || {}); } catch (e) { if (/^(BAD_|CA_REQUIRED)/.test(e.code || '')) throw bad(e.code, e.message); throw e; }
+      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'email.config_saved', entity: 'settings', entityId: 'email', data: { host: r.host, port: r.port, secure: r.secure, user: r.user, from: r.from, tlsMode: r.tlsMode, caFingerprint: r.ca?.fingerprint || null } });
       return { email: r };
     });
     s.post('/integrations/email/test', async (req) => {
@@ -265,7 +265,7 @@ export default async function adminRoutes(app) {
         await ctx.mailer.send({ to, subject: 'Email thử từ BRG Scan & Checkout', text: 'Nếu bạn đọc được email này thì cấu hình gửi email đã đúng.', html: '<p>Nếu bạn đọc được email này thì cấu hình gửi email của <b>BRG Scan &amp; Checkout</b> đã đúng.</p>' });
       } catch (e) {
         audit(db, { actorType: 'admin', actorId: req.user.id, action: 'email.test_failed', entity: 'settings', entityId: 'email', data: { error: String(e.message).slice(0, 200) } });
-        throw new HttpError(502, 'EMAIL_TEST_FAILED', `Gửi thử không được: ${String(e.message).slice(0, 160)}`);
+        throw new HttpError(502, 'EMAIL_TEST_FAILED', `Gửi thử không được. ${explainMailError(e)}`);
       }
       audit(db, { actorType: 'admin', actorId: req.user.id, action: 'email.test_sent', entity: 'settings', entityId: 'email', data: { to } });
       return { ok: true };

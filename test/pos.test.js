@@ -536,3 +536,75 @@ test('email: bill gửi về email khách khi POS báo thanh toán (kèm PDF và
   config.publicUrl = '';
   await app.close();
 });
+
+test('email: máy chủ SMTP dùng chứng chỉ tự ký trên cổng SSL/TLS: kiểm tra mặc định bị từ chối, nạp chứng chỉ thì gửi được, có thể bỏ qua kiểm tra; sai tên thì có gợi ý', async (t) => {
+  const { execFileSync } = await import('node:child_process');
+  const fs = await import('node:fs'); const os = await import('node:os'); const path = await import('node:path'); const tls = await import('node:tls');
+  const { createMailer, saveSettings, explainMailError } = await import('../server/services/mailer.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'brg-cert-'));
+  try {
+    execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', `${dir}/k.pem`, '-out', `${dir}/c.pem`, '-days', '2', '-subj', '/CN=mail.internal', '-addext', 'subjectAltName=DNS:mail.internal'], { stdio: 'ignore' });
+  } catch { t.skip('Không có openssl để tạo chứng chỉ thử'); return; }
+  const key = fs.readFileSync(`${dir}/k.pem`), cert = fs.readFileSync(`${dir}/c.pem`, 'utf8');
+  const got = [];
+  const server = tls.createServer({ key, cert }, (sock) => {
+    let data = false, buf = ''; sock.write('220 mail.internal ESMTP\r\n');
+    sock.on('data', (d) => { buf += d.toString('utf8');
+      if (data) { if (buf.includes('\r\n.\r\n')) { got.push(buf); buf = ''; data = false; sock.write('250 OK\r\n'); } return; }
+      let i; while ((i = buf.indexOf('\r\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 2);
+        if (/^EHLO|^HELO/i.test(l)) sock.write('250-mail.internal\r\n250 8BITMIME\r\n');
+        else if (/^DATA/i.test(l)) { sock.write('354 go\r\n'); data = true; break; }
+        else if (/^QUIT/i.test(l)) { sock.write('221 bye\r\n'); sock.end(); } else sock.write('250 OK\r\n'); } });
+    sock.on('error', () => {});
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const port = server.address().port;
+  const app = await makeApp();
+  const mailer = createMailer(app.ctx.db);
+  const base = { host: '127.0.0.1', port, secure: 'ssl', from: 'no-reply@congty.vn' };
+  const msg = { to: 'a@b.vn', subject: 'thử', text: 'xin chào' };
+  try {
+    // 1. kiểm tra mặc định: chứng chỉ tự ký bị từ chối, thông báo hướng dẫn nạp chứng chỉ
+    saveSettings(app.ctx.db, { ...base, tlsMode: 'verify' });
+    const err1 = await mailer.send(msg).then(() => null, (e) => e);
+    assert.ok(err1); assert.match(explainMailError(err1), /tự ký|CA nội bộ|tên hoặc địa chỉ/);
+    // 2. nạp chứng chỉ: tên máy chủ trong chứng chỉ (mail.internal) khác địa chỉ kết nối (127.0.0.1) nên cần điền tên
+    saveSettings(app.ctx.db, { tlsMode: 'ca', caPem: cert });
+    const err2 = await mailer.send(msg).then(() => null, (e) => e);
+    assert.ok(err2); assert.match(explainMailError(err2), /khớp|tên/);
+    saveSettings(app.ctx.db, { servername: 'mail.internal' });
+    await mailer.send(msg);
+    assert.equal(got.length, 1);
+    // 3. bỏ qua kiểm tra (kém an toàn) cũng gửi được
+    saveSettings(app.ctx.db, { tlsMode: 'insecure', servername: '' });
+    await mailer.send(msg);
+    assert.equal(got.length, 2);
+    // dữ liệu nhập sai bị từ chối
+    assert.throws(() => saveSettings(app.ctx.db, { tlsMode: 'ca', caPem: 'không phải chứng chỉ' }), (e) => e.code === 'BAD_CA');
+    assert.throws(() => saveSettings(app.ctx.db, { tlsMode: 'abc' }), (e) => e.code === 'BAD_TLS');
+    app.ctx.db.prepare(`DELETE FROM settings WHERE key='email'`).run();
+    assert.throws(() => saveSettings(app.ctx.db, { ...base, tlsMode: 'ca' }), (e) => e.code === 'CA_REQUIRED');
+  } finally { server.close(); await app.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('email: quản trị lưu chứng chỉ qua API, xem được vân tay và hạn dùng, chứng chỉ không bị lộ nội dung mật khẩu', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const fs = await import('node:fs'); const os = await import('node:os'); const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'brg-cert2-'));
+  let pem;
+  try { execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', `${dir}/k.pem`, '-out', `${dir}/c.pem`, '-days', '30', '-subj', '/CN=mail.internal'], { stdio: 'ignore' }); pem = fs.readFileSync(`${dir}/c.pem`, 'utf8'); }
+  catch { return; } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  const app = await makeApp();
+  const admin = (await adminLogin(app)).body.token;
+  const put = (body) => call(app, 'PUT', '/api/a/integrations/email', { token: admin, body });
+  assert.equal((await put({ host: 'mail.internal', port: 465, secure: 'ssl', from: 'a@b.vn', tlsMode: 'ca' })).status, 400); // thiếu chứng chỉ
+  const ok = await put({ host: 'mail.internal', port: 465, secure: 'ssl', from: 'a@b.vn', tlsMode: 'ca', caPem: pem, pass: 'bí-mật' });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.email.tlsMode, 'ca'); assert.equal(ok.body.email.hasCa, true);
+  assert.match(ok.body.email.ca.fingerprint, /^[0-9A-F:]{95}$/);
+  assert.equal(ok.body.email.ca.selfSigned, true);
+  assert.ok(!JSON.stringify(ok.body).includes('BEGIN CERTIFICATE')); // chỉ trả thông tin tóm tắt
+  assert.equal((await put({ caPem: 'rác' })).status, 400);
+  assert.equal((await put({ tlsMode: 'insecure' })).body.email.tlsMode, 'insecure');
+  await app.close();
+});

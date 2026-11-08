@@ -341,12 +341,12 @@ function EmailCard() {
   const [busy, run] = useBusy();
   const [err, setErr] = useState('');
   const d = st.data;
-  useEffect(() => { if (d && !f) setF({ ...d.email, pass: '' }); }, [d]);
+  useEffect(() => { if (d && !f) setF({ ...d.email, pass: '', caPem: '' }); }, [d]);
   if (!d || !f) return html`<div class="card"><${Spinner}/></div>`;
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const save = () => run(async () => {
     setErr('');
-    try { const r = await api.put('/integrations/email', { host: f.host, port: Number(f.port), secure: f.secure, user: f.user, from: f.from, fromName: f.fromName, pass: f.pass }); setF({ ...r.email, pass: '' }); await st.reload(); }
+    try { const r = await api.put('/integrations/email', { host: f.host, port: Number(f.port), secure: f.secure, user: f.user, from: f.from, fromName: f.fromName, pass: f.pass, tlsMode: f.tlsMode, servername: f.servername, caPem: f.caPem }); setF({ ...r.email, pass: '', caPem: '' }); await st.reload(); }
     catch (x) { setErr(x.message); throw x; }
   }, 'Đã lưu cấu hình email');
   const test = () => run(async () => {
@@ -367,6 +367,17 @@ function EmailCard() {
       <${Field} label="Mật khẩu" hint=${f.hasPassword ? 'Đã lưu. Để trống nếu không đổi' : 'Chưa có'}><input class="input" type="password" value=${f.pass} onInput=${set('pass')} autocomplete="new-password" aria-label="Mật khẩu SMTP"/><//>
       <${Field} label="Địa chỉ người gửi" hint="Email hiện ở dòng Từ"><input class="input" value=${f.from} onInput=${set('from')} aria-label="Địa chỉ người gửi"/><//>
       <${Field} label="Tên người gửi"><input class="input" value=${f.fromName} onInput=${set('fromName')} placeholder="BRG Scan & Checkout" aria-label="Tên người gửi"/><//>
+    </div>
+    <div class="stack" style="margin-top:14px;gap:10px">
+      <${Field} label="Kiểm tra chứng chỉ của máy chủ email" hint="Chọn độc lập với kiểu bảo mật ở trên: máy chủ có thể chạy SSL/TLS cổng 465 nhưng dùng chứng chỉ tự ký, không do CA công cộng cấp">
+        <select class="input" value=${f.tlsMode} onChange=${set('tlsMode')} aria-label="Kiểm tra chứng chỉ">${Object.entries(d.tlsModes).map(([k, v]) => html`<option value=${k} key=${k}>${v}</option>`)}</select><//>
+      ${f.tlsMode === 'ca' && html`<div class="card flat stack" style="gap:10px">
+        ${d.email.hasCa && d.email.ca ? html`<div class="small"><b>Chứng chỉ đang tin cậy</b><br/>${d.email.ca.subject}${d.email.ca.selfSigned ? ' (tự ký)' : ''}<br/>Hết hạn: ${d.email.ca.validTo}${d.email.ca.expired ? ' (ĐÃ HẾT HẠN)' : ''}<br/><span class="xs muted" style="word-break:break-all">SHA-256: ${d.email.ca.fingerprint}</span></div>` : html`<div class="small muted">Chưa nạp chứng chỉ.</div>`}
+        <div class="field"><label for="ca-file">Chọn tệp chứng chỉ (.crt, .pem, .cer)</label><input id="ca-file" class="input" type="file" accept=".crt,.pem,.cer,.cert" onChange=${async (e) => { const file = e.target.files?.[0]; if (file) setF({ ...f, caPem: await file.text() }); }}/></div>
+        <div class="field"><label for="ca-pem">Hoặc dán nội dung chứng chỉ (PEM)</label><textarea id="ca-pem" class="input" rows="5" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----" value=${f.caPem} onInput=${set('caPem')} style="font-family:monospace;font-size:12px"></textarea></div>
+        <${Field} label="Tên máy chủ trong chứng chỉ (không bắt buộc)" hint="Điền khi tên trong chứng chỉ (CN hoặc SAN) khác máy chủ SMTP ở trên, ví dụ khi dùng địa chỉ IP"><input class="input" value=${f.servername} onInput=${set('servername')} aria-label="Tên máy chủ trong chứng chỉ"/><//>
+        <div class="hint">Nạp chứng chỉ của chính máy chủ email (nếu tự ký) hoặc chứng chỉ gốc của CA nội bộ. Kết nối vẫn mã hoá và vẫn kiểm tra đúng máy chủ này, an toàn hơn bỏ qua kiểm tra.</div></div>`}
+      ${f.tlsMode === 'insecure' && html`<${Banner} tone="warn" icon="alert" title="Kém an toàn">Không kiểm tra chứng chỉ thì kết nối vẫn mã hoá nhưng không bảo đảm đang nói chuyện đúng máy chủ email. Chỉ nên dùng khi chưa có chứng chỉ để nạp.<//>`}
     </div>
     ${err && html`<div class="errtext" role="alert">${err}</div>`}
     <div class="row wrap" style="margin-top:12px;gap:8px"><button class="btn primary sm" disabled=${busy} onClick=${save}>Lưu cấu hình</button></div>
