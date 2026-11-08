@@ -666,3 +666,22 @@ test('bill: POS chỉ gửi mã hàng, số lượng, thành tiền thì hệ th
   assert.equal(bill.lines[1].unitPrice, 1500);             // (1000 + 500) / 1
   await app.close();
 });
+
+test('bill: POS giảm giá cấp hoá đơn (tổng tiền khác tổng các dòng) thì bill hiện dòng điều chỉnh để cộng đúng', async () => {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  const bc = barcodeOf(app, 'Q7', 'SUA01');
+  await call(app, 'POST', `/api/c/sessions/${s.body.session.id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: bc }] } });
+  const tx = (await call(app, 'POST', `/api/c/sessions/${s.body.session.id}/basket`, { body: { ref: 'Q7-ADJUST234' } })).body.transaction;
+  // dòng đã trừ khuyến mãi mặt hàng (30.000 gốc, giảm 5.000) và voucher cả đơn 3.000: khách trả 22.000
+  const r = await pos(app, key, 'POST', '/baskets/Q7-ADJUST234/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-ADJ', amount: 22000, method: 'cash', lines: [{ barcode: bc, qty: 1, unitPrice: 30000, discount: 5000, lineTotal: 25000 }] });
+  assert.equal(r.status, 200);
+  const bill = (await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill;
+  assert.equal(bill.discount, 5000);
+  assert.equal(bill.adjustment, -3000);
+  assert.equal(bill.total, 22000);
+  assert.equal(bill.lines[0].lineTotal + bill.adjustment, bill.total);
+  await app.close();
+});

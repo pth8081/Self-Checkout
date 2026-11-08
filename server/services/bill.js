@@ -25,10 +25,12 @@ export function billOf(ctx, tx) {
   const posLines = tx.pos_bill_json ? JSON.parse(tx.pos_bill_json) : null;
   const items = posLines || JSON.parse(tx.items_json).map((i) => ({ barcode: i.barcode, name: i.name, qty: i.qty, unitPrice: i.price, discount: i.discount || 0, lineTotal: i.price * i.qty - (i.discount || 0) }));
   const total = tx.pos_amount ?? tx.total;
+  // POS có thể giảm ở cấp hoá đơn (voucher, làm tròn...) nên tổng tiền khác tổng các dòng: hiện phần chênh để bill cộng đúng.
+  const adjustment = posLines ? total - items.reduce((a, l) => a + l.lineTotal, 0) : 0;
   return {
     id: tx.id, code: tx.cart_code, storeName: store?.name || tx.store_id, storeAddress: store?.address || '',
     paidAt: tx.paid_at, method: tx.method, methodLabel: METHOD[tx.method] || tx.method, cashier: tx.pos_cashier || null,
-    lines: items, discount: items.reduce((a, l) => a + (l.discount || 0), 0), total,
+    lines: items, discount: items.reduce((a, l) => a + (l.discount || 0), 0), adjustment, total,
     invoiceNo: tx.pos_invoice_no || null, invoiceUrl: tx.pos_invoice_url || null, invoicePortalUrl: portalUrl(db, tx),
     provisional: !posLines // true: chưa có bill thật từ POS, đây là tạm tính của BRG
   };
@@ -40,7 +42,7 @@ const when = (iso) => (iso ? new Date(iso).toLocaleString('vi-VN', { timeZone: '
 /** Vẽ bill thành PDF khổ hẹp (như phiếu in), trả về Buffer. */
 export function billPdf(b) {
   const W = 300, M = 18;
-  const height = 230 + b.lines.length * 34 + (b.invoiceUrl ? 28 : 0) + (b.invoicePortalUrl ? 40 : 0) + (b.provisional ? 30 : 0);
+  const height = 250 + b.lines.length * 34 + (b.invoiceUrl ? 28 : 0) + (b.invoicePortalUrl ? 40 : 0) + (b.provisional ? 30 : 0);
   const doc = new PDFDocument({ size: [W, height], margin: M, info: { Title: `Bill ${b.code}`, Author: 'BRG Scan & Checkout' } });
   doc.registerFont('r', font('DejaVuSans.ttf')); doc.registerFont('b', font('DejaVuSans-Bold.ttf'));
   const chunks = [];
@@ -65,6 +67,7 @@ export function billPdf(b) {
   rule();
   doc.fontSize(9);
   if (b.discount) { row('Khuyến mãi', `−${vnd(b.discount)}`); doc.moveDown(0.3); }
+  if (b.adjustment) { row('Điều chỉnh theo hoá đơn', `${b.adjustment < 0 ? '−' : '+'}${vnd(Math.abs(b.adjustment))}`); doc.moveDown(0.3); }
   doc.fontSize(11); row('Tổng thanh toán', vnd(b.total), true);
   doc.moveDown(0.8);
   if (b.invoicePortalUrl) { doc.fontSize(7.5).font('b').fillColor('#000').text('Khai báo hoá đơn điện tử:', M, doc.y, { width: inner }); doc.font('r').fillColor('#1c5fa8').text(b.invoicePortalUrl, M, doc.y, { width: inner, link: b.invoicePortalUrl }); doc.fillColor('#000'); doc.moveDown(0.4); }

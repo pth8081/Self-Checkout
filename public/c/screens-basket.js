@@ -80,6 +80,7 @@ export function Bill({ id, token }) {
         <div class="grow"><div class="name">${l.name}</div><div class="small muted num">${fmt.money(l.unitPrice)} × ${l.qty}${l.discount ? ` · giảm ${fmt.money(l.discount)}` : ''}</div></div>
         <b class="num">${fmt.money(l.lineTotal)}</b></div>`)}</div></div>
       <div class="card flat"><div class="sum num">${b.discount > 0 && html`<div><span class="muted">Khuyến mãi</span><span style="color:var(--ok)">−${fmt.money(b.discount)}</span></div>`}
+        ${b.adjustment ? html`<div><span class="muted">Điều chỉnh theo hoá đơn</span><span>${b.adjustment < 0 ? '−' : '+'}${fmt.money(Math.abs(b.adjustment))}</span></div>` : null}
         <div class="tot"><span>Tổng thanh toán</span><span>${fmt.money(b.total)}</span></div></div></div>
       <div class="small muted">Mã giỏ ${b.code}${b.cashier ? ` · Thu ngân ${b.cashier}` : ''}</div>
       ${b.invoicePortalUrl && html`<a class="btn primary" href=${b.invoicePortalUrl} target="_blank" rel="noopener"><${Icon} name="receipt"/>Khai báo hoá đơn điện tử</a>`}
