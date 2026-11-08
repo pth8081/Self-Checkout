@@ -14,7 +14,7 @@ function EmailBox({ txId, paid, status, masked, initial }) {
     try { const r = await setBillEmail(v, txId); setMsg(r === 'sending' ? 'Đang gửi bill, kiểm tra hộp thư trong ít phút' : 'Đã lưu. Bill sẽ gửi về email này khi thanh toán xong'); }
     catch (e) { setMsg(e.message); } finally { setBusy(false); }
   };
-  if (paid && masked && status === 'sent') return html`<div class="card flat tight small"><${Icon} name="mail" size=${16}/> Đã gửi bill tới <b>${masked}</b></div>`;
+  if (paid && masked && status === 'sent') return html`<div class="card flat tight small row" style="gap:8px"><${Icon} name="mail" size=${18}/><span>Đã gửi bill tới <b>${masked}</b></span></div>`;
   return html`<div class="card flat tight stack" style="gap:8px">
     <label class="small b" for="bill-email">${paid ? 'Gửi bill về email' : 'Nhận bill qua email (không bắt buộc)'}</label>
     ${masked && html`<div class="xs muted">${status === 'sent' ? '' : paid ? `Đang gửi bill tới ${masked}` : `Sẽ gửi tới ${masked}`}</div>`}
