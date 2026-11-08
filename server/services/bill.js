@@ -29,6 +29,22 @@ export function diffLines(cartItems, posLines) {
   for (const [bc, q] of pos) if (!cart.has(bc)) added.push({ barcode: bc, name: q.name, qty: q.qty });
   return { removed, added, changed, same: !removed.length && !added.length && !changed.length };
 }
+/**
+ * Số lượng và giá trị hàng thu ngân THÊM ở quầy so với giỏ khách quét (khách lấy mà chưa quét), và số lượng khách BỚT.
+ * Giá trị hàng thêm tính theo đơn giá bình quân của dòng trong đơn POS.
+ */
+export function extraOf(cartItems, posLines) {
+  const cart = new Map(); for (const i of cartItems) cart.set(String(i.barcode), (cart.get(String(i.barcode)) || 0) + i.qty);
+  const pos = new Map();
+  for (const l of posLines) { const k = String(l.barcode || l.name); const c = pos.get(k) || { qty: 0, total: 0 }; c.qty += l.qty; c.total += l.lineTotal; pos.set(k, c); }
+  let extraQty = 0, extraValue = 0, lessQty = 0;
+  for (const [k, p] of pos) {
+    const inCart = cart.get(k) || 0, unit = p.qty ? p.total / p.qty : 0;
+    if (p.qty > inCart) { extraQty += p.qty - inCart; extraValue += Math.round((p.qty - inCart) * unit); }
+  }
+  for (const [k, q] of cart) { const p = pos.get(k)?.qty || 0; if (q > p) lessQty += q - p; }
+  return { extraQty, extraValue, lessQty };
+}
 /** Khác biệt giữa giỏ khách quét và đơn POS đã thanh toán (null nếu POS không gửi dòng hàng). */
 export const cartDiffOf = (tx) => (tx.pos_bill_json ? diffLines(JSON.parse(tx.items_json), JSON.parse(tx.pos_bill_json)) : null);
 

@@ -229,7 +229,7 @@ curl -X POST "https://scan.hcrc.vn/api/pos/v1/baskets/Q7-LM3K2AB/paid" \
 
 | # | Tình huống | POS làm | Kết quả |
 |---|-----------|---------|---------|
-| 1 | Khách lấy ít hơn hoặc nhiều hơn số đã quét (ví dụ quét 10 lấy 8, hoặc lấy thêm; chưa thu tiền) | Sửa đơn trên POS, thu tiền theo hàng thực mua, báo **thanh toán** với các dòng thực mua. **Không cần huỷ** | Báo thành công. Bill và doanh thu theo POS |
+| 1 | Khách lấy ít hơn hoặc nhiều hơn số đã quét (ví dụ quét 10 lấy 8; hoặc quét 8 lấy 10, mục 6.1c; chưa thu tiền) | Sửa đơn trên POS, thu tiền theo hàng thực mua, báo **thanh toán** với các dòng thực mua. **Không cần huỷ** | Báo thành công. Bill và doanh thu theo POS |
 | 2 | Khách đổi ý cả đơn (chưa thu tiền) | Huỷ đơn trên POS, gọi lệnh **huỷ** | Điện thoại khách báo "Thu ngân đã huỷ đơn", khách thanh toán lại bằng mã giỏ mới |
 | 3 | Khách trả **một phần** hàng sau khi đã thanh toán | Hoàn tiền phần trả lại trên POS, gọi lệnh **hoàn trả** | Đơn vẫn "đã thanh toán", doanh thu giảm đúng số hoàn, bill hiện phần hoàn trả |
 | 4 | Huỷ hoặc hoàn **toàn bộ** sau khi đã thanh toán | Hoàn toàn bộ trên POS, gọi lệnh **huỷ** (hoặc hoàn trả đủ số tiền đã thu) | Đơn thành "đã huỷ", khoản thu bị trừ khỏi doanh thu |
@@ -292,6 +292,40 @@ POS báo `paid` với **đủ các dòng thực mua** (kể cả mặt hàng th�
 - Hiện "Đã hoàn thành thanh toán" với **"Thực mua · 4 mặt hàng"** và số tiền POS thu.
 - Hiện thẻ **"Đơn ở quầy khác giỏ bạn đã quét"** liệt kê mặt hàng thêm, bớt, đổi số lượng.
 - Bill theo đơn POS. Quản trị thấy mục "Khác với giỏ khách quét".
+
+### 6.1c Khách quét 8, lấy thực tế 10 (hai mặt hàng không quét)
+
+Đây là trường hợp khách **lấy thừa so với số đã quét**: hai mặt hàng nằm trong túi nhưng không có trong mã QR (quên quét, cố ý không quét, hoặc nhặt thêm sau khi tạo mã).
+
+**Phân tích: ai phát hiện được?**
+
+| Bên | Biết gì | Phát hiện được không |
+|-----|---------|----------------------|
+| Điện thoại / BRG | Chỉ biết những gì khách quét | **Không.** Mặt hàng chưa quét thì BRG hoàn toàn không có dữ liệu |
+| POS và thu ngân | Hàng thực tế trên quầy | **Có**, nhưng chỉ khi thu ngân đối chiếu túi hàng với số mặt hàng hiển thị |
+
+BRG **không tự chặn** được việc này. Việc phát hiện luôn nằm ở quầy thu ngân. BRG làm hai việc: (1) giúp thu ngân dễ đối chiếu, (2) ghi nhận và thống kê để quản lý thấy.
+
+**POS làm gì (khi thu ngân phát hiện hàng thừa)**
+
+1. Quét thêm hai mặt hàng đó vào đơn trên POS, thu tiền theo đơn đầy đủ 10 mặt hàng.
+2. (Nên) Gọi lệnh `update` (mục 6.1b) để điện thoại khách thấy "Thêm 2" trước khi trả tiền.
+3. Báo `paid` với **đủ các dòng thực mua** (10 mặt hàng) và `amount` là số đã thu.
+
+Không có mã lỗi riêng và không cần cờ đặc biệt: POS cứ báo đúng đơn thực tế. BRG tự so sánh với giỏ khách quét. Nếu thu ngân **không** phát hiện thì POS không có gì để báo, đơn vẫn là 8 mặt hàng và BRG không có cách biết.
+
+**BRG hiển thị và ghi nhận**
+
+- **Điện thoại khách** (sau khi thanh toán): "Thực mua · 10 mặt hàng" và thẻ **"Đơn ở quầy khác giỏ bạn đã quét"**, liệt kê hai mặt hàng *Thêm*.
+- **Chi tiết giao dịch (quản trị)**: mục "Khác với giỏ khách quét" ghi từng mặt hàng thêm.
+- **Báo cáo và "Hôm nay"**: các chỉ số **"Giao dịch có hàng thêm"**, **"Số hàng thêm ở quầy"**, **"Giá trị hàng thêm"** (tính theo đơn giá bình quân trên dòng POS) và **tỷ lệ giao dịch có hàng thêm**. Bản CSV có các cột tương ứng. Cột "Giao dịch bớt hàng" thể hiện chiều ngược lại (quét nhiều hơn lấy).
+
+**Cách giảm thất thoát**
+
+- Màn hình QR của khách luôn hiện **số mặt hàng** (ví dụ "Tạm tính · 8 mặt hàng") để thu ngân đếm nhanh túi hàng.
+- Thu ngân đối chiếu số mặt hàng trước khi thu tiền; kiểm tra ngẫu nhiên một số túi.
+- Quản lý theo dõi tỷ lệ "có hàng thêm" theo cửa hàng, theo ngày: cao bất thường thường là khách quên quét hàng loạt (biển hướng dẫn chưa tốt) hoặc điểm thu ngân chưa kiểm tra. Hàng chưa quét **không bao giờ** nằm trong số liệu này, nên vẫn cần kiểm kê định kỳ.
+- Không dùng BRG để "bắt" khách: BRG chỉ ghi nhận chênh lệch khi POS đã báo.
 
 ### 6.2 Khách đổi ý cả đơn, chưa thu tiền
 

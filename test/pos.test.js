@@ -873,6 +873,13 @@ test('khách lấy thêm hàng ở quầy: POS báo đơn đang tính để đi�
   assert.equal(t2.posItemCount, 4);
   assert.equal(t2.cartDiff.added[0].qty, 1);
   assert.equal(t2.posDraft, null);
+  // thống kê hàng thêm: khách quét 1 sữa + 1 mì, POS tính 2 sữa + 1 mì + 1 trứng
+  const row = app.ctx.db.prepare('SELECT extra_qty, extra_value, less_qty FROM transactions WHERE id = ?').get(tx.id);
+  assert.equal(row.extra_qty, 2); assert.equal(row.extra_value, 29000 + 38000); assert.equal(row.less_qty, 0);
+  const rep = await call(app, 'GET', '/api/a/reports', { token: admin });
+  assert.equal(rep.body.totals.extraTx, 1); assert.equal(rep.body.totals.extraQty, 2); assert.equal(rep.body.totals.extraValue, 67000);
+  const csv = await call(app, 'GET', '/api/a/reports.csv', { token: admin });
+  assert.match(csv.raw.body, /,1,2,67000,0/);
   // sau thanh toán không cập nhật được nữa
   assert.equal((await up({ lines: [{ barcode: sua, qty: 1, lineTotal: 1 }] })).body.error, 'NOT_UPDATABLE');
   await app.close();

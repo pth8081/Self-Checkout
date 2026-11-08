@@ -9,6 +9,7 @@ import { nowIso, bad, notFound, conflict, forbidden, money } from '../util.js';
 import { audit } from './audit.js';
 import { getStoreConfig, txView, markExited } from './core.js';
 import { sendBillEmailBg } from './bill-email.js';
+import { extraOf } from './bill.js';
 
 export const hashKey = (k) => crypto.createHash('sha256').update(k).digest('hex');
 export function newKey() {
@@ -113,7 +114,10 @@ export function orderPaid(ctx, scope, ref, body = {}) {
   if (tx.status === 'paid') {
     // Báo lại: không tạo thêm khoản thu, nhưng nhận bill nếu lần trước chưa gửi.
     const { lines } = cleanBill(body, db, tx);
-    if (lines && !tx.pos_bill_json) db.prepare('UPDATE transactions SET pos_bill_json = ? WHERE id = ?').run(JSON.stringify(lines), tx.id);
+    if (lines && !tx.pos_bill_json) {
+      const x = extraOf(JSON.parse(tx.items_json), lines);
+      db.prepare('UPDATE transactions SET pos_bill_json = ?, extra_qty = ?, extra_value = ?, less_qty = ? WHERE id = ?').run(JSON.stringify(lines), x.extraQty, x.extraValue, x.lessQty, tx.id);
+    }
     return result(true);
   }
   // Khách có thể sửa giỏ (giỏ bị huỷ phía điện thoại) trong lúc POS đã quét mã QR cũ và thu tiền. Tiền đã thu là thật nên vẫn ghi nhận.
@@ -126,6 +130,7 @@ export function orderPaid(ctx, scope, ref, body = {}) {
   if (!POS_METHODS.includes(body.method)) throw bad('BAD_METHOD', `method phải là một trong: ${POS_METHODS.join(', ')}`);
   const invoiceNo = body.invoiceNo ? String(body.invoiceNo).slice(0, 64) : null;
   const { lines } = cleanBill(body, db, tx);
+  const xtra = lines ? extraOf(JSON.parse(tx.items_json), lines) : { extraQty: 0, extraValue: 0, lessQty: 0 };
   const cashier = body.cashier ? String(body.cashier).slice(0, 40) : tx.pos_cashier;
   const ts = nowIso();
   const differs = amount !== tx.total;
@@ -135,7 +140,7 @@ export function orderPaid(ctx, scope, ref, body = {}) {
       VALUES(?,?,'main',?,?,?,?,'pos',?,?)`).run(tx.id, tx.store_id, body.method, amount, `POS:${cashier || scope.name}`, ts, ref,
       JSON.stringify({ paidAt: body.paidAt || null, terminal: body.terminal || tx.pos_terminal || null, note: body.note || null }));
     db.prepare(`UPDATE transactions SET status='paid', method=?, paid_at=?, receipt_expires_at=?, extra_due=0, pos_status='paid', pos_amount=?,
-      pos_invoice_no=?, pos_cashier=?, pos_bill_json=? WHERE id=?`).run(body.method, ts, exp, amount, invoiceNo, cashier || null, lines ? JSON.stringify(lines) : null, tx.id);
+      pos_invoice_no=?, pos_cashier=?, pos_bill_json=?, extra_qty=?, extra_value=?, less_qty=? WHERE id=?`).run(body.method, ts, exp, amount, invoiceNo, cashier || null, lines ? JSON.stringify(lines) : null, xtra.extraQty, xtra.extraValue, xtra.lessQty, tx.id);
     if (!late) db.prepare(`UPDATE scan_sessions SET status='paid', ended_at=? WHERE id=?`).run(ts, tx.session_id); // giỏ đã bị khách sửa: phiên có thể đang giữ giỏ mới, không đụng tới
     if (late) audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `POS:${scope.name}`, action: 'pos.paid_after_cancel', entity: 'transaction', entityId: tx.id, data: { amount, posOrderRef: ref } });
     if (invoiceNo) {

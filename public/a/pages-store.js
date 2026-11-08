@@ -32,7 +32,7 @@ export function Today({ ctx }) {
         <${Tile} k="Giao dịch" v=${fmt.num(d.tiles.transactions)}/><${Tile} k="Doanh thu" v=${fmt.money(d.tiles.revenue)}/>
         <${Tile} k="Tiền mặt" v=${fmt.money(d.tiles.cash)}/><${Tile} k="Chuyển khoản" v=${fmt.money(d.tiles.transfer)}/>
         ${d.tiles.other > 0 && html`<${Tile} k="Khác (thẻ, ví…)" v=${fmt.money(d.tiles.other)}/>`}
-        <${Tile} k="Lượt kiểm tra" v=${ng ? NA : fmt.num(d.tiles.checks)} small=${ng}/><${Tile} k="Chênh lệch" v=${ng ? NA : fmt.num(d.tiles.mismatches)} small=${ng}/></div>
+        ${ng ? html`<${Tile} k="Có hàng thêm ở quầy" v=${fmt.num(d.tiles.extraTx)} tone=${d.tiles.extraTx ? 'warn' : ''}/><${Tile} k="Giá trị hàng thêm" v=${fmt.money(d.tiles.extraValue)}/>` : html`<${Tile} k="Lượt kiểm tra" v=${fmt.num(d.tiles.checks)}/><${Tile} k="Chênh lệch" v=${fmt.num(d.tiles.mismatches)}/>`}</div>
       <div class="tiles">
         <${Tile} k="Đang mua sắm" v=${fmt.num(d.inStore)}/><${Tile} k=${isPos(cfgOf(ctx.stores, storeId)) ? 'Giỏ chờ POS thu' : 'Giỏ chờ thu'} v=${fmt.num(d.waiting)} tone=${d.waiting ? 'warn' : ''}/>
         ${!ng && html`<${Tile} k="Ca chờ quản lý" v=${fmt.num(d.held)} tone=${d.held ? 'err' : ''}/>`}</div>

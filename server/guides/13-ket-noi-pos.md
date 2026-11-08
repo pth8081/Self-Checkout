@@ -81,3 +81,7 @@ Trang **Đơn POS** (mỗi chi nhánh) hiện từng đơn và trạng thái. Ch
 ## Khách lấy thêm hoặc bớt hàng ở quầy
 
 Nếu khách lấy thêm hoặc bớt hàng so với mã QR, POS nên gọi lệnh **cập nhật đơn đang tính** mỗi lần thu ngân chỉnh đơn. Điện thoại khách hiện thẻ "Thu ngân đã cập nhật đơn tại quầy" liệt kê mặt hàng thêm, bớt, đổi số lượng. Sau khi thanh toán, điện thoại hiện "Thực mua" và thẻ "Đơn ở quầy khác giỏ bạn đã quét". Trong chi tiết giao dịch, quản trị thấy mục "Khác với giỏ khách quét". Chi tiết cho đơn vị POS ở tài liệu `brg-tich-hop-pos.docx`, mục 7.
+
+### Khách quét 8 nhưng lấy 10 (hàng thừa không quét)
+
+BRG không tự biết được hàng khách chưa quét; chỉ thu ngân ở quầy phát hiện được. Khi thu ngân thêm hai mặt hàng vào đơn POS và báo thanh toán đủ 10 mặt hàng, BRG tự ghi nhận chênh lệch: khách thấy "Thêm 2", chi tiết giao dịch có mục "Khác với giỏ khách quét", báo cáo và trang Hôm nay có "Giao dịch có hàng thêm", "Số hàng thêm ở quầy", "Giá trị hàng thêm". Hãy theo dõi tỷ lệ này theo cửa hàng; vẫn cần kiểm kê định kỳ vì hàng không ai quét sẽ không xuất hiện trong số liệu.

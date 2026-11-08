@@ -85,7 +85,10 @@ export default async function adminRoutes(app) {
         FROM payments p WHERE voided_at IS NULL AND ${sqlLocalDate('collected_at')} = ? ${w}`).get(...a);
       const w2 = storeId ? 'AND store_id = ?' : '';
       const c = db.prepare(`SELECT COUNT(*) checks, COALESCE(SUM(result='mismatch'),0) mismatches FROM exit_checks WHERE ${sqlLocalDate('created_at')} = ? ${w2}`).get(...a);
-      return { ...p, checks: c.checks, mismatches: c.mismatches };
+      // Hàng thu ngân thêm ở quầy so với giỏ khách quét (khách lấy mà chưa quét) và khách bớt
+      const x = db.prepare(`SELECT COUNT(CASE WHEN extra_qty > 0 THEN 1 END) extraTx, COALESCE(SUM(extra_qty),0) extraQty, COALESCE(SUM(extra_value),0) extraValue, COUNT(CASE WHEN less_qty > 0 THEN 1 END) lessTx
+        FROM transactions WHERE status = 'paid' AND ${sqlLocalDate('paid_at')} = ? ${w2}`).get(...a);
+      return { ...p, checks: c.checks, mismatches: c.mismatches, extraTx: x.extraTx, extraQty: x.extraQty, extraValue: x.extraValue, lessTx: x.lessTx };
     };
     const lagMinutes = (storeId) => {
       const t = ctx.pos.lastSync(storeId);
@@ -427,16 +430,17 @@ export default async function adminRoutes(app) {
         rows.push({ date, ...dayStats(storeId, date) });
       }
       const sum = (k) => rows.reduce((a, r) => a + r[k], 0);
-      const totals = { tx: sum('tx'), revenue: sum('revenue'), cash: sum('cash'), transfer: sum('transfer'), other: sum('other'), checks: sum('checks'), mismatches: sum('mismatches') };
+      const totals = { tx: sum('tx'), revenue: sum('revenue'), cash: sum('cash'), transfer: sum('transfer'), other: sum('other'), checks: sum('checks'), mismatches: sum('mismatches'), extraTx: sum('extraTx'), extraQty: sum('extraQty'), extraValue: sum('extraValue'), lessTx: sum('lessTx') };
+      totals.extraRate = totals.tx ? totals.extraTx / totals.tx : 0;
       totals.mismatchRate = totals.tx ? totals.mismatches / totals.tx : 0;
       return { from, to, storeId, rows, totals };
     };
     s.get('/reports', async (req) => buildReport(req));
     s.get('/reports.csv', async (req, reply) => {
       const r = buildReport(req);
-      const lines = ['Ngày,Giao dịch,Doanh thu,Tiền mặt,Chuyển khoản,Khác,Lượt kiểm tra,Chênh lệch'];
-      for (const x of r.rows) lines.push([x.date, x.tx, x.revenue, x.cash, x.transfer, x.other, x.checks, x.mismatches].join(','));
-      lines.push(['Tổng', r.totals.tx, r.totals.revenue, r.totals.cash, r.totals.transfer, r.totals.other, r.totals.checks, r.totals.mismatches].join(','));
+      const lines = ['Ngày,Giao dịch,Doanh thu,Tiền mặt,Chuyển khoản,Khác,Lượt kiểm tra,Chênh lệch,Giao dịch có hàng thêm ở quầy,Số mặt hàng thêm,Giá trị hàng thêm,Giao dịch khách bớt hàng'];
+      for (const x of r.rows) lines.push([x.date, x.tx, x.revenue, x.cash, x.transfer, x.other, x.checks, x.mismatches, x.extraTx, x.extraQty, x.extraValue, x.lessTx].join(','));
+      lines.push(['Tổng', r.totals.tx, r.totals.revenue, r.totals.cash, r.totals.transfer, r.totals.other, r.totals.checks, r.totals.mismatches, r.totals.extraTx, r.totals.extraQty, r.totals.extraValue, r.totals.lessTx].join(','));
       reply.header('Content-Type', 'text/csv; charset=utf-8').header('Content-Disposition', `attachment; filename="bao-cao-${r.from}-${r.to}.csv"`);
       return '﻿' + lines.join('\r\n');
     });
@@ -539,7 +543,7 @@ export default async function adminRoutes(app) {
         .map((t) => txView(ctx, t));
       const inStore = db.prepare(`SELECT COUNT(*) n FROM scan_sessions WHERE store_id = ? AND status IN ('active','locked') AND last_activity >= ?`)
         .get(storeId, new Date(Date.now() - 2 * 3600_000).toISOString()).n;
-      return { date, storeId, tiles: { transactions: d.tx, revenue: d.revenue, cash: d.cash, transfer: d.transfer, other: d.other, checks: d.checks, mismatches: d.mismatches }, inStore, recent,
+      return { date, storeId, tiles: { transactions: d.tx, revenue: d.revenue, cash: d.cash, transfer: d.transfer, other: d.other, checks: d.checks, mismatches: d.mismatches, extraTx: d.extraTx, extraQty: d.extraQty, extraValue: d.extraValue, lessTx: d.lessTx }, inStore, recent,
         waiting: db.prepare(`SELECT COUNT(*) n FROM transactions WHERE store_id = ? AND status='awaiting_counter'`).get(storeId).n,
         held: db.prepare(`SELECT COUNT(*) n FROM transactions WHERE store_id = ? AND exit_status='held'`).get(storeId).n };
     });
