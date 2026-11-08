@@ -311,7 +311,13 @@ export default async function adminRoutes(app) {
           return { keys: db.prepare('SELECT COUNT(*) n FROM integration_keys WHERE active = 1').get().n, lastUsedAt: db.prepare('SELECT MAX(last_used_at) t FROM integration_keys').get().t,
             last24h: { claimed: n(''), paid: n(`AND pos_status = 'paid'`), cancelled: n(`AND pos_status = 'cancelled'`), differs: n(`AND pos_amount IS NOT NULL AND pos_amount != total`), waiting: n(`AND pos_status = 'claimed'`) } };
         })(),
-        note: 'POS và hoá đơn điện tử đang chạy bản giả lập. Gắn hệ thống thật bằng cách viết adapter tương ứng (xem docs/07).'
+        isProd: config.isProd,
+        hasClassicStores: !!db.prepare(`SELECT 1 FROM store_config WHERE checkout_mode = 'classic' LIMIT 1`).get(), // luồng cũ đang khoá: chỉ khi còn chi nhánh dùng mới hiện thẻ chuyển khoản QR và hoá đơn của BRG
+        // Nguồn giá: bảng giá nhập bằng CSV (bản giả lập chạy trên chính bảng này) cho tới khi nối API giá thật.
+        priceSource: ctx.pos.name === 'mock' ? 'csv' : ctx.pos.name,
+        note: ctx.pos.name !== 'mock' ? null
+          : config.isProd ? 'Giá và khuyến mãi đang lấy từ bảng giá nhập bằng file CSV (npm run import-products). Chưa nối API giá theo chi nhánh nên giá không tự cập nhật.'
+          : 'POS và hoá đơn điện tử đang chạy bản giả lập. Gắn hệ thống thật bằng cách viết adapter tương ứng (xem docs/07).'
       };
     });
     s.post('/integrations/pos/sync', async (req) => {

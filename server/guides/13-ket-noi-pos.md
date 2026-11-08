@@ -38,7 +38,7 @@ g --> h
 1. **Tạo khoá API** (Tích hợp, thẻ "POS gọi vào BRG", **Tạo khoá**): đặt tên theo phần mềm POS, chọn **một chi nhánh** (khoá chỉ dùng cho chi nhánh đó) hoặc **tất cả**. Khoá **chỉ hiện một lần**: chép ngay và gửi cho nhà cung cấp POS qua kênh an toàn. Khoá có giá trị như mật khẩu vì POS dùng nó để xác nhận thanh toán.
 2. **Gửi nhà cung cấp POS:** tài liệu API (`docs/api-pos.md`), **địa chỉ API** (hiện sẵn trong thẻ, dạng `https://<tên miền>/api/pos/v1`), và khoá.
 3. **Thử trên bản thử** (không thử trên máy chủ đang bán hàng thật):
-   - Trong khối **Công cụ thử nghiệm**, dùng **Giả lập POS** để đóng vai POS: dán mã giỏ, nhận giỏ, báo thanh toán, báo huỷ. Nhờ đó xem trước khách và quản trị sẽ thấy gì.
+   - (Chỉ có ở bản thử, không có khi chạy thật.) Trong khối **Công cụ thử nghiệm**, dùng **Giả lập POS** để đóng vai POS: dán mã giỏ, nhận giỏ, báo thanh toán, báo huỷ. Nhờ đó xem trước khách và quản trị sẽ thấy gì.
    - Nhà cung cấp POS thử bằng POS thật, đối chiếu kết quả với Giả lập. Các tình huống cần thử: giá khác tạm tính, thanh toán bằng QR, tiền mặt, thẻ, huỷ trước và sau khi thanh toán, gọi lại cùng mã đơn, mất mạng giữa chừng, hoá đơn công ty.
 4. **Chuyển chi nhánh sang "Qua POS"** (Chi nhánh và tính năng, cột "Thu tiền"). Điều kiện: đã có khoá API dùng được, và **không còn giỏ chờ thu** ở chi nhánh. Nên làm ngoài giờ bán hàng đông.
 5. **Thí điểm một quầy**, theo dõi trang **Đơn POS** và so với báo cáo bán hàng của POS mỗi ngày trước khi mở rộng.

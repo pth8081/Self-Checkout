@@ -152,7 +152,7 @@ function PosCard({ d, reload }) {
   const saveLimit = (s) => run(async () => { await api.put(`/stores/${s.id}/config`, { posStaleMinutes: Number(vals[s.id]) }); await reload(); }, 'Đã lưu ngưỡng cảnh báo');
   return html`<div class="card">
     <div class="cardhead"><div class="ico-tile"><${Icon} name="barcode"/></div><div class="grow"><h2>POS (giá & tồn kho)</h2>
-      <div class="small muted">Bộ nối: ${d.pos.adapter === 'mock' ? 'POS giả lập' : d.pos.adapter}</div></div>
+      <div class="small muted">Nguồn giá: ${d.pos.adapter === 'mock' ? (d.isProd ? 'bảng giá nhập bằng file CSV' : 'POS giả lập') : d.pos.adapter}</div></div>
       <${Pill} tone="ok"><span class="dot"></span>Đã kết nối<//>
       <button class="btn sm primary" disabled=${busy} onClick=${() => sync(null)}><${Icon} name="refresh" size=${18}/>Đồng bộ tất cả</button></div>
     <div class="tblwrap"><table class="tbl"><thead><tr><th>Chi nhánh</th><th>Mã điểm (hệ thống giá)</th><th>Đồng bộ gần nhất</th><th>Độ trễ</th><th>Ngưỡng cảnh báo (phút)</th><th class="r">Mã vạch không khớp (24 giờ)</th><th></th></tr></thead>
@@ -418,13 +418,13 @@ export function Integrations({ stores }) {
   const st = useAsync(() => api.get('/integrations'), []);
   return html`<div class="stack-lg"><${PageHead} title="Tích hợp" sub="Giám sát và cấu hình POS, chuyển khoản QR và hoá đơn điện tử."/>
     <${Async} state=${st}>${(d) => html`
-      <${Banner} tone="info" icon="info" title="Đang chạy bản giả lập">${d.note}<//>
+      ${d.note && html`<${Banner} tone=${d.isProd ? 'warn' : 'info'} icon="info" title=${d.isProd ? 'Nguồn giá: file CSV' : 'Đang chạy bản giả lập'}>${d.note}<//>`}
       <${PosCard} d=${d} reload=${st.reload}/>
       <${PosApiCard} d=${d} stores=${stores} reload=${st.reload}/>
       <${InvoicePortalCard}/>
       <${EmailCard}/>
-      <div class="two"><${TransferCard} stores=${stores}/><${InvoiceCard} d=${d} reload=${st.reload}/></div>
-      <${DevTools} stores=${stores}/>`}<//></div>`;
+      ${d.hasClassicStores && html`<div class="two"><${TransferCard} stores=${stores}/><${InvoiceCard} d=${d} reload=${st.reload}/></div>`}
+      ${!d.isProd && html`<${DevTools} stores=${stores}/>`}`}<//></div>`;
 }
 
 // ============================== A04 Báo cáo ==============================

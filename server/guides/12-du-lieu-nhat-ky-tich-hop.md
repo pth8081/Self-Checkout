@@ -34,7 +34,7 @@ Chưa cấu hình email thì khách vẫn thanh toán và xem bill trong ứng d
 - Mục **Tích hợp** hiện cho từng chi nhánh: lần đồng bộ gần nhất, **độ trễ**, **ngưỡng cảnh báo** (sửa được, tính bằng phút), số mã vạch không khớp. Quá ngưỡng thì Tổng quan hiện cảnh báo.
 - Nút **Đồng bộ ngay** kéo dữ liệu mới ngay lập tức.
 
-> **Lưu ý:** Hiện POS chạy **bản giả lập**. Khi nối POS thật, quy trình trên giữ nguyên. Chi tiết kỹ thuật ở tài liệu dự án (docs/11).
+> **Lưu ý:** Khi chưa nối API giá theo chi nhánh, giá lấy từ **bảng giá nhập bằng file CSV** (lệnh `npm run import-products`) và không tự cập nhật. Khi nối API giá thật, quy trình trên giữ nguyên. Chi tiết kỹ thuật ở tài liệu dự án (docs/11).
 
 ## Hoá đơn điện tử
 
@@ -42,7 +42,7 @@ Chưa cấu hình email thì khách vẫn thanh toán và xem bill trong ứng d
 - Hoá đơn lỗi **không chặn** khách. Trạng thái **đang chờ**, hệ thống tự thử lại. Tổng quan hiện số hoá đơn treo; nút **Thử lại hoá đơn treo** ở mục Tích hợp.
 - Giao dịch bị huỷ làm hoá đơn chuyển sang **yêu cầu huỷ**: cần xử lý với nhà cung cấp hoá đơn.
 
-> **Lưu ý:** Hiện hoá đơn điện tử chạy bản giả lập, chưa phát hành hoá đơn thật.
+> **Lưu ý:** Ở chế độ Giỏ QR cho POS, ứng dụng **không phát hành hoá đơn điện tử**. POS và nhà cung cấp hoá đơn phát hành; khách khai báo ở link bạn cấu hình ở trang Tích hợp.
 
 ## POS gọi vào BRG
 
