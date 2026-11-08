@@ -77,3 +77,7 @@ Trang **Đơn POS** (mỗi chi nhánh) hiện từng đơn và trạng thái. Ch
 - [ ] Quản lý chi nhánh biết cách **Nhả giỏ** và biết số liên hệ của nhà cung cấp POS
 - [ ] Đã quyết cách đối soát hằng ngày giữa BRG và POS và người phụ trách
 - [ ] Đã quyết các mục "Điểm cần chốt" mức cao về POS (đơn bị bỏ quên, đối soát, lệch tiền)
+
+## Khách lấy thêm hoặc bớt hàng ở quầy
+
+Nếu khách lấy thêm hoặc bớt hàng so với mã QR, POS nên gọi lệnh **cập nhật đơn đang tính** mỗi lần thu ngân chỉnh đơn. Điện thoại khách hiện thẻ "Thu ngân đã cập nhật đơn tại quầy" liệt kê mặt hàng thêm, bớt, đổi số lượng. Sau khi thanh toán, điện thoại hiện "Thực mua" và thẻ "Đơn ở quầy khác giỏ bạn đã quét". Trong chi tiết giao dịch, quản trị thấy mục "Khác với giỏ khách quét". Chi tiết cho đơn vị POS ở tài liệu `brg-tich-hop-pos.docx`, mục 7.

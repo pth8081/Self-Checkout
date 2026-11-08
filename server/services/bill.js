@@ -19,6 +19,19 @@ export function portalUrl(db, tx) {
   return Object.entries(vals).reduce((u, [k, v]) => u.split(k).join(encodeURIComponent(v)), url);
 }
 
+/** So giỏ khách quét với các dòng POS: mặt hàng bớt đi, thêm vào hoặc đổi số lượng. */
+export function diffLines(cartItems, posLines) {
+  const cart = new Map(); for (const i of cartItems) cart.set(String(i.barcode), { name: i.name, qty: i.qty });
+  const pos = new Map();
+  for (const l of posLines) { const k = String(l.barcode || l.name); pos.set(k, { name: l.name, qty: (pos.get(k)?.qty || 0) + l.qty }); }
+  const removed = [], added = [], changed = [];
+  for (const [bc, c] of cart) { const q = pos.get(bc); if (!q) removed.push({ barcode: bc, name: c.name, qty: c.qty }); else if (q.qty !== c.qty) changed.push({ barcode: bc, name: c.name, from: c.qty, to: q.qty }); }
+  for (const [bc, q] of pos) if (!cart.has(bc)) added.push({ barcode: bc, name: q.name, qty: q.qty });
+  return { removed, added, changed, same: !removed.length && !added.length && !changed.length };
+}
+/** Khác biệt giữa giỏ khách quét và đơn POS đã thanh toán (null nếu POS không gửi dòng hàng). */
+export const cartDiffOf = (tx) => (tx.pos_bill_json ? diffLines(JSON.parse(tx.items_json), JSON.parse(tx.pos_bill_json)) : null);
+
 export function billOf(ctx, tx) {
   const { db } = ctx;
   const store = db.prepare('SELECT * FROM stores WHERE id = ?').get(tx.store_id);

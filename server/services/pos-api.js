@@ -200,7 +200,7 @@ export { txView };
  * `posOrderRef` (mã đơn bên POS) bắt buộc và là khoá chống trùng. Chưa thấy giỏ (điện thoại chưa đồng bộ vì mất mạng)
  * thì trả 404 BASKET_NOT_FOUND, POS thử lại sau.
  */
-function basketByCode(ctx, scope, code, body) {
+function basketTx(ctx, scope, code, body) {
   const { db } = ctx;
   const tx = db.prepare('SELECT * FROM transactions WHERE cart_code = ? AND method = ?').get(String(code).toUpperCase(), 'basket')
     || db.prepare(`SELECT * FROM transactions WHERE cart_code = ? AND pos_order_ref IS NOT NULL`).get(String(code).toUpperCase());
@@ -217,6 +217,13 @@ function basketByCode(ctx, scope, code, body) {
   if (!tx.pos_order_ref) {
     const other = byRef(db, ref);
     if (other && other.id !== tx.id) throw conflict('REF_IN_USE', 'Mã đơn POS này đã gắn với giỏ khác', { transactionId: other.id });
+  }
+  return { tx, ref };
+}
+function basketByCode(ctx, scope, code, body) {
+  const { db } = ctx;
+  const { tx, ref } = basketTx(ctx, scope, code, body);
+  if (!tx.pos_order_ref) {
     db.prepare(`UPDATE transactions SET pos_order_ref=?, pos_status='claimed', pos_claimed_at=?, pos_cashier=COALESCE(?, pos_cashier), pos_terminal=COALESCE(?, pos_terminal) WHERE id=?`)
       .run(ref, nowIso(), body.cashier ? String(body.cashier).slice(0, 40) : null, body.terminal ? String(body.terminal).slice(0, 40) : null, tx.id);
   }
@@ -290,4 +297,24 @@ export function basketRefund(ctx, scope, code, body = {}) {
     }
   })();
   return view(false);
+}
+
+/**
+ * POS báo đơn đang tính ở quầy (thu ngân thêm, bớt hoặc đổi số lượng mặt hàng) TRƯỚC khi thanh toán, để điện thoại khách thấy ngay
+ * khác biệt so với giỏ đã quét. Không khoá giỏ và không thay cho lệnh báo thanh toán; gửi nhiều lần được, lần sau thay lần trước.
+ */
+export function basketUpdate(ctx, scope, code, body = {}) {
+  const { db } = ctx;
+  const { tx, ref } = basketTx(ctx, scope, code, body);
+  if (tx.status !== 'awaiting_counter') throw conflict('NOT_UPDATABLE', tx.status === 'paid' ? 'Đơn đã thanh toán, không cập nhật được nữa' : 'Giỏ này không còn chờ thanh toán');
+  if (body.lines === undefined || body.lines === null) throw bad('BAD_LINES', 'lines là bắt buộc: danh sách các dòng đơn đang tính trên POS');
+  const { lines } = cleanBill(body, db, tx);
+  const sum = lines.reduce((a, l) => a + l.lineTotal, 0);
+  const amount = body.amount === undefined || body.amount === null ? sum : body.amount;
+  if (!Number.isInteger(amount) || amount < 0) throw bad('BAD_AMOUNT', 'amount là số nguyên đồng, không âm');
+  const draft = { lines, amount, at: nowIso() };
+  db.prepare(`UPDATE transactions SET pos_draft_json = ?, pos_order_ref = COALESCE(pos_order_ref, ?), pos_cashier = COALESCE(?, pos_cashier), pos_terminal = COALESCE(?, pos_terminal) WHERE id = ?`)
+    .run(JSON.stringify(draft), ref, body.cashier ? String(body.cashier).slice(0, 40) : null, body.terminal ? String(body.terminal).slice(0, 40) : null, tx.id);
+  const view = txView(ctx, db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.id));
+  return { ok: true, itemCount: view.posDraft.itemCount, total: amount, differsFromPhone: !view.posDraft.diff.same };
 }

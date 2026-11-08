@@ -838,3 +838,42 @@ test('hoàn trả một phần sau thanh toán: ghi khoản hoàn âm, doanh thu
   assert.equal((await pos(app, key, 'POST', '/baskets/Q7-REFUND234/refund', { pointCode: 'SP-Q1', posOrderRef: 'P-R', refundRef: 'R9', amount: 1 })).body.error, 'POINT_MISMATCH');
   await app.close();
 });
+
+test('khách lấy thêm hàng ở quầy: POS báo đơn đang tính để điện thoại thấy khác biệt, rồi báo thanh toán với đủ các dòng; điện thoại hiện đơn thực mua', async () => {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  const id = s.body.session.id;
+  const sua = barcodeOf(app, 'Q7', 'SUA01'), mi = barcodeOf(app, 'Q7', 'MI01'), tru = barcodeOf(app, 'Q7', 'TRU01');
+  await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: sua }, { id: 'b', type: 'scan', barcode: mi }] } });
+  const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-MORE23456' } })).body.transaction;
+  const up = (body) => pos(app, key, 'POST', '/baskets/Q7-MORE23456/update', { pointCode: 'SP-Q7', posOrderRef: 'P-MORE', ...body });
+  assert.equal((await up({})).body.error, 'BAD_LINES');
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-MORE23456/update', { posOrderRef: 'P-MORE', lines: [{ barcode: sua, qty: 1, lineTotal: 1 }] })).body.error, 'POINT_REQUIRED');
+  // trước khi thanh toán: điện thoại chưa có thông báo
+  assert.equal((await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.transaction.posDraft, null);
+  // thu ngân thêm 1 trứng, tăng sữa lên 2
+  const r = await up({ lines: [{ barcode: sua, qty: 2, lineTotal: 58000 }, { barcode: mi, qty: 1, lineTotal: 12500 }, { barcode: tru, qty: 1, lineTotal: 38000 }] });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.itemCount, 4); assert.equal(r.body.total, 108500); assert.equal(r.body.differsFromPhone, true);
+  const t1 = (await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.transaction;
+  assert.equal(t1.status, 'awaiting_counter');
+  assert.equal(t1.posDraft.itemCount, 4);
+  assert.equal(t1.posDraft.diff.added.length, 1); assert.equal(t1.posDraft.diff.changed[0].to, 2);
+  // khách vẫn sửa giỏ được (đơn tại quầy chưa khoá giỏ)
+  // gửi cập nhật lần sau thay lần trước
+  assert.equal((await up({ lines: [{ barcode: sua, qty: 1, lineTotal: 29000 }, { barcode: mi, qty: 1, lineTotal: 12500 }] })).body.differsFromPhone, false);
+  await up({ lines: [{ barcode: sua, qty: 2, lineTotal: 58000 }, { barcode: mi, qty: 1, lineTotal: 12500 }, { barcode: tru, qty: 1, lineTotal: 38000 }] });
+  // báo thanh toán với đơn thực mua
+  const paid = await pos(app, key, 'POST', '/baskets/Q7-MORE23456/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-MORE', amount: 108500, method: 'cash', lines: [{ barcode: sua, qty: 2, lineTotal: 58000 }, { barcode: mi, qty: 1, lineTotal: 12500 }, { barcode: tru, qty: 1, lineTotal: 38000 }] });
+  assert.equal(paid.status, 200);
+  const t2 = (await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.transaction;
+  assert.equal(t2.status, 'paid');
+  assert.equal(t2.posItemCount, 4);
+  assert.equal(t2.cartDiff.added[0].qty, 1);
+  assert.equal(t2.posDraft, null);
+  // sau thanh toán không cập nhật được nữa
+  assert.equal((await up({ lines: [{ barcode: sua, qty: 1, lineTotal: 1 }] })).body.error, 'NOT_UPDATABLE');
+  await app.close();
+});

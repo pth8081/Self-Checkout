@@ -3,6 +3,18 @@
 import { html, useState, useEffect, Header, Icon, QR, Banner, Pill, Spinner, ErrorBox, Loading, go, fmt, toast, useAsync } from '/shared/lib.js';
 import { setBasket, editBasket, finishBasket, syncBasket, refreshSession, loadBill, cachedBill, downloadBillPdf, setBillEmail, loadPublicBill, downloadPublicBillPdf, local, EMAIL_RE } from './store.js';
 
+/** Thông báo khác biệt giữa giỏ khách đã quét và đơn thu ngân tính ở quầy (thêm, bớt, đổi số lượng). */
+function DiffNotice({ diff, title, footer }) {
+  if (!diff || diff.same) return null;
+  const rows = [
+    ...diff.added.map((x) => ({ k: 'a', t: x.name, d: `Thêm ${x.qty}` })),
+    ...diff.removed.map((x) => ({ k: 'r', t: x.name, d: `Bớt ${x.qty}` })),
+    ...diff.changed.map((x) => ({ k: 'c', t: x.name, d: `Số lượng ${x.from} thành ${x.to}` }))];
+  return html`<${Banner} tone="warn" icon="info" title=${title}>
+    <div class="stack" style="gap:4px;margin-top:4px">${rows.map((r, i) => html`<div class="row" key=${i} style="justify-content:space-between;gap:8px"><span>${r.t}</span><b class="num" style="white-space:nowrap">${r.d}</b></div>`)}</div>
+    ${footer && html`<div class="small" style="margin-top:6px">${footer}</div>`}<//>`;
+}
+
 /** Ô nhập email nhận bill. Trước khi thanh toán: lưu để gửi khi POS báo xong. Sau thanh toán: gửi ngay. */
 function EmailBox({ txId, paid, status, masked, initial }) {
   const [v, setV] = useState(initial || '');
@@ -52,10 +64,12 @@ export function Basket({ s, store }) {
       ${paid && html`<div class="stack" style="gap:8px"><button class="btn primary" onClick=${() => go(`/bill/${tx.id}`)}><${Icon} name="receipt"/>Xem bill</button>
         ${tx.invoicePortalUrl && html`<a class="btn" href=${tx.invoicePortalUrl} target="_blank" rel="noopener"><${Icon} name="mail"/>Khai báo hoá đơn điện tử</a>`}
         <button class="btn line" disabled=${!!busy} onClick=${act('pdf', () => downloadBillPdf(tx.id, tx.code))}>${busy === 'pdf' ? html`<${Spinner} sm/>` : html`<${Icon} name="download"/>Tải bill PDF`}</button></div>`}
+      ${!paid && !voided && tx?.posDraft && html`<${DiffNotice} diff=${tx.posDraft.diff} title="Thu ngân đã cập nhật đơn tại quầy" footer=${html`Đơn tại quầy: ${tx.posDraft.itemCount} mặt hàng, tạm tính <span style="font-weight:700">${fmt.money(tx.posDraft.total)}</span>. Số tiền cuối cùng theo máy tính tiền.`}/>`}
       ${!paid && !voided && html`<div class="qrbox"><${QR} text=${b.qr} ecc=${long ? 'L' : 'M'} label="Mã QR giỏ hàng"/><div class="code">${b.ref}</div></div>`}
-      <div class="card flat tight"><div class="row"><div class="grow"><div class="small muted">Tạm tính · ${b.count} mặt hàng</div>
+      <div class="card flat tight"><div class="row"><div class="grow"><div class="small muted">${paid && tx?.posItemCount != null ? 'Thực mua' : 'Tạm tính'} · ${paid && tx?.posItemCount != null ? tx.posItemCount : b.count} mặt hàng</div>
         <b class="num" style="font-size:22px">${fmt.money(tx?.posAmount ?? b.total)}</b></div></div>
         <div class="xs muted">${paid && tx?.refundTotal > 0 ? `Đã hoàn trả ${fmt.money(tx.refundTotal)}. Thực thanh toán ${fmt.money((tx.posAmount ?? b.total) - tx.refundTotal)}` : paid ? 'Số tiền đã thanh toán theo máy tính tiền' : 'Số tiền cuối cùng do máy tính tiền tính theo giá và khuyến mãi tại cửa hàng'}</div></div>
+      ${paid && tx?.cartDiff && html`<${DiffNotice} diff=${tx.cartDiff} title="Đơn ở quầy khác giỏ bạn đã quét" footer="Thu ngân đã điều chỉnh ở quầy. Số tiền và bill theo đơn tại quầy."/>`}
       ${store.emailEnabled && html`<${EmailBox} key=${paid ? 'p' : 'u'} txId=${tx?.id} paid=${paid} status=${tx?.billEmailStatus} masked=${tx?.billEmail} initial=${b.email || local.get('brg.c.email', '')}/>`}
       ${!b.synced && html`<${Banner} tone="brand" icon="info">${navigator.onLine ? 'Đang lưu giỏ lên hệ thống…' : 'Đang mất mạng. Mã QR vẫn dùng được, thu ngân vẫn quét được.'}<//>`}
       ${b.pending > 0 && html`<${Banner} tone="warn" icon="alert">${b.pending} mặt hàng quét lúc mất mạng chưa có giá trong tạm tính. Thu ngân vẫn tính đủ.<//>`}

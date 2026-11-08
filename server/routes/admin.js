@@ -1,7 +1,7 @@
 import { config } from '../config.js';
 import { getSetting, setSetting } from '../db.js';
 import { publicSettings, saveSettings, SECURE_MODES, TLS_MODES, explainMailError } from '../services/mailer.js';
-import { PORTAL_KEY, PORTAL_PLACEHOLDERS } from '../services/bill.js';
+import { PORTAL_KEY, PORTAL_PLACEHOLDERS, cartDiffOf } from '../services/bill.js';
 import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, sqlLocalDate, money, normCode, unauthorized } from '../util.js';
 import { authenticate, sign, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager } from '../auth.js';
 import { verifyTotp, randomSecret, otpauthUri } from '../services/totp.js';
@@ -556,16 +556,6 @@ export default async function adminRoutes(app) {
       const rows = db.prepare(`SELECT * FROM transactions WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 200`).all(...args);
       return { transactions: rows.map((t) => txView(ctx, t)) };
     });
-    // So giỏ khách quét với các dòng POS báo: mặt hàng bớt đi, thêm vào hoặc đổi số lượng ở quầy.
-    const cartDiff = (tx) => {
-      if (!tx.pos_bill_json) return null;
-      const cart = new Map(); for (const i of JSON.parse(tx.items_json)) cart.set(String(i.barcode), { name: i.name, qty: i.qty });
-      const pos = new Map(); for (const l of JSON.parse(tx.pos_bill_json)) if (l.barcode) pos.set(String(l.barcode), { name: l.name, qty: (pos.get(String(l.barcode))?.qty || 0) + l.qty });
-      const removed = [], added = [], changed = [];
-      for (const [bc, c] of cart) { const q = pos.get(bc); if (!q) removed.push({ barcode: bc, name: c.name, qty: c.qty }); else if (q.qty !== c.qty) changed.push({ barcode: bc, name: c.name, from: c.qty, to: q.qty }); }
-      for (const [bc, q] of pos) if (!cart.has(bc)) added.push({ barcode: bc, name: q.name, qty: q.qty });
-      return { removed, added, changed, same: !removed.length && !added.length && !changed.length };
-    };
     s.get('/transactions/:id', async (req) => {
       const tx = txScoped(req);
       const payments = db.prepare('SELECT * FROM payments WHERE transaction_id = ? ORDER BY id').all(tx.id);
@@ -608,7 +598,7 @@ export default async function adminRoutes(app) {
       }
       events.sort((a, b) => a.ts.localeCompare(b.ts));
       return {
-        transaction: txView(ctx, tx, { staff: true }), events, voidReason: tx.void_reason, cartDiff: cartDiff(tx),
+        transaction: txView(ctx, tx, { staff: true }), events, voidReason: tx.void_reason, cartDiff: cartDiffOf(tx),
         refunds: db.prepare('SELECT ref, amount, method, reason, lines_json, created_at FROM refunds WHERE transaction_id = ? ORDER BY id').all(tx.id).map((r) => ({ ref: r.ref, amount: r.amount, method: r.method, reason: r.reason, at: r.created_at, lines: r.lines_json ? JSON.parse(r.lines_json) : [] })),
         payments: payments.map((p) => ({ id: p.id, kind: p.kind, method: p.method, amount: p.amount, cashReceived: p.cash_received, change: p.change_given, by: p.collected_by, at: p.collected_at, voided: !!p.voided_at })),
         checks: checks.map((c) => ({ id: c.id, place: c.place, result: c.result, kind: c.kind, amount: c.amount, note: c.note, action: c.action, by: c.staff_id, at: c.created_at, resolution: c.resolution, resolvedBy: c.resolved_by })),

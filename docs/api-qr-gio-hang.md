@@ -184,6 +184,7 @@ Vì vậy POS chỉ cần gửi **mã hàng, số lượng, thành tiền** từ
 | Lệnh | Dùng để |
 |------|---------|
 | `GET /api/pos/v1/baskets/{mã giỏ}` | Xem trạng thái giỏ (đã thanh toán chưa, đã lưu bill chưa) |
+| `POST /api/pos/v1/baskets/{mã giỏ}/update` | Báo đơn đang tính ở quầy khi thu ngân thêm, bớt hàng (mục 6.1b) |
 | `POST /api/pos/v1/baskets/{mã giỏ}/cancelled` | POS huỷ đơn (mục 6.2, 6.4) |
 | `POST /api/pos/v1/baskets/{mã giỏ}/refund` | Hoàn trả một phần sau thanh toán (mục 6.3) |
 | `GET /api/pos/v1/health` | Kiểm tra khoá API và kết nối |
@@ -228,7 +229,7 @@ curl -X POST "https://scan.hcrc.vn/api/pos/v1/baskets/Q7-LM3K2AB/paid" \
 
 | # | Tình huống | POS làm | Kết quả |
 |---|-----------|---------|---------|
-| 1 | Khách quét 10 mặt hàng nhưng chỉ lấy 8 (chưa thu tiền) | Sửa đơn trên POS, thu tiền theo hàng thực mua, báo **thanh toán** với các dòng thực mua. **Không cần huỷ** | Báo thành công. Bill và doanh thu theo POS |
+| 1 | Khách lấy ít hơn hoặc nhiều hơn số đã quét (ví dụ quét 10 lấy 8, hoặc lấy thêm; chưa thu tiền) | Sửa đơn trên POS, thu tiền theo hàng thực mua, báo **thanh toán** với các dòng thực mua. **Không cần huỷ** | Báo thành công. Bill và doanh thu theo POS |
 | 2 | Khách đổi ý cả đơn (chưa thu tiền) | Huỷ đơn trên POS, gọi lệnh **huỷ** | Điện thoại khách báo "Thu ngân đã huỷ đơn", khách thanh toán lại bằng mã giỏ mới |
 | 3 | Khách trả **một phần** hàng sau khi đã thanh toán | Hoàn tiền phần trả lại trên POS, gọi lệnh **hoàn trả** | Đơn vẫn "đã thanh toán", doanh thu giảm đúng số hoàn, bill hiện phần hoàn trả |
 | 4 | Huỷ hoặc hoàn **toàn bộ** sau khi đã thanh toán | Hoàn toàn bộ trên POS, gọi lệnh **huỷ** (hoặc hoàn trả đủ số tiền đã thu) | Đơn thành "đã huỷ", khoản thu bị trừ khỏi doanh thu |
@@ -257,6 +258,40 @@ Ví dụ: khách quét 6 hộp sữa và 4 gói mì (10 mặt hàng), ở quầy
 - **Quản trị** thấy mục "Khác với giỏ khách quét" trong chi tiết giao dịch (ví dụ sữa 6 thành 5, mì 4 thành 3), để theo dõi khách quét nhiều hơn lấy hoặc thu ngân điều chỉnh ở quầy.
 - Trường hợp khách **lấy thêm** mặt hàng ở quầy cũng tương tự: POS thêm vào đơn và báo đủ các dòng.
 - Nếu POS **không gửi `lines`**, BRG chỉ biết tổng tiền và bill sẽ hiện giỏ khách quét (10 mặt hàng) kèm ghi chú "chưa có bill chính thức". Vì vậy POS **nên luôn gửi `lines`**.
+
+### 6.1b Khách lấy thêm mặt hàng so với mã QR, điện thoại báo thế nào
+
+Khi khách lấy **thêm** (hoặc đổi số lượng) ở quầy, đơn POS nhiều hơn giỏ trong mã QR. POS **không cần làm gì đặc biệt để thu tiền**, nhưng nên báo cho điện thoại khách biết để khách kiểm tra. Có hai thời điểm:
+
+**a) Trước khi thanh toán: lệnh cập nhật đơn đang tính** (không bắt buộc, nên có)
+
+`POST /api/pos/v1/baskets/{mã giỏ}/update`
+
+```json
+{
+  "pointCode": "SP-0107",
+  "posOrderRef": "POS-20261105-000123",
+  "amount": 108500,
+  "lines": [
+    { "barcode": "8936036123456", "qty": 2, "lineTotal": 58000 },
+    { "barcode": "8934567890123", "qty": 1, "lineTotal": 12500 },
+    { "barcode": "8936000000007", "qty": 1, "lineTotal": 38000 }
+  ]
+}
+```
+
+- `lines` là **toàn bộ đơn đang tính trên POS** (không chỉ phần thêm). `amount` là tổng POS đang tính, bỏ trống thì hệ thống cộng các dòng.
+- Gửi **mỗi khi thu ngân thêm, bớt hoặc đổi số lượng**; lần sau thay lần trước. Không thay cho lệnh báo thanh toán và **không khoá giỏ** của khách.
+- Phản hồi: `{ "ok": true, "itemCount": 4, "total": 108500, "differsFromPhone": true }`.
+- **Điện thoại khách tự hiện (vài giây)** thẻ **"Thu ngân đã cập nhật đơn tại quầy"** liệt kê từng mặt hàng: *Thêm 1*, *Bớt 1*, *Số lượng 1 thành 2*, kèm "Đơn tại quầy: 4 mặt hàng, tạm tính 108.500₫. Số tiền cuối cùng theo máy tính tiền".
+- Lỗi: `409 NOT_UPDATABLE` nếu đơn đã thanh toán hoặc giỏ không còn chờ; `400 BAD_LINES`, `BAD_AMOUNT`, `POINT_REQUIRED`; `409 POINT_MISMATCH`.
+
+**b) Sau khi thanh toán: lệnh báo thanh toán** (bắt buộc, như mọi đơn)
+
+POS báo `paid` với **đủ các dòng thực mua** (kể cả mặt hàng thêm). Điện thoại khách:
+- Hiện "Đã hoàn thành thanh toán" với **"Thực mua · 4 mặt hàng"** và số tiền POS thu.
+- Hiện thẻ **"Đơn ở quầy khác giỏ bạn đã quét"** liệt kê mặt hàng thêm, bớt, đổi số lượng.
+- Bill theo đơn POS. Quản trị thấy mục "Khác với giỏ khách quét".
 
 ### 6.2 Khách đổi ý cả đơn, chưa thu tiền
 
@@ -341,6 +376,7 @@ Gọi lệnh `cancelled` như 6.2 (hoặc `refund` đủ số tiền đã thu). 
 - [ ] Ngắt mạng giữa chừng: POS thử lại theo lịch ở mục 5 và cuối cùng báo được.
 - [ ] Số tiền POS tính khác tạm tính vẫn báo được bình thường.
 - [ ] Khách quét nhiều hơn số lấy: POS báo thanh toán với các dòng thực mua, bill hiện đúng hàng thực mua.
+- [ ] Khách lấy thêm ở quầy: POS gọi lệnh cập nhật đơn, điện thoại hiện "Thu ngân đã cập nhật đơn tại quầy"; sau thanh toán hiện "Đơn ở quầy khác giỏ bạn đã quét".
 - [ ] Huỷ đơn trước khi thu: gọi lệnh huỷ, điện thoại khách báo "Thu ngân đã huỷ đơn".
 - [ ] Hoàn trả một phần: gọi lệnh hoàn trả, doanh thu giảm đúng số hoàn, bill hiện "Thực thanh toán"; báo lại cùng `refundRef` không ghi trùng.
 - [ ] Huỷ toàn bộ sau khi thu: đơn thành "đã huỷ" và doanh thu giảm đúng số tiền.
