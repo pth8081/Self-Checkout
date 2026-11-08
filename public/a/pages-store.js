@@ -6,9 +6,9 @@ const sq = (storeId, extra = '') => `storeId=${encodeURIComponent(storeId)}${ext
 
 function TxTable({ list, empty, hideExit }) {
   if (!list.length) return html`<${Empty} icon="receipt" title=${empty || 'Chưa có giao dịch'} text="Giao dịch sẽ hiện ở đây khi khách bắt đầu thanh toán."/>`;
-  return html`<div class="tblwrap"><table class="tbl"><thead><tr><th>Mã giỏ hàng</th><th>Thời gian</th><th class="r">Số mặt hàng</th><th class="r">Tổng tiền</th><th>Hình thức</th><th>Trạng thái</th>${!hideExit && html`<th>Cổng ra</th>`}</tr></thead>
+  return html`<div class="tblwrap"><table class="tbl"><thead><tr><th>Mã giỏ hàng</th><th>Thời gian</th><th class="r">Số mặt hàng</th><th class="r" title="Đã thanh toán: số tiền POS thu. Chưa thanh toán: tạm tính">Tổng tiền</th><th>Hình thức</th><th>Trạng thái</th>${!hideExit && html`<th>Cổng ra</th>`}</tr></thead>
     <tbody>${list.map((t) => html`<tr class="click" key=${t.id} tabindex="0" onClick=${() => go(`/transactions/${t.id}`)} onKeyDown=${(e) => e.key === 'Enter' && go(`/transactions/${t.id}`)}>
-      <td><b>${t.code}</b></td><td>${fmt.when(t.createdAt)}</td><td class="r">${t.itemCount}</td><td class="r">${fmt.money(t.total)}</td><td>${fmt.method(t.method)}</td><td>${txPill(t.status)}</td>
+      <td><b>${t.code}</b></td><td>${fmt.when(t.createdAt)}</td><td class="r">${t.itemCount}</td><td class="r">${fmt.money(t.status === 'paid' && t.posAmount != null ? t.posAmount : t.total)}${t.status !== 'paid' && t.status !== 'cancelled' ? html`<div class="xs muted">tạm tính</div>` : null}</td><td>${fmt.method(t.method)}</td><td>${txPill(t.status)}</td>
       ${!hideExit && html`<td>${t.status === 'paid' || t.exitStatus !== 'none' ? exitPill(t.exitStatus) : html`<span class="muted">–</span>`}</td>`}</tr>`)}</tbody></table></div>`;
 }
 
