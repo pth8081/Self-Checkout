@@ -347,13 +347,11 @@ test('giỏ QR: POS báo thanh toán theo mã giỏ kèm bill thật; báo lại
   assert.equal(early.status, 404);
   assert.equal(early.body.error, 'BASKET_NOT_FOUND');
   const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: code } })).body.transaction;
-  const body = { posOrderRef: 'POS-1', pointCode: 'SP-Q7', amount: tx.total - 2000, method: 'qr_transfer', invoiceNo: 'C26TAA-123', cashier: 'Lan',
-    invoiceUrl: 'https://hddt.example.vn/tra-cuu/abc',
+  const body = { posOrderRef: 'POS-1', pointCode: 'SP-Q7', amount: tx.total - 2000, method: 'qr_transfer', cashier: 'Lan',
     lines: [{ barcode: '1', name: 'Sữa tươi 1L', qty: 1, unitPrice: 29000, discount: 0, lineTotal: 29000 }, { name: 'Mì tôm', qty: 1, unitPrice: 4800, discount: 2000, lineTotal: 2800 }] };
   // dữ liệu sai bị từ chối
   assert.equal((await pos(app, key, 'POST', `/baskets/${code}/paid`, { ...body, lines: [{ name: '', qty: 1 }] })).status, 400);
   assert.equal((await pos(app, key, 'POST', `/baskets/${code}/paid`, { ...body, posOrderRef: undefined })).status, 400);
-  assert.equal((await pos(app, key, 'POST', `/baskets/${code}/paid`, { ...body, invoiceUrl: 'http://x' })).status, 400);
   const ok = await pos(app, key, 'POST', `/baskets/${code}/paid`, body);
   assert.equal(ok.status, 200, JSON.stringify(ok.body));
   assert.equal(ok.body.duplicate, false);
@@ -372,7 +370,7 @@ test('giỏ QR: POS báo thanh toán theo mã giỏ kèm bill thật; báo lại
   const bill = (await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill;
   assert.equal(bill.provisional, false);
   assert.equal(bill.total, tx.total - 2000);
-  assert.equal(bill.invoiceNo, 'C26TAA-123');
+  assert.equal(bill.posOrderRef, 'POS-1');
   assert.equal(bill.lines.length, 2);
   const pdf = await app.inject({ method: 'GET', url: `/api/c/transactions/${tx.id}/bill.pdf`, headers: { 'x-device-id': DEVICE } });
   assert.equal(pdf.statusCode, 200);
@@ -503,7 +501,7 @@ test('email: bill gửi về email khách khi POS báo thanh toán (kèm PDF và
   const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-MAIL2345', email: 'Khach@Example.com' } })).body.transaction;
   assert.equal(tx.billEmail, 'k***@example.com');
   // POS báo thanh toán: gửi lần 1 lỗi (SMTP từ chối)
-  const body = { pointCode: 'SP-Q7', posOrderRef: 'P-MAIL', amount: tx.total, method: 'cash', invoiceNo: 'C26-77' };
+  const body = { pointCode: 'SP-Q7', posOrderRef: 'P-MAIL', amount: tx.total, method: 'cash' };
   assert.equal((await pos(app, key, 'POST', '/baskets/Q7-MAIL2345/paid', body)).status, 200);
   await Promise.all([...app.ctx.bg]);
   assert.equal(fm.sent.length, 0);
@@ -524,7 +522,7 @@ test('email: bill gửi về email khách khi POS báo thanh toán (kèm PDF và
   // link xem bill không cần mã thiết bị; sai chữ ký thì 404
   const pub = await app.inject({ method: 'GET', url: `/api/c/bill/${link[1]}` });
   assert.equal(pub.statusCode, 200);
-  assert.equal(JSON.parse(pub.body).bill.invoiceNo, 'C26-77');
+  assert.equal(JSON.parse(pub.body).bill.posOrderRef, 'P-MAIL');
   assert.equal((await app.inject({ method: 'GET', url: `/api/c/bill/${link[1].slice(0, -2)}xx` })).statusCode, 404);
   const pdf = await app.inject({ method: 'GET', url: `/api/c/bill/${link[1]}/pdf` });
   assert.equal(pdf.statusCode, 200); assert.equal(pdf.rawPayload.subarray(0, 4).toString(), '%PDF');
@@ -622,16 +620,16 @@ test('link khai báo hoá đơn điện tử: quản trị cấu hình, thay ký
   assert.equal((await put({ url: 'http://khong-https.vn' })).status, 400);
   assert.equal((await put({ url: 'javascript:alert(1)' })).status, 400);
   assert.equal((await put({ url: 'https://hd.vn/kb?a={khongco}' })).body.error, 'BAD_PLACEHOLDER');
-  assert.equal((await put({ url: 'https://hoadon.nhacungcap.vn/khai-bao?ma={code}&so={invoiceNo}&tien={amount}&cn={storeCode}&diem={posCode}' })).status, 200);
+  assert.equal((await put({ url: 'https://hoadon.nhacungcap.vn/khai-bao?ma={code}&so={posOrderRef}&tien={amount}&cn={storeCode}&diem={posCode}' })).status, 200);
   const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
   const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
   const id = s.body.session.id;
   await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }] } });
   const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-PORTAL23', email: 'k@example.com' } })).body.transaction;
   assert.equal(tx.invoicePortalUrl, null); // chưa thanh toán thì chưa có
-  await pos(app, key, 'POST', '/baskets/Q7-PORTAL23/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-PORTAL', amount: tx.total, method: 'cash', invoiceNo: 'C26 TAA/1' });
+  await pos(app, key, 'POST', '/baskets/Q7-PORTAL23/paid', { pointCode: 'SP-Q7', posOrderRef: 'P PORTAL/1', amount: tx.total, method: 'cash' });
   await Promise.all([...app.ctx.bg]);
-  const want = `https://hoadon.nhacungcap.vn/khai-bao?ma=Q7-PORTAL23&so=${encodeURIComponent('C26 TAA/1')}&tien=${tx.total}&cn=Q7&diem=SP-Q7`;
+  const want = `https://hoadon.nhacungcap.vn/khai-bao?ma=Q7-PORTAL23&so=${encodeURIComponent('P PORTAL/1')}&tien=${tx.total}&cn=Q7&diem=SP-Q7`;
   const bill = (await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill;
   assert.equal(bill.invoicePortalUrl, want);
   assert.equal((await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.transaction.invoicePortalUrl, want);

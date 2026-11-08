@@ -1,5 +1,7 @@
 # API cho phần mềm POS gọi vào BRG Scan & Checkout
 
+> **Tài liệu cho luồng cũ (POS gọi vào BRG Scan & Checkout để nhận giỏ).** Cách vận hành hiện nay là **giỏ QR cho POS**, xem [api-qr-gio-hang.md](api-qr-gio-hang.md). Ở cách hiện nay lúc thanh toán **không có số hoá đơn điện tử**: khách tự khai báo hoá đơn qua link nhà cung cấp. Các trường `invoiceNo` trong tài liệu này chỉ dành cho luồng cũ.
+
 Tài liệu cho **nhà cung cấp POS**. Phiên bản API: `v1`.
 
 ## 1. Bối cảnh và luồng

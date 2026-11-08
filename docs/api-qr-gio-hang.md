@@ -5,6 +5,12 @@ Tài liệu này gửi cho đơn vị làm phần mềm POS. Có hai việc POS 
 1. **Đọc mã QR** trên điện thoại khách để tạo đơn hàng và tính tiền (mục 2 và 3).
 2. **Gọi API của BRG Scan & Checkout** để báo thanh toán thành công (mục 4 và 5). BRG Scan & Checkout trả lại kết quả cho khách và lưu bill.
 
+## Hoá đơn điện tử: không có lúc thanh toán
+
+**Lúc thanh toán chưa có hoá đơn điện tử và chưa có số hoá đơn.** POS thu tiền xong chỉ báo cho BRG Scan & Checkout: mã hàng, số lượng, thành tiền, tổng tiền và cách thanh toán. POS **không gửi số hoá đơn hay link hoá đơn**.
+
+Hoá đơn điện tử được phát hành **sau đó**, khi khách tự khai báo thông tin xuất hoá đơn ở trang của nhà cung cấp hoá đơn. BRG Scan & Checkout chỉ hiện cho khách nút **Khai báo hoá đơn điện tử** mở link của nhà cung cấp (link do quản trị cấu hình, có thể gắn mã giỏ hoặc mã đơn POS vào link). Nếu nhà cung cấp cho khách khai báo bằng mã bill, mã đó là **mã đơn POS** (`posOrderRef`), nên hãy dùng mã mà khách đọc được trên bill của POS.
+
 ## 1. Quy trình tổng thể
 
 ```mermaid
@@ -15,7 +21,7 @@ sequenceDiagram
     K->>K: Quét mã vạch từng mặt hàng, thấy tạm tính
     K->>K: Bấm Thanh toán, điện thoại hiện mã QR
     K->>P: Thu ngân quét mã QR (mã vạch, số lượng, mã điểm, mã giỏ)
-    P->>P: Tạo đơn, tính giá và khuyến mãi, thu tiền, xuất hoá đơn
+    P->>P: Tạo đơn, tính giá và khuyến mãi, thu tiền
     P->>B: POST /api/pos/v1/baskets/{mã giỏ}/paid (mã đơn POS, số tiền, bill)
     B-->>P: 200 OK (kể cả khi gửi trùng)
     B-->>K: Màn hình khách: "Đã hoàn thành thanh toán", xem bill, tải PDF
@@ -26,7 +32,7 @@ sequenceDiagram
 | 1 | Khách và BRG Scan & Checkout | Khách quét mặt hàng bằng điện thoại. Điện thoại hiện **tạm tính**, chỉ để tham khảo |
 | 2 | BRG Scan & Checkout | Khi khách bấm Thanh toán, tạo **mã giỏ** và mã QR. Mã QR lưu trên điện thoại nên còn khi mất mạng |
 | 3 | POS | Thu ngân quét mã QR. POS đọc, kiểm tra, **tạo đơn** với đúng mặt hàng và số lượng |
-| 4 | POS | Tính giá và khuyến mãi **theo hệ thống của POS**, thu tiền (tiền mặt, QR, thẻ), xuất hoá đơn điện tử |
+| 4 | POS | Tính giá và khuyến mãi **theo hệ thống của POS**, thu tiền (tiền mặt, QR, thẻ). Chưa có hoá đơn điện tử lúc này |
 | 5 | POS | **Báo thanh toán về BRG Scan & Checkout** bằng API ở mục 4. Số tiền trong báo cáo này là số tiền thật |
 | 6 | BRG Scan & Checkout | Ghi nhận, màn hình khách hiện hoàn thành, khách xem và tải bill |
 
@@ -133,8 +139,6 @@ Xác thực: header `Authorization: Bearer <khoá API>` (hoặc `X-Api-Key`). Ch
   "posOrderRef": "POS-20261105-000123",
   "amount": 60800,
   "method": "qr_transfer",
-  "invoiceNo": "C26TAA-123",
-  "invoiceUrl": "https://hddt.example.vn/tra-cuu/abc",
   "cashier": "Lan",
   "terminal": "QUAY-02",
   "lines": [
@@ -151,7 +155,6 @@ Xác thực: header `Authorization: Bearer <khoá API>` (hoặc `X-Api-Key`). Ch
 | `amount` | **Có** | Số tiền thực thu, VND, số nguyên dương |
 | `method` | **Có** | `cash`, `qr_transfer`, `card`, `ewallet` |
 | `lines` | Nên có | Các dòng bill POS với giá và khuyến mãi thật. Có thì khách thấy đúng bill POS. Không có thì khách thấy bản tạm tính, ghi rõ "chưa có bill chính thức" |
-| `invoiceNo`, `invoiceUrl` | Nên có | Số hoá đơn điện tử và đường dẫn tra cứu (https) |
 | `cashier`, `terminal` | Không | Hiện trên bill và báo cáo |
 
 Mỗi dòng của `lines`:
@@ -190,7 +193,7 @@ Dạng `{ "error": "MÃ", "message": "…" }`.
 |------|--------|---------|---------|
 | 400 | `POINT_REQUIRED` | Thiếu `pointCode` | Gửi lại có `pointCode` |
 | 409 | `POINT_MISMATCH` | **Mã điểm không khớp** cửa hàng của giỏ | **Không thử lại, không thanh toán**, báo quản lý |
-| 400 | `BAD_AMOUNT`, `BAD_METHOD`, `BAD_LINES`, `REF_REQUIRED`, `BAD_INVOICE_URL` | Dữ liệu gửi sai | Sửa rồi gửi lại (không tự thử lại) |
+| 400 | `BAD_AMOUNT`, `BAD_METHOD`, `BAD_LINES`, `REF_REQUIRED` | Dữ liệu gửi sai | Sửa rồi gửi lại (không tự thử lại) |
 | 401 | `NO_API_KEY`, `BAD_API_KEY` | Khoá thiếu, sai hoặc bị thu hồi | Không thử lại, báo quản lý |
 | 403 | `STORE_FORBIDDEN` | Khoá không dùng cho chi nhánh này | Không thử lại |
 | 404 | `BASKET_NOT_FOUND` | Chưa thấy giỏ. Điện thoại khách có thể đang mất mạng nên giỏ chưa lên hệ thống | **Thử lại sau** |
@@ -213,13 +216,14 @@ Ví dụ gọi thử:
 ```bash
 curl -X POST "https://scan.hcrc.vn/api/pos/v1/baskets/Q7-LM3K2AB/paid" \
   -H "Authorization: Bearer brgpos_xxxxxxxx" -H "Content-Type: application/json" \
-  -d '{"posOrderRef":"POS-1","pointCode":"SP-0107","amount":60800,"method":"cash","invoiceNo":"C26TAA-123"}'
+  -d '{"posOrderRef":"POS-1","pointCode":"SP-0107","amount":60800,"method":"cash"}'
 ```
 
 ## 6. Bill khách xem
 
 - Khách xem bill ngay trong ứng dụng web và tải bản **PDF**. Bill lưu trên điện thoại để xem lại khi mất mạng; tải PDF cần mạng.
-- Nội dung bill lấy từ `lines`, `invoiceNo`, `invoiceUrl`, `amount` POS gửi. Không in giấy.
+- Nội dung bill lấy từ `lines` và `amount` POS gửi, kèm mã đơn POS. Không in giấy.
+- Bill có nút **Khai báo hoá đơn điện tử** (link nhà cung cấp do quản trị cấu hình).
 
 ## 7. Danh sách kiểm tra khi tích hợp
 

@@ -91,7 +91,7 @@ Khách -> POS: Đưa mã, thu ngân quét trong POS
 POS -> Hệ thống BRG: Nhận giỏ bằng mã giỏ hàng
 Hệ thống BRG --> POS: Danh sách mặt hàng
 POS -> POS: Tạo đơn, thu tiền, phát hành hoá đơn
-POS -> Hệ thống BRG: Báo đã thanh toán, kèm số hoá đơn
+POS -> Hệ thống BRG: Báo đã thanh toán (mã hàng, số lượng, thành tiền, tổng tiền)
 Hệ thống BRG --> Khách: Tự xác nhận, hiện QR ra cổng hoặc cho ra luôn
 == Ra cổng nếu có bảo vệ ==
 Khách -> Cổng ra: Đưa QR biên nhận

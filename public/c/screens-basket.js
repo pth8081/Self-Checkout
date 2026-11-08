@@ -74,7 +74,7 @@ export function Bill({ id, token }) {
   if (!b) return html`<div class="page"><${Header} onBack=${() => history.back()} title="Bill"/><${ErrorBox} error=${error} retry=${reload}/></div>`;
   return html`<div style="display:flex;flex-direction:column;flex:1"><${Header} onBack=${token ? undefined : () => history.back()} title="Bill" sub=${`${fmt.when(b.paidAt)} · ${b.storeName}`}/>
     <div class="page pad-b" style="gap:14px">
-      <div class="row wrap"><${Pill} tone=${b.provisional ? 'warn' : 'ok'}>${b.provisional ? 'Tạm tính' : 'Bill từ máy tính tiền'}<//><${Pill} tone="brand">${b.methodLabel}<//>${b.invoiceNo && html`<${Pill}>HĐ ${b.invoiceNo}<//>`}</div>
+      <div class="row wrap"><${Pill} tone=${b.provisional ? 'warn' : 'ok'}>${b.provisional ? 'Tạm tính' : 'Bill từ máy tính tiền'}<//><${Pill} tone="brand">${b.methodLabel}<//></div>
       ${b.provisional && html`<${Banner} tone="warn" icon="info">Đây là tạm tính của ứng dụng, chưa nhận được bill chính thức từ máy tính tiền. Số tiền thực trả theo hoá đơn của cửa hàng.<//>`}
       <div class="card" style="padding:8px 16px"><div class="list">${b.lines.map((l, i) => html`<div class="item" key=${i}>
         <div class="grow"><div class="name">${l.name}</div><div class="small muted num">${fmt.money(l.unitPrice)} × ${l.qty}${l.discount ? ` · giảm ${fmt.money(l.discount)}` : ''}</div></div>
@@ -84,7 +84,6 @@ export function Bill({ id, token }) {
         <div class="tot"><span>Tổng thanh toán</span><span>${fmt.money(b.total)}</span></div></div></div>
       <div class="small muted">Mã giỏ ${b.code}${b.cashier ? ` · Thu ngân ${b.cashier}` : ''}</div>
       ${b.invoicePortalUrl && html`<a class="btn primary" href=${b.invoicePortalUrl} target="_blank" rel="noopener"><${Icon} name="receipt"/>Khai báo hoá đơn điện tử</a>`}
-      ${b.invoiceUrl && html`<a class="btn line" href=${b.invoiceUrl} target="_blank" rel="noopener"><${Icon} name="mail"/>Tra cứu hoá đơn điện tử</a>`}
     </div>
     <div class="bar-bottom"><div class="in"><button class="btn primary" disabled=${busy} onClick=${async () => { setBusy(true); try { await (token ? downloadPublicBillPdf(token, b.code) : downloadBillPdf(b.id, b.code)); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } }}>${busy ? html`<${Spinner} sm/>` : html`<${Icon} name="download"/>Tải bill PDF`}</button></div></div></div>`;
 }

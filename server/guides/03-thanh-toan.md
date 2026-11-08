@@ -132,11 +132,11 @@ Hệ thống BRG --> POS: Danh sách mặt hàng, thông tin hoá đơn khách �
 POS --> Thu ngân: Đơn đã có đủ mặt hàng
 Khách -> Thu ngân: Trả tiền trên POS bằng QR, tiền mặt hoặc thẻ
 POS -> POS: Xuất hoá đơn điện tử
-POS -> Hệ thống BRG: Báo đã thanh toán, số tiền, cách trả, số hoá đơn
+POS -> Hệ thống BRG: Báo đã thanh toán, số tiền, cách trả
 Hệ thống BRG --> Khách: Tự xác nhận
 ```
 
-**Khách** chỉ có một lựa chọn "Thanh toán tại quầy". Trước khi khoá giỏ khách có thể nhập **email** nhận hoá đơn và, nếu cần, **thông tin hoá đơn công ty** (mã số thuế, tên, địa chỉ), để POS xuất đúng hoá đơn ngay từ đầu.
+**Khách** chỉ có một lựa chọn "Thanh toán tại quầy". Trước khi khoá giỏ khách có thể nhập **email** nhận hoá đơn và, nếu cần, **thông tin hoá đơn công ty** (mã số thuế, tên, địa chỉ), để POS xuất đúng hoá đơn ngay từ đầu. (Cách vận hành hiện nay: khách tự khai báo hoá đơn qua link nhà cung cấp sau khi thanh toán.)
 
 **Thu ngân** quét mã giỏ hàng bằng máy quét của POS. POS nhận mặt hàng từ BRG và tạo đơn, thu ngân không gõ tay. Khi thu xong, POS báo về BRG. Không còn bước thu ngân tick hay bấm xác nhận trong BRG, vì **POS đã biết tiền thu thật hay chưa**.
 
@@ -166,7 +166,7 @@ Hệ thống BRG --> Khách: Tự xác nhận
 - Khách có thể **nhập email** để nhận hoá đơn, hoặc **xin hoá đơn công ty** (mã số thuế, tên, địa chỉ, email). Hoá đơn công ty **thay thế** hoá đơn bán lẻ và **chỉ xuất được trong ngày** phát sinh giao dịch.
 - Nếu nhà cung cấp hoá đơn lỗi, giao dịch **vẫn hoàn tất**, khách vẫn ra cổng. Hoá đơn ở trạng thái **đang chờ**, hệ thống tự thử lại khoảng 2 phút một lần, quản trị có nút **Thử lại hoá đơn treo**.
 
-> **Lưu ý:** Mô tả trên là cho chế độ **tự thu**. Ở chế độ **POS**, hoá đơn do **POS phát hành**; BRG chỉ lưu số hoá đơn POS gửi về để hiện cho khách và không tự xuất. Ở chế độ tự thu, hoá đơn điện tử của BRG hiện chạy bản giả lập; khi nối nhà cung cấp thật cần chốt bên nào xuất để không xuất trùng.
+> **Lưu ý:** Mô tả trên là cho chế độ **tự thu**. Ở chế độ **POS**, hoá đơn **không phát hành lúc thanh toán**; khách tự khai báo qua link nhà cung cấp hoá đơn do quản trị cấu hình. BRG không tự xuất và không lưu số hoá đơn. Ở chế độ tự thu, hoá đơn điện tử của BRG hiện chạy bản giả lập; khi nối nhà cung cấp thật cần chốt bên nào xuất để không xuất trùng.
 
 ## Các trạng thái và nơi xem
 

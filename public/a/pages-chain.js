@@ -289,7 +289,7 @@ function PosSimCard() {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const call = (action) => run(async () => {
     const body = { action, code: f.code.trim() || undefined, ref: f.ref.trim() || undefined, cashier: f.cashier || undefined };
-    if (action === 'paid') Object.assign(body, { amount: Number(f.amount), method: f.method, invoiceNo: f.invoiceNo || undefined });
+    if (action === 'paid') Object.assign(body, { amount: Number(f.amount), method: f.method });
     try {
       const r = await api.post('/dev/pos-simulate', body);
       setRes({ action, ok: true, data: r });
@@ -304,7 +304,6 @@ function PosSimCard() {
       <${Field} label="Mã đơn POS"><div class="row"><input class="input grow" value=${f.ref} onInput=${set('ref')} aria-label="Mã đơn POS"/><button class="btn sm line" type="button" onClick=${() => setF({ ...f, ref: newRef() })}>Mã mới</button></div><//>
       <${Field} label="Số tiền POS (₫)"><input class="input" type="number" min="0" value=${f.amount} onInput=${set('amount')} aria-label="Số tiền POS"/><//>
       <${Field} label="Cách trả"><select class="input" value=${f.method} onChange=${set('method')} aria-label="Cách trả">${SIM_METHODS.map(([k, l]) => html`<option value=${k} key=${k}>${l}</option>`)}</select><//>
-      <${Field} label="Số hoá đơn POS"><input class="input" value=${f.invoiceNo} onInput=${set('invoiceNo')} aria-label="Số hoá đơn POS"/><//>
       <${Field} label="Thu ngân"><input class="input" value=${f.cashier} onInput=${set('cashier')} aria-label="Thu ngân POS"/><//></div>
     <div class="row wrap">${Object.entries(LABEL).map(([k, l]) => html`<button key=${k} class=${`btn sm ${k === 'claim' || k === 'paid' ? 'primary' : 'line'} auto`} disabled=${busy} onClick=${() => call(k)}>${l}</button>`)}</div>
     ${res && html`<div class="stack" id="sim-result"><${Banner} tone=${res.ok ? 'ok' : 'err'} icon=${res.ok ? 'check' : 'alert'} title=${`${LABEL[res.action]}: ${res.ok ? 'thành công' : 'bị từ chối'}`}>${res.ok ? (res.data.duplicate ? 'Đã nhận trước đó (gọi lại cùng mã đơn).' : 'BRG đã xử lý yêu cầu.') : html`<span role="alert">${res.message}${res.data?.error ? ` (${res.data.error})` : ''}</span>`}<//>
@@ -347,7 +346,7 @@ function InvoicePortalCard() {
     try { await api.put('/integrations/invoice-portal', { url }); await st.reload(); }
     catch (x) { setErr(x.message); throw x; }
   }, url ? 'Đã lưu link khai báo hoá đơn' : 'Đã xoá link');
-  const sample = url && Object.keys(d.placeholders).reduce((u, k) => u.split(k).join({ '{code}': 'Q7-ABC123', '{invoiceNo}': 'C26TAA-123', '{amount}': '133500', '{storeCode}': 'Q7', '{posCode}': 'SP-0107' }[k]), url);
+  const sample = url && Object.keys(d.placeholders).reduce((u, k) => u.split(k).join({ '{code}': 'Q7-ABC123', '{posOrderRef}': 'POS-20261108-000123', '{amount}': '133500', '{storeCode}': 'Q7', '{posCode}': 'SP-0107' }[k]), url);
   return html`<div class="card">
     <div class="cardhead"><div class="ico-tile"><${Icon} name="receipt"/></div><div class="grow"><h2>Link khai báo hoá đơn điện tử</h2>
       <div class="small muted">Khách bấm nút "Khai báo hoá đơn điện tử" trên màn hình sau thanh toán, trên bill, trong email và trong bill PDF để mở đúng link này.</div></div>

@@ -10,9 +10,9 @@ access: chain
 
 ## Link khai báo hoá đơn điện tử
 
-Khách khai báo thông tin xuất hoá đơn trên trang của **nhà cung cấp hoá đơn điện tử**, không nhập trong ứng dụng này. Bạn cấu hình link đó một lần ở trang **Tích hợp**, thẻ **Link khai báo hoá đơn điện tử** (chỉ quản trị chuỗi). Từ đó nút **Khai báo hoá đơn điện tử** tự hiện ở: màn hình sau thanh toán, màn bill, đơn trong lịch sử, email bill và bill PDF, và mở đúng link bạn nhập. Để trống link thì nút không hiện.
+Lúc thanh toán **chưa có hoá đơn điện tử và chưa có số hoá đơn**. Khách tự khai báo thông tin xuất hoá đơn trên trang của **nhà cung cấp hoá đơn điện tử**, không nhập trong ứng dụng này. Bạn cấu hình link đó một lần ở trang **Tích hợp**, thẻ **Link khai báo hoá đơn điện tử** (chỉ quản trị chuỗi). Từ đó nút **Khai báo hoá đơn điện tử** tự hiện ở: màn hình sau thanh toán, màn bill, đơn trong lịch sử, email bill và bill PDF, và mở đúng link bạn nhập. Để trống link thì nút không hiện.
 
-Link phải bắt đầu bằng `https://`. Nếu trang nhà cung cấp cần mã tra cứu, chèn các ký hiệu sau, hệ thống thay bằng thông tin của từng giao dịch: `{code}` mã giỏ hàng, `{invoiceNo}` số hoá đơn do POS gửi, `{amount}` tổng tiền, `{storeCode}` mã chi nhánh, `{posCode}` mã điểm. Ví dụ `https://hoadon.nhacungcap.vn/khai-bao?ma={code}&so={invoiceNo}`. Trang hiện ví dụ link thật để bạn bấm thử trước khi lưu.
+Link phải bắt đầu bằng `https://`. Nếu trang nhà cung cấp cần mã tra cứu, chèn các ký hiệu sau, hệ thống thay bằng thông tin của từng giao dịch: `{code}` mã giỏ hàng, `{posOrderRef}` mã đơn (mã bill) trên POS, `{amount}` tổng tiền, `{storeCode}` mã chi nhánh, `{posCode}` mã điểm. Ví dụ `https://hoadon.nhacungcap.vn/khai-bao?ma={code}&so={posOrderRef}`. Trang hiện ví dụ link thật để bạn bấm thử trước khi lưu.
 
 ## Email gửi cho khách
 

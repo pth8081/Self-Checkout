@@ -72,7 +72,7 @@ export function orderStatus(ctx, scope, ref) {
     paidAmount: tx.pos_amount, exitStatus: tx.exit_status, guardCheck: !tx.guard_skipped };
 }
 
-/** Bill thật của POS: danh sách dòng đã tính giá và khuyến mãi, kèm đường dẫn hoá đơn điện tử (không bắt buộc). */
+/** Bill thật của POS: danh sách dòng đã tính giá và khuyến mãi. Lúc thanh toán chưa có hoá đơn điện tử nên không có số hoá đơn. */
 function cleanBill(body, db, tx) {
   let lines = null;
   if (body.lines !== undefined && body.lines !== null) {
@@ -94,12 +94,7 @@ function cleanBill(body, db, tx) {
       return { barcode, name, qty, unitPrice, discount, lineTotal };
     });
   }
-  let invoiceUrl = null;
-  if (body.invoiceUrl) {
-    invoiceUrl = String(body.invoiceUrl).slice(0, 500);
-    if (!/^https:\/\/[^\s]+$/.test(invoiceUrl)) throw bad('BAD_INVOICE_URL', 'invoiceUrl phải là đường dẫn https');
-  }
-  return { lines, invoiceUrl };
+  return { lines };
 }
 
 export function orderPaid(ctx, scope, ref, body = {}) {
@@ -111,9 +106,8 @@ export function orderPaid(ctx, scope, ref, body = {}) {
     exitStatus: db.prepare('SELECT exit_status FROM transactions WHERE id = ?').get(tx.id).exit_status, amountMatches: money(tx.pos_amount) === tx.total });
   if (tx.status === 'paid') {
     // Báo lại: không tạo thêm khoản thu, nhưng nhận bill nếu lần trước chưa gửi.
-    const { lines, invoiceUrl } = cleanBill(body, db, tx);
-    if (lines && !tx.pos_bill_json) db.prepare('UPDATE transactions SET pos_bill_json = ?, pos_invoice_url = COALESCE(?, pos_invoice_url) WHERE id = ?').run(JSON.stringify(lines), invoiceUrl, tx.id);
-    else if (invoiceUrl && !tx.pos_invoice_url) db.prepare('UPDATE transactions SET pos_invoice_url = ? WHERE id = ?').run(invoiceUrl, tx.id);
+    const { lines } = cleanBill(body, db, tx);
+    if (lines && !tx.pos_bill_json) db.prepare('UPDATE transactions SET pos_bill_json = ? WHERE id = ?').run(JSON.stringify(lines), tx.id);
     return result(true);
   }
   if (tx.status === 'cancelled' || tx.status === 'voided') throw conflict('ORDER_CANCELLED', 'Đơn này đã bị huỷ');
@@ -122,7 +116,7 @@ export function orderPaid(ctx, scope, ref, body = {}) {
   if (!Number.isInteger(amount) || amount <= 0) throw bad('BAD_AMOUNT', 'amount là số nguyên dương, đơn vị đồng');
   if (!POS_METHODS.includes(body.method)) throw bad('BAD_METHOD', `method phải là một trong: ${POS_METHODS.join(', ')}`);
   const invoiceNo = body.invoiceNo ? String(body.invoiceNo).slice(0, 64) : null;
-  const { lines, invoiceUrl } = cleanBill(body, db, tx);
+  const { lines } = cleanBill(body, db, tx);
   const cashier = body.cashier ? String(body.cashier).slice(0, 40) : tx.pos_cashier;
   const ts = nowIso();
   const differs = amount !== tx.total;
@@ -132,7 +126,7 @@ export function orderPaid(ctx, scope, ref, body = {}) {
       VALUES(?,?,'main',?,?,?,?,'pos',?,?)`).run(tx.id, tx.store_id, body.method, amount, `POS:${cashier || scope.name}`, ts, ref,
       JSON.stringify({ paidAt: body.paidAt || null, terminal: body.terminal || tx.pos_terminal || null, note: body.note || null }));
     db.prepare(`UPDATE transactions SET status='paid', method=?, paid_at=?, receipt_expires_at=?, extra_due=0, pos_status='paid', pos_amount=?,
-      pos_invoice_no=?, pos_cashier=?, pos_bill_json=?, pos_invoice_url=? WHERE id=?`).run(body.method, ts, exp, amount, invoiceNo, cashier || null, lines ? JSON.stringify(lines) : null, invoiceUrl, tx.id);
+      pos_invoice_no=?, pos_cashier=?, pos_bill_json=? WHERE id=?`).run(body.method, ts, exp, amount, invoiceNo, cashier || null, lines ? JSON.stringify(lines) : null, tx.id);
     db.prepare(`UPDATE scan_sessions SET status='paid', ended_at=? WHERE id=?`).run(ts, tx.session_id);
     if (invoiceNo) {
       const buyer = tx.buyer_json ? JSON.parse(tx.buyer_json) : {};

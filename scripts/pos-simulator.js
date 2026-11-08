@@ -10,7 +10,7 @@
 // Giỏ QR (cách dùng hiện nay): POS báo theo mã giỏ có trong mã QR của khách.
 //   basket-status <mã giỏ>
 //   basket-paid <mã giỏ> --point <mã điểm> --ref <mã đơn POS> --amount 112800 --method cash|qr_transfer|card|ewallet
-//                         [--invoice HD0001] [--invoice-url https://...] [--cashier thu01] [--terminal Q1]
+//                         [--cashier thu01] [--terminal Q1]
 //   basket-cancelled <mã giỏ> --point <mã điểm> --ref <mã đơn POS> [--reason "Khách đổi ý"]
 // Biến môi trường thay cho tham số: BASE, KEY.
 const argv = process.argv.slice(2);
@@ -29,7 +29,7 @@ const routes = {
   paid: () => ['POST', `/orders/${encodeURIComponent(arg)}/paid`, { amount: Number(opt('amount')), method: opt('method', 'cash'), invoiceNo: opt('invoice'), cashier: opt('cashier') }],
   cancelled: () => ['POST', `/orders/${encodeURIComponent(arg)}/cancelled`, { reason: opt('reason') }],
   'basket-status': () => ['GET', `/baskets/${encodeURIComponent(arg)}`],
-  'basket-paid': () => ['POST', `/baskets/${encodeURIComponent(arg)}/paid`, { pointCode: opt('point'), posOrderRef: opt('ref'), amount: Number(opt('amount')), method: opt('method', 'cash'), invoiceNo: opt('invoice'), invoiceUrl: opt('invoice-url'), cashier: opt('cashier'), terminal: opt('terminal') }],
+  'basket-paid': () => ['POST', `/baskets/${encodeURIComponent(arg)}/paid`, { pointCode: opt('point'), posOrderRef: opt('ref'), amount: Number(opt('amount')), method: opt('method', 'cash'), cashier: opt('cashier'), terminal: opt('terminal') }],
   'basket-cancelled': () => ['POST', `/baskets/${encodeURIComponent(arg)}/cancelled`, { pointCode: opt('point'), posOrderRef: opt('ref'), reason: opt('reason') }]
 };
 if (!routes[cmd]) { console.error(`Lệnh không có: ${cmd}`); process.exit(2); }
