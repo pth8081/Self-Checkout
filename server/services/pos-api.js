@@ -73,13 +73,19 @@ export function orderStatus(ctx, scope, ref) {
 }
 
 /** Bill thật của POS: danh sách dòng đã tính giá và khuyến mãi. Lúc thanh toán chưa có hoá đơn điện tử nên không có số hoá đơn. */
+/** Tên mặt hàng theo mã hàng: ưu tiên giỏ khách, rồi bảng sản phẩm, không có thì dùng chính mã hàng. */
+function lineNamer(db, tx) {
+  const names = new Map(JSON.parse(tx.items_json).map((it) => [String(it.barcode), it.name]));
+  const cached = db.prepare('SELECT name FROM product_cache WHERE store_id = ? AND barcode = ?');
+  return (barcode) => names.get(barcode) || cached.get(tx.store_id, barcode)?.name || barcode;
+}
+
 function cleanBill(body, db, tx) {
   let lines = null;
   if (body.lines !== undefined && body.lines !== null) {
     if (!Array.isArray(body.lines) || !body.lines.length || body.lines.length > 300) throw bad('BAD_LINES', 'lines là danh sách 1 đến 300 dòng');
     // Mỗi dòng bắt buộc: mã hàng (barcode) hoặc tên, số lượng, thành tiền. Tên và đơn giá bỏ trống thì hệ thống tự điền.
-    const names = new Map(JSON.parse(tx.items_json).map((it) => [String(it.barcode), it.name]));
-    const cached = db.prepare('SELECT name FROM product_cache WHERE store_id = ? AND barcode = ?');
+    const nameOf = lineNamer(db, tx);
     lines = body.lines.map((l, i) => {
       const barcode = l?.barcode ? String(l.barcode).trim().slice(0, 32) : null;
       let name = String(l?.name || '').trim().slice(0, 200);
@@ -89,7 +95,7 @@ function cleanBill(body, db, tx) {
         || (l?.unitPrice !== undefined && l?.unitPrice !== null && !(Number.isInteger(Number(l.unitPrice)) && Number(l.unitPrice) >= 0))) {
         throw bad('BAD_LINES', `Dòng ${i + 1} không hợp lệ: cần barcode (mã hàng) hoặc name, qty > 0, lineTotal (số nguyên đồng); unitPrice và discount nếu có phải là số nguyên đồng`);
       }
-      if (!name) name = names.get(barcode) || cached.get(tx.store_id, barcode)?.name || barcode;
+      if (!name) name = nameOf(barcode);
       const unitPrice = l?.unitPrice !== undefined && l?.unitPrice !== null ? Number(l.unitPrice) : Math.round((lineTotal + discount) / qty);
       return { barcode, name, qty, unitPrice, discount, lineTotal };
     });
@@ -232,4 +238,56 @@ export function basketStatus(ctx, scope, code) {
   if (!tx) throw notFound('BASKET_NOT_FOUND', 'Chưa thấy giỏ này');
   inScope(scope, tx);
   return { code: tx.cart_code, transactionId: tx.id, status: tx.status, posOrderRef: tx.pos_order_ref, total: tx.total, paidAmount: tx.pos_amount, billStored: !!tx.pos_bill_json };
+}
+
+/**
+ * Hoàn trả một phần sau khi đã thanh toán (khách trả lại một số mặt hàng). Đơn vẫn "đã thanh toán"; khoản hoàn ghi thành
+ * dòng thu âm nên doanh thu giảm đúng số tiền. Hoàn hết số tiền đã thu thì đơn thành "đã huỷ".
+ * `refundRef` là mã lần hoàn trên POS: báo lại cùng mã thì không ghi trùng.
+ */
+export function basketRefund(ctx, scope, code, body = {}) {
+  const { db } = ctx;
+  const ref = basketByCode(ctx, scope, code, body);
+  const tx = byRef(db, ref);
+  if (tx.status === 'voided') throw conflict('ORDER_CANCELLED', 'Đơn này đã bị huỷ');
+  if (tx.status !== 'paid') throw conflict('NOT_REFUNDABLE', 'Chỉ hoàn trả được đơn đã thanh toán. Đơn chưa thu tiền thì dùng lệnh huỷ');
+  const refundRef = String(body.refundRef || '').trim().slice(0, 64);
+  if (!refundRef) throw bad('REFUND_REF_REQUIRED', 'refundRef (mã lần hoàn trên POS) là bắt buộc');
+  const amount = body.amount;
+  if (!Number.isInteger(amount) || amount <= 0) throw bad('BAD_AMOUNT', 'amount là số tiền hoàn, số nguyên dương, đơn vị đồng');
+  if (body.method !== undefined && !POS_METHODS.includes(body.method)) throw bad('BAD_METHOD', `method phải là một trong: ${POS_METHODS.join(', ')}`);
+  const reason = String(body.reason || 'Khách trả hàng').trim().slice(0, 200);
+  const nameOf = lineNamer(db, tx);
+  let lines = null;
+  if (body.lines !== undefined && body.lines !== null) {
+    if (!Array.isArray(body.lines) || !body.lines.length || body.lines.length > 300) throw bad('BAD_LINES', 'lines là danh sách 1 đến 300 dòng');
+    lines = body.lines.map((l, i) => {
+      const barcode = l?.barcode ? String(l.barcode).trim().slice(0, 32) : null;
+      const name = String(l?.name || '').trim().slice(0, 200) || (barcode ? nameOf(barcode) : '');
+      const qty = Number(l?.qty), amt = Number(l?.amount);
+      if (!name || !(qty > 0 && qty < 100000) || !(Number.isInteger(amt) && amt >= 0)) throw bad('BAD_LINES', `Dòng hoàn ${i + 1} không hợp lệ: cần barcode (mã hàng), qty > 0, amount (tiền hoàn của dòng, số nguyên đồng)`);
+      return { barcode, name, qty, amount: amt };
+    });
+  }
+  const done = db.prepare('SELECT * FROM refunds WHERE transaction_id = ? AND ref = ?').get(tx.id, refundRef);
+  const sum = () => db.prepare('SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE transaction_id = ?').get(tx.id).s;
+  const view = (dup) => { const refunded = sum(); return { ok: true, duplicate: dup, transactionId: tx.id, refunded, remaining: (tx.pos_amount ?? tx.total) - refunded, status: db.prepare('SELECT status FROM transactions WHERE id = ?').get(tx.id).status }; };
+  if (done) {
+    if (done.amount !== amount) throw conflict('REFUND_REF_IN_USE', 'Mã lần hoàn này đã dùng với số tiền khác', { amount: done.amount });
+    return view(true);
+  }
+  const paidAmount = tx.pos_amount ?? tx.total;
+  if (amount > paidAmount - sum()) throw conflict('REFUND_TOO_LARGE', `Số tiền hoàn vượt số còn lại có thể hoàn (${(paidAmount - sum()).toLocaleString('vi-VN')}₫)`, { remaining: paidAmount - sum() });
+  const ts = nowIso();
+  db.transaction(() => {
+    db.prepare('INSERT INTO refunds(transaction_id,ref,amount,method,reason,lines_json,created_at) VALUES(?,?,?,?,?,?,?)').run(tx.id, refundRef, amount, body.method || 'cash', reason, lines ? JSON.stringify(lines) : null, ts);
+    db.prepare(`INSERT INTO payments(transaction_id,store_id,kind,method,amount,collected_by,collected_at,provider,provider_ref,confirmations)
+      VALUES(?,?,'refund',?,?,?,?,'pos',?,?)`).run(tx.id, tx.store_id, body.method || 'cash', -amount, `POS:${scope.name}`, ts, refundRef, JSON.stringify({ reason }));
+    audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `POS:${scope.name}`, action: 'payment.refunded', entity: 'transaction', entityId: tx.id, data: { amount, refundRef, reason, lines: lines?.length || 0 } });
+    if (sum() >= paidAmount) {
+      db.prepare(`UPDATE transactions SET status='voided', pos_status='cancelled', void_reason=?, voided_at=?, voided_by=? WHERE id=?`).run(`POS hoàn toàn bộ: ${reason}`, ts, `POS:${scope.name}`, tx.id);
+      audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `POS:${scope.name}`, action: 'transaction.voided', entity: 'transaction', entityId: tx.id, data: { reason, source: 'pos', fullRefund: true } });
+    }
+  })();
+  return view(false);
 }

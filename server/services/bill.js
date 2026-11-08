@@ -26,11 +26,13 @@ export function billOf(ctx, tx) {
   const items = posLines || JSON.parse(tx.items_json).map((i) => ({ barcode: i.barcode, name: i.name, qty: i.qty, unitPrice: i.price, discount: i.discount || 0, lineTotal: i.price * i.qty - (i.discount || 0) }));
   const total = tx.pos_amount ?? tx.total;
   // POS có thể giảm ở cấp hoá đơn (voucher, làm tròn...) nên tổng tiền khác tổng các dòng: hiện phần chênh để bill cộng đúng.
+  const refunds = db.prepare('SELECT * FROM refunds WHERE transaction_id = ? ORDER BY id').all(tx.id).map((r) => ({ amount: r.amount, reason: r.reason, at: r.created_at, lines: r.lines_json ? JSON.parse(r.lines_json) : [] }));
+  const refundTotal = refunds.reduce((a, r) => a + r.amount, 0);
   const adjustment = posLines ? total - items.reduce((a, l) => a + l.lineTotal, 0) : 0;
   return {
     id: tx.id, code: tx.cart_code, storeName: store?.name || tx.store_id, storeAddress: store?.address || '',
     paidAt: tx.paid_at, method: tx.method, methodLabel: METHOD[tx.method] || tx.method, cashier: tx.pos_cashier || null,
-    lines: items, discount: items.reduce((a, l) => a + (l.discount || 0), 0), adjustment, total,
+    refunds, refundTotal, netTotal: total - refundTotal, lines: items, discount: items.reduce((a, l) => a + (l.discount || 0), 0), adjustment, total,
     posOrderRef: tx.pos_order_ref || null, invoicePortalUrl: portalUrl(db, tx),
     provisional: !posLines // true: chưa có bill thật từ POS, đây là tạm tính của BRG
   };
@@ -42,7 +44,7 @@ const when = (iso) => (iso ? new Date(iso).toLocaleString('vi-VN', { timeZone: '
 /** Vẽ bill thành PDF khổ hẹp (như phiếu in), trả về Buffer. */
 export function billPdf(b) {
   const W = 300, M = 18;
-  const height = 250 + b.lines.length * 34 + (b.invoicePortalUrl ? 40 : 0) + (b.provisional ? 30 : 0);
+  const height = 250 + b.lines.length * 34 + (b.refundTotal ? 70 + b.refunds.reduce((a, r) => a + Math.max(1, r.lines.length), 0) * 24 : 0) + (b.invoicePortalUrl ? 40 : 0) + (b.provisional ? 30 : 0);
   const doc = new PDFDocument({ size: [W, height], margin: M, info: { Title: `Bill ${b.code}`, Author: 'BRG Scan & Checkout' } });
   doc.registerFont('r', font('DejaVuSans.ttf')); doc.registerFont('b', font('DejaVuSans-Bold.ttf'));
   const chunks = [];
@@ -69,6 +71,11 @@ export function billPdf(b) {
   if (b.discount) { row('Khuyến mãi', `−${vnd(b.discount)}`); doc.moveDown(0.3); }
   if (b.adjustment) { row('Điều chỉnh theo hoá đơn', `${b.adjustment < 0 ? '−' : '+'}${vnd(Math.abs(b.adjustment))}`); doc.moveDown(0.3); }
   doc.fontSize(11); row('Tổng thanh toán', vnd(b.total), true);
+  if (b.refundTotal) {
+    doc.moveDown(0.5); doc.fontSize(9).font('b').text('Đã hoàn trả', M, doc.y);
+    for (const r of b.refunds) for (const l of (r.lines.length ? r.lines : [{ name: r.reason || 'Hoàn trả', qty: '', amount: r.amount }])) { doc.fontSize(8.5).font('r').fillColor('#555'); row(`${l.name}${l.qty ? ` × ${l.qty}` : ''}`, `−${vnd(l.amount)}`); doc.fillColor('#000'); doc.moveDown(0.3); }
+    doc.fontSize(11); row('Thực thanh toán', vnd(b.netTotal), true);
+  }
   doc.moveDown(0.8);
   if (b.invoicePortalUrl) { doc.fontSize(7.5).font('b').fillColor('#000').text('Khai báo hoá đơn điện tử:', M, doc.y, { width: inner }); doc.font('r').fillColor('#1c5fa8').text(b.invoicePortalUrl, M, doc.y, { width: inner, link: b.invoicePortalUrl }); doc.fillColor('#000'); doc.moveDown(0.4); }
   if (b.provisional) doc.fontSize(7.5).font('r').fillColor('#9a5b00').text('Đây là tạm tính của ứng dụng, chưa có bill chính thức từ máy tính tiền. Số tiền thực trả theo hoá đơn của cửa hàng.', M, doc.y, { width: inner }).fillColor('#000');

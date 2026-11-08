@@ -212,6 +212,7 @@ export function txView(ctx, tx, { staff = false } = {}) {
     posClaimedAt: tx.pos_claimed_at, posCashier: tx.pos_cashier, posTerminal: tx.pos_terminal,
     buyer: tx.buyer_json ? JSON.parse(tx.buyer_json) : null,
     invoicePortalUrl: tx.status === 'paid' ? portalUrl(db, tx) : null,
+    refundTotal: tx.status === 'paid' ? db.prepare('SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE transaction_id = ?').get(tx.id).s : 0,
     billEmail: maskEmail(tx.bill_email), billEmailStatus: tx.bill_email_status || null,
     bill: tx.status === 'paid' ? { source: tx.pos_bill_json ? 'pos' : 'brg', total: tx.pos_amount ?? tx.total } : null,
     // Chi nhánh không có bảo vệ: khách ra thẳng, không có mã QR ra cổng.

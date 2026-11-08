@@ -88,6 +88,11 @@ CREATE INDEX IF NOT EXISTS idx_tx_store_status ON transactions(store_id, status)
 CREATE INDEX IF NOT EXISTS idx_tx_store_code ON transactions(store_id, cart_code);
 CREATE INDEX IF NOT EXISTS idx_tx_device ON transactions(device_id);
 CREATE INDEX IF NOT EXISTS idx_tx_session ON transactions(session_id);
+-- Hoàn trả một phần sau thanh toán (POS báo). Mỗi lần hoàn có mã riêng để báo lại không bị ghi trùng.
+CREATE TABLE IF NOT EXISTS refunds (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, transaction_id TEXT NOT NULL, ref TEXT NOT NULL, amount INTEGER NOT NULL,
+  method TEXT NOT NULL, reason TEXT, lines_json TEXT, created_at TEXT NOT NULL, UNIQUE (transaction_id, ref)
+);
 CREATE TABLE IF NOT EXISTS payments (
   id INTEGER PRIMARY KEY AUTOINCREMENT, transaction_id TEXT NOT NULL REFERENCES transactions(id),
   store_id TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'main', method TEXT NOT NULL, amount INTEGER NOT NULL,

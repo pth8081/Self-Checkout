@@ -556,6 +556,16 @@ export default async function adminRoutes(app) {
       const rows = db.prepare(`SELECT * FROM transactions WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 200`).all(...args);
       return { transactions: rows.map((t) => txView(ctx, t)) };
     });
+    // So giỏ khách quét với các dòng POS báo: mặt hàng bớt đi, thêm vào hoặc đổi số lượng ở quầy.
+    const cartDiff = (tx) => {
+      if (!tx.pos_bill_json) return null;
+      const cart = new Map(); for (const i of JSON.parse(tx.items_json)) cart.set(String(i.barcode), { name: i.name, qty: i.qty });
+      const pos = new Map(); for (const l of JSON.parse(tx.pos_bill_json)) if (l.barcode) pos.set(String(l.barcode), { name: l.name, qty: (pos.get(String(l.barcode))?.qty || 0) + l.qty });
+      const removed = [], added = [], changed = [];
+      for (const [bc, c] of cart) { const q = pos.get(bc); if (!q) removed.push({ barcode: bc, name: c.name, qty: c.qty }); else if (q.qty !== c.qty) changed.push({ barcode: bc, name: c.name, from: c.qty, to: q.qty }); }
+      for (const [bc, q] of pos) if (!cart.has(bc)) added.push({ barcode: bc, name: q.name, qty: q.qty });
+      return { removed, added, changed, same: !removed.length && !added.length && !changed.length };
+    };
     s.get('/transactions/:id', async (req) => {
       const tx = txScoped(req);
       const payments = db.prepare('SELECT * FROM payments WHERE transaction_id = ? ORDER BY id').all(tx.id);
@@ -577,6 +587,7 @@ export default async function adminRoutes(app) {
           'payment.collected': ['ok', d.source === 'pos'
             ? `${who} báo đã thanh toán ${d.amount?.toLocaleString('vi-VN')}₫ (${({ cash: 'tiền mặt', qr_transfer: 'chuyển khoản', card: 'thẻ', ewallet: 'ví điện tử' })[d.method] || 'cách khác'})${d.invoiceNo ? `, hoá đơn ${d.invoiceNo}` : ''}`
             : `${who} thu ${d.method === 'cash' ? `tiền mặt${d.cashReceived ? `, khách đưa ${d.cashReceived.toLocaleString('vi-VN')}₫, thối ${d.change?.toLocaleString('vi-VN')}₫` : ''}` : 'chuyển khoản (đã đối chiếu)'}`],
+          'payment.refunded': ['warn', `${who} hoàn trả ${d.amount?.toLocaleString('vi-VN')}₫${d.reason ? `: ${d.reason}` : ''}`],
           'pos.paid_after_cancel': ['warn', `POS báo đã thu ${d.amount?.toLocaleString('vi-VN')}₫ sau khi khách sửa giỏ (giỏ cũ đã bị khách huỷ trên điện thoại)`],
           'pos.claimed': ['info', `${who} nhận giỏ vào đơn POS ${d.posOrderRef}${d.cashier ? `, thu ngân ${d.cashier}` : ''}`],
           'pos.amount_differs': ['warn', `Số tiền POS ${d.posAmount?.toLocaleString('vi-VN')}₫ khác tạm tính ${d.brgTotal?.toLocaleString('vi-VN')}₫`],
@@ -597,7 +608,8 @@ export default async function adminRoutes(app) {
       }
       events.sort((a, b) => a.ts.localeCompare(b.ts));
       return {
-        transaction: txView(ctx, tx, { staff: true }), events, voidReason: tx.void_reason,
+        transaction: txView(ctx, tx, { staff: true }), events, voidReason: tx.void_reason, cartDiff: cartDiff(tx),
+        refunds: db.prepare('SELECT ref, amount, method, reason, lines_json, created_at FROM refunds WHERE transaction_id = ? ORDER BY id').all(tx.id).map((r) => ({ ref: r.ref, amount: r.amount, method: r.method, reason: r.reason, at: r.created_at, lines: r.lines_json ? JSON.parse(r.lines_json) : [] })),
         payments: payments.map((p) => ({ id: p.id, kind: p.kind, method: p.method, amount: p.amount, cashReceived: p.cash_received, change: p.change_given, by: p.collected_by, at: p.collected_at, voided: !!p.voided_at })),
         checks: checks.map((c) => ({ id: c.id, place: c.place, result: c.result, kind: c.kind, amount: c.amount, note: c.note, action: c.action, by: c.staff_id, at: c.created_at, resolution: c.resolution, resolvedBy: c.resolved_by })),
         invoices

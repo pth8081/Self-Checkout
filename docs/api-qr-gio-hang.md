@@ -184,7 +184,8 @@ Vì vậy POS chỉ cần gửi **mã hàng, số lượng, thành tiền** từ
 | Lệnh | Dùng để |
 |------|---------|
 | `GET /api/pos/v1/baskets/{mã giỏ}` | Xem trạng thái giỏ (đã thanh toán chưa, đã lưu bill chưa) |
-| `POST /api/pos/v1/baskets/{mã giỏ}/cancelled` | POS huỷ đơn. Body: `{ "posOrderRef": "...", "reason": "..." }` |
+| `POST /api/pos/v1/baskets/{mã giỏ}/cancelled` | POS huỷ đơn (mục 6.2, 6.4) |
+| `POST /api/pos/v1/baskets/{mã giỏ}/refund` | Hoàn trả một phần sau thanh toán (mục 6.3) |
 | `GET /api/pos/v1/health` | Kiểm tra khoá API và kết nối |
 
 ### Lỗi
@@ -221,9 +222,43 @@ curl -X POST "https://scan.hcrc.vn/api/pos/v1/baskets/Q7-LM3K2AB/paid" \
   -d '{"posOrderRef":"POS-1","pointCode":"SP-0107","amount":60800,"method":"cash"}'
 ```
 
-## 6. Huỷ đơn
+## 6. Khách thay đổi: lấy ít hơn, đổi ý, trả hàng, huỷ
 
-POS **bắt buộc báo huỷ** mỗi khi đơn đã quét mã QR mà không thu tiền, hoặc đã thu rồi huỷ (hoàn tiền, trả hàng). Nhờ vậy điện thoại khách và báo cáo luôn khớp với POS.
+**Nguyên tắc: đơn trên POS là bản đúng.** BRG Scan & Checkout chỉ ghi lại theo POS. POS chỉ cần báo kết quả thực tế, không cần báo "khách đã bớt gì". Bảng dưới là bốn tình huống thường gặp và việc POS cần làm.
+
+| # | Tình huống | POS làm | Kết quả |
+|---|-----------|---------|---------|
+| 1 | Khách quét 10 mặt hàng nhưng chỉ lấy 8 (chưa thu tiền) | Sửa đơn trên POS, thu tiền theo hàng thực mua, báo **thanh toán** với các dòng thực mua. **Không cần huỷ** | Báo thành công. Bill và doanh thu theo POS |
+| 2 | Khách đổi ý cả đơn (chưa thu tiền) | Huỷ đơn trên POS, gọi lệnh **huỷ** | Điện thoại khách báo "Thu ngân đã huỷ đơn", khách thanh toán lại bằng mã giỏ mới |
+| 3 | Khách trả **một phần** hàng sau khi đã thanh toán | Hoàn tiền phần trả lại trên POS, gọi lệnh **hoàn trả** | Đơn vẫn "đã thanh toán", doanh thu giảm đúng số hoàn, bill hiện phần hoàn trả |
+| 4 | Huỷ hoặc hoàn **toàn bộ** sau khi đã thanh toán | Hoàn toàn bộ trên POS, gọi lệnh **huỷ** (hoặc hoàn trả đủ số tiền đã thu) | Đơn thành "đã huỷ", khoản thu bị trừ khỏi doanh thu |
+
+### 6.1 Khách quét 10 mặt hàng, chỉ lấy 8 (chưa thanh toán)
+
+Đây **không phải huỷ**. Thu ngân bỏ các mặt hàng khách không lấy khỏi đơn trên POS, thu tiền theo hàng thực mua, rồi báo thanh toán như bình thường. Chỉ cần `lines` và `amount` phản ánh **hàng thực mua**:
+
+Ví dụ: khách quét 6 hộp sữa và 4 gói mì (10 mặt hàng), ở quầy chỉ lấy 5 hộp sữa và 3 gói mì (8 mặt hàng):
+
+```json
+{
+  "pointCode": "SP-0107",
+  "posOrderRef": "POS-20261105-000123",
+  "amount": 100000,
+  "method": "cash",
+  "lines": [
+    { "barcode": "8936036123456", "qty": 5, "lineTotal": 70000 },
+    { "barcode": "8934567890123", "qty": 3, "lineTotal": 30000 }
+  ]
+}
+```
+
+- BRG trả `200`, `status: "paid"`. Không có lỗi vì số lượng ít hơn giỏ khách.
+- **Bill** của khách hiện đúng 8 mặt hàng POS gửi. **Doanh thu** là số POS thu.
+- **Quản trị** thấy mục "Khác với giỏ khách quét" trong chi tiết giao dịch (ví dụ sữa 6 thành 5, mì 4 thành 3), để theo dõi khách quét nhiều hơn lấy hoặc thu ngân điều chỉnh ở quầy.
+- Trường hợp khách **lấy thêm** mặt hàng ở quầy cũng tương tự: POS thêm vào đơn và báo đủ các dòng.
+- Nếu POS **không gửi `lines`**, BRG chỉ biết tổng tiền và bill sẽ hiện giỏ khách quét (10 mặt hàng) kèm ghi chú "chưa có bill chính thức". Vì vậy POS **nên luôn gửi `lines`**.
+
+### 6.2 Khách đổi ý cả đơn, chưa thu tiền
 
 `POST /api/pos/v1/baskets/{mã giỏ}/cancelled`
 
@@ -231,18 +266,63 @@ POS **bắt buộc báo huỷ** mỗi khi đơn đã quét mã QR mà không thu
 { "pointCode": "SP-0107", "posOrderRef": "POS-20261105-000123", "reason": "Khách đổi ý" }
 ```
 
-| Tình huống | POS làm | BRG Scan & Checkout xử lý |
-|------------|---------|---------------------------|
-| **Khách đổi ý ở quầy, chưa thu tiền** (POS đã tạo đơn từ mã QR) | Huỷ đơn trên POS, rồi gọi lệnh huỷ | Giỏ về trạng thái đang quét. Điện thoại khách báo "Thu ngân đã huỷ đơn", khách sửa giỏ rồi thanh toán lại bằng mã giỏ mới |
-| **Huỷ hoặc hoàn tiền sau khi đã thu** | Gọi lệnh huỷ sau khi huỷ trên POS | Đơn chuyển sang "đã huỷ", khoản thu bị trừ khỏi doanh thu. Điện thoại khách báo "Đơn này đã được huỷ", bill không còn xem được |
-| **Khách bấm "Sửa giỏ hàng" trên điện thoại** trong lúc POS đang xử lý mã QR cũ | Không cần làm gì thêm. Nếu POS vẫn thu tiền thì báo thanh toán như bình thường | Vẫn ghi nhận khoản thu (tiền đã thu là thật) và ghi vào nhật ký. Giỏ mới của khách không bị ảnh hưởng |
-| **POS huỷ đơn mà điện thoại khách chưa gửi giỏ lên** (đang mất mạng) | Gọi lệnh huỷ | Trả `200` với `"status": "unknown"`, nghĩa là chưa có gì để huỷ. POS không cần thử lại |
+Giỏ về trạng thái đang quét. Điện thoại khách báo "Thu ngân đã huỷ đơn", giỏ còn nguyên để khách sửa, rồi thanh toán lại bằng mã giỏ mới. Gửi lệnh nhiều lần là an toàn (`"duplicate": true`).
 
-Lưu ý:
-- Gửi lệnh huỷ lại nhiều lần là an toàn, trả `"duplicate": true`.
+### 6.3 Khách trả một phần hàng sau khi đã thanh toán (hoàn trả)
+
+`POST /api/pos/v1/baskets/{mã giỏ}/refund`
+
+```json
+{
+  "pointCode": "SP-0107",
+  "posOrderRef": "POS-20261105-000123",
+  "refundRef": "RF-20261105-000045",
+  "amount": 30000,
+  "method": "cash",
+  "reason": "Khách trả 1 hộp sữa",
+  "lines": [ { "barcode": "8936036123456", "qty": 1, "amount": 30000 } ]
+}
+```
+
+| Trường | Bắt buộc | Ý nghĩa |
+|--------|----------|---------|
+| `pointCode` | Có | Mã điểm của cửa hàng POS đang bán |
+| `posOrderRef` | Có | Mã đơn POS của đơn đã thanh toán |
+| `refundRef` | **Có** | Mã **lần hoàn** trên POS. **Khoá chống trùng**: báo lại cùng mã thì không ghi lần hai |
+| `amount` | **Có** | Số tiền hoàn lần này, số nguyên đồng, lớn hơn 0 |
+| `method` | Không | Cách hoàn: `cash`, `qr_transfer`, `card`, `ewallet` (mặc định `cash`) |
+| `reason` | Không | Lý do |
+| `lines` | Nên có | Các dòng trả lại: `barcode` (mã hàng), `qty`, `amount` (tiền hoàn của dòng). Có thì bill hiện đúng mặt hàng đã trả |
+
+Phản hồi: `{ "ok": true, "duplicate": false, "refunded": 30000, "remaining": 30000, "status": "paid" }`.
+
+- **Hoàn nhiều lần được**, mỗi lần một `refundRef` khác. Tổng các lần hoàn không được vượt số tiền đã thu.
+- Đơn vẫn là "đã thanh toán". **Doanh thu giảm đúng số tiền hoàn** (khoản hoàn ghi thành dòng âm trong thanh toán).
+- Bill của khách hiện thêm "Đã hoàn trả" kèm các mặt hàng đã trả và **"Thực thanh toán"** = tổng thanh toán trừ phần đã hoàn.
+- Hoàn đủ số tiền đã thu thì đơn tự thành "đã huỷ" (giống tình huống 4).
+
+| Lỗi | Ý nghĩa | POS làm |
+|-----|---------|---------|
+| 400 `REFUND_REF_REQUIRED`, `BAD_AMOUNT`, `BAD_LINES`, `BAD_METHOD` | Dữ liệu gửi sai | Sửa rồi gửi lại, không tự thử lại |
+| 409 `NOT_REFUNDABLE` | Đơn chưa thanh toán | Dùng lệnh huỷ (6.2) |
+| 409 `REFUND_TOO_LARGE` | Số hoàn vượt số tiền còn lại | Kiểm tra số tiền, không thử lại |
+| 409 `REFUND_REF_IN_USE` | Mã lần hoàn đã dùng với số tiền khác | Dùng mã mới nếu là lần hoàn mới |
+| 409 `ORDER_CANCELLED` | Đơn đã bị huỷ | Không thử lại |
+| 409 `POINT_MISMATCH` | Sai mã điểm | Không thử lại, không hoàn |
+
+Lỗi mạng, `5xx`, `429`, `404 BASKET_NOT_FOUND` thì thử lại theo quy tắc ở mục 5, vì lệnh hoàn an toàn khi gửi lại.
+
+### 6.4 Huỷ hoặc hoàn toàn bộ sau khi đã thanh toán
+
+Gọi lệnh `cancelled` như 6.2 (hoặc `refund` đủ số tiền đã thu). Đơn thành "đã huỷ", khoản thu bị trừ khỏi doanh thu, điện thoại khách báo "Đơn này đã được huỷ", bill không còn xem được.
+
+### 6.5 Các trường hợp khác
+
+- **Khách bấm "Sửa giỏ hàng" trên điện thoại** trong lúc POS đang xử lý mã QR cũ: POS cứ xử lý và báo thanh toán bình thường. BRG vẫn ghi nhận khoản thu (tiền đã thu là thật) và không ảnh hưởng giỏ mới của khách.
+- **POS huỷ hoặc hoàn trả đơn mà điện thoại khách chưa gửi giỏ lên** (khách đang mất mạng): lệnh huỷ trả `200` kèm `"status": "unknown"` (không có gì để huỷ, POS không cần thử lại). Lệnh hoàn trả thì trả `404 BASKET_NOT_FOUND`, POS thử lại sau.
+- **Đổi hàng:** xử lý như hoàn trả phần đổi, rồi khách quét giỏ mới cho hàng mới.
 - Sau khi POS đã huỷ một đơn mà còn báo thanh toán cho chính đơn đó thì BRG từ chối (`ORDER_CANCELLED`). Muốn thu lại, khách khoá giỏ với mã giỏ mới.
-- **Trả hàng một phần chưa hỗ trợ.** POS xử lý một phần ở phía POS; nếu cần BRG phản ánh thì huỷ cả đơn rồi tạo đơn mới.
-- Lệnh huỷ cũng bắt buộc có `pointCode` (sai thì bị từ chối như lệnh báo thanh toán) và dùng quy tắc thử lại ở mục 5.
+- Mọi lệnh huỷ và hoàn trả đều bắt buộc có `pointCode` đúng, và dùng quy tắc thử lại ở mục 5.
 
 ## 7. Bill khách xem
 
@@ -260,6 +340,8 @@ Lưu ý:
 - [ ] Báo thanh toán lần 1 trả `duplicate: false`, lần 2 trả `duplicate: true`, không thu hai lần.
 - [ ] Ngắt mạng giữa chừng: POS thử lại theo lịch ở mục 5 và cuối cùng báo được.
 - [ ] Số tiền POS tính khác tạm tính vẫn báo được bình thường.
+- [ ] Khách quét nhiều hơn số lấy: POS báo thanh toán với các dòng thực mua, bill hiện đúng hàng thực mua.
 - [ ] Huỷ đơn trước khi thu: gọi lệnh huỷ, điện thoại khách báo "Thu ngân đã huỷ đơn".
-- [ ] Huỷ sau khi thu: gọi lệnh huỷ, đơn thành "đã huỷ" và doanh thu giảm đúng số tiền.
+- [ ] Hoàn trả một phần: gọi lệnh hoàn trả, doanh thu giảm đúng số hoàn, bill hiện "Thực thanh toán"; báo lại cùng `refundRef` không ghi trùng.
+- [ ] Huỷ toàn bộ sau khi thu: đơn thành "đã huỷ" và doanh thu giảm đúng số tiền.
 - [ ] Khách thấy "Đã hoàn thành thanh toán" và bill khớp với bill POS.

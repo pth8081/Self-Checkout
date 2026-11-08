@@ -769,3 +769,72 @@ test('huỷ đơn: POS huỷ đơn mà BRG chưa có giỏ (điện thoại đan
   assert.equal(r.status, 200); assert.equal(r.body.status, 'unknown');
   await app.close();
 });
+
+test('khách quét nhiều hơn số lấy: POS chỉ gửi các dòng thực mua, báo thành công, bill và doanh thu theo POS, quản trị thấy phần bớt', async () => {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  const id = s.body.session.id;
+  const sua = barcodeOf(app, 'Q7', 'SUA01'), mi = barcodeOf(app, 'Q7', 'MI01');
+  // khách quét 6 sữa và 4 mì = 10 mặt hàng
+  const ops = [...Array(6)].map((_, i) => ({ id: `s${i}`, type: 'scan', barcode: sua })).concat([...Array(4)].map((_, i) => ({ id: `m${i}`, type: 'scan', barcode: mi })));
+  await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops } });
+  const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-LESS2345' } })).body.transaction;
+  assert.equal(tx.itemCount, 10);
+  // ở quầy khách chỉ lấy 5 sữa và 3 mì = 8
+  const r = await pos(app, key, 'POST', '/baskets/Q7-LESS2345/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-LESS', amount: 100000, method: 'cash', lines: [{ barcode: sua, qty: 5, lineTotal: 70000 }, { barcode: mi, qty: 3, lineTotal: 30000 }] });
+  assert.equal(r.status, 200); assert.equal(r.body.status, 'paid');
+  const bill = (await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill;
+  assert.equal(bill.lines.reduce((a, l) => a + l.qty, 0), 8);
+  assert.equal(bill.total, 100000);
+  assert.equal(app.ctx.db.prepare('SELECT COALESCE(SUM(amount),0) s FROM payments WHERE voided_at IS NULL').get().s, 100000);
+  const d = (await call(app, 'GET', `/api/a/transactions/${tx.id}`, { token: admin })).body;
+  assert.equal(d.cartDiff.same, false);
+  assert.deepEqual(d.cartDiff.changed.map((x) => [x.from, x.to]).sort(), [[4, 3], [6, 5]]);
+  assert.equal(d.cartDiff.removed.length, 0);
+  await app.close();
+});
+
+test('hoàn trả một phần sau thanh toán: ghi khoản hoàn âm, doanh thu giảm, báo lại không ghi trùng, không hoàn quá số đã thu, hoàn hết thì đơn thành đã huỷ', async () => {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  const id = s.body.session.id;
+  const sua = barcodeOf(app, 'Q7', 'SUA01');
+  await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: sua }, { id: 'b', type: 'scan', barcode: sua }] } });
+  const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-REFUND234' } })).body.transaction;
+  const refund = (body) => pos(app, key, 'POST', '/baskets/Q7-REFUND234/refund', { pointCode: 'SP-Q7', posOrderRef: 'P-R', ...body });
+  const rev = () => app.ctx.db.prepare('SELECT COALESCE(SUM(amount),0) s FROM payments WHERE voided_at IS NULL').get().s;
+  // chưa thanh toán: không hoàn được
+  assert.equal((await refund({ refundRef: 'R1', amount: 1000 })).status, 409);
+  await pos(app, key, 'POST', '/baskets/Q7-REFUND234/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-R', amount: 60000, method: 'cash', lines: [{ barcode: sua, qty: 2, lineTotal: 60000 }] });
+  assert.equal(rev(), 60000);
+  assert.equal((await refund({ amount: 1000 })).body.error, 'REFUND_REF_REQUIRED');
+  assert.equal((await refund({ refundRef: 'R1', amount: 0 })).status, 400);
+  assert.equal((await refund({ refundRef: 'R1', amount: 70000 })).body.error, 'REFUND_TOO_LARGE');
+  // hoàn 1 hộp sữa, 30.000
+  const r1 = await refund({ refundRef: 'R1', amount: 30000, method: 'cash', reason: 'Khách trả 1 hộp', lines: [{ barcode: sua, qty: 1, amount: 30000 }] });
+  assert.equal(r1.status, 200, JSON.stringify(r1.body));
+  assert.equal(r1.body.refunded, 30000); assert.equal(r1.body.remaining, 30000); assert.equal(r1.body.status, 'paid');
+  assert.equal(rev(), 30000);
+  // báo lại: không ghi trùng; cùng mã khác số tiền: từ chối
+  assert.equal((await refund({ refundRef: 'R1', amount: 30000 })).body.duplicate, true);
+  assert.equal((await refund({ refundRef: 'R1', amount: 5000 })).body.error, 'REFUND_REF_IN_USE');
+  assert.equal(rev(), 30000);
+  // bill: còn xem được, có phần hoàn trả và thực thanh toán
+  const bill = (await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill;
+  assert.equal(bill.total, 60000); assert.equal(bill.refundTotal, 30000); assert.equal(bill.netTotal, 30000);
+  assert.equal(bill.refunds[0].lines[0].name.length > 3, true);
+  assert.equal((await app.inject({ method: 'GET', url: `/api/c/transactions/${tx.id}/bill.pdf`, headers: { 'x-device-id': DEVICE } })).statusCode, 200);
+  assert.equal((await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.transaction.refundTotal, 30000);
+  // hoàn nốt phần còn lại: đơn thành đã huỷ
+  const r2 = await refund({ refundRef: 'R2', amount: 30000 });
+  assert.equal(r2.body.status, 'voided'); assert.equal(r2.body.remaining, 0);
+  assert.equal(rev(), 0);
+  assert.equal((await refund({ refundRef: 'R3', amount: 1000 })).body.error, 'ORDER_CANCELLED');
+  // sai mã điểm bị từ chối như các lệnh khác
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-REFUND234/refund', { pointCode: 'SP-Q1', posOrderRef: 'P-R', refundRef: 'R9', amount: 1 })).body.error, 'POINT_MISMATCH');
+  await app.close();
+});

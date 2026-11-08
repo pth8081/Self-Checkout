@@ -55,7 +55,7 @@ export function Basket({ s, store }) {
       ${!paid && !voided && html`<div class="qrbox"><${QR} text=${b.qr} ecc=${long ? 'L' : 'M'} label="Mã QR giỏ hàng"/><div class="code">${b.ref}</div></div>`}
       <div class="card flat tight"><div class="row"><div class="grow"><div class="small muted">Tạm tính · ${b.count} mặt hàng</div>
         <b class="num" style="font-size:22px">${fmt.money(tx?.posAmount ?? b.total)}</b></div></div>
-        <div class="xs muted">${paid ? 'Số tiền đã thanh toán theo máy tính tiền' : 'Số tiền cuối cùng do máy tính tiền tính theo giá và khuyến mãi tại cửa hàng'}</div></div>
+        <div class="xs muted">${paid && tx?.refundTotal > 0 ? `Đã hoàn trả ${fmt.money(tx.refundTotal)}. Thực thanh toán ${fmt.money((tx.posAmount ?? b.total) - tx.refundTotal)}` : paid ? 'Số tiền đã thanh toán theo máy tính tiền' : 'Số tiền cuối cùng do máy tính tiền tính theo giá và khuyến mãi tại cửa hàng'}</div></div>
       ${store.emailEnabled && html`<${EmailBox} key=${paid ? 'p' : 'u'} txId=${tx?.id} paid=${paid} status=${tx?.billEmailStatus} masked=${tx?.billEmail} initial=${b.email || local.get('brg.c.email', '')}/>`}
       ${!b.synced && html`<${Banner} tone="brand" icon="info">${navigator.onLine ? 'Đang lưu giỏ lên hệ thống…' : 'Đang mất mạng. Mã QR vẫn dùng được, thu ngân vẫn quét được.'}<//>`}
       ${b.pending > 0 && html`<${Banner} tone="warn" icon="alert">${b.pending} mặt hàng quét lúc mất mạng chưa có giá trong tạm tính. Thu ngân vẫn tính đủ.<//>`}
@@ -87,7 +87,9 @@ export function Bill({ id, token }) {
         <b class="num">${fmt.money(l.lineTotal)}</b></div>`)}</div></div>
       <div class="card flat"><div class="sum num">${b.discount > 0 && html`<div><span class="muted">Khuyến mãi</span><span style="color:var(--ok)">−${fmt.money(b.discount)}</span></div>`}
         ${b.adjustment ? html`<div><span class="muted">Điều chỉnh theo hoá đơn</span><span>${b.adjustment < 0 ? '−' : '+'}${fmt.money(Math.abs(b.adjustment))}</span></div>` : null}
-        <div class="tot"><span>Tổng thanh toán</span><span>${fmt.money(b.total)}</span></div></div></div>
+        <div class="tot"><span>Tổng thanh toán</span><span>${fmt.money(b.total)}</span></div>
+        ${b.refundTotal > 0 && html`<div><span class="muted">Đã hoàn trả</span><span style="color:var(--ok)">−${fmt.money(b.refundTotal)}</span></div><div class="tot"><span>Thực thanh toán</span><span>${fmt.money(b.netTotal)}</span></div>`}</div></div>
+      ${b.refunds?.length > 0 && html`<div class="card" style="padding:8px 16px"><div class="small b" style="padding:8px 0">Mặt hàng đã hoàn trả</div><div class="list">${b.refunds.flatMap((r) => (r.lines.length ? r.lines : [{ name: r.reason || 'Hoàn trả', qty: '', amount: r.amount }])).map((l, i) => html`<div class="item" key=${i}><div class="grow"><div class="name">${l.name}</div>${l.qty ? html`<div class="small muted num">× ${l.qty}</div>` : null}</div><b class="num">−${fmt.money(l.amount)}</b></div>`)}</div></div>`}
       <div class="small muted">Mã giỏ ${b.code}${b.cashier ? ` · Thu ngân ${b.cashier}` : ''}</div>
       ${b.invoicePortalUrl && html`<a class="btn primary" href=${b.invoicePortalUrl} target="_blank" rel="noopener"><${Icon} name="receipt"/>Khai báo hoá đơn điện tử</a>`}
     </div>
