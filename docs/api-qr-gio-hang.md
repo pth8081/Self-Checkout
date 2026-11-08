@@ -200,7 +200,7 @@ Dạng `{ "error": "MÃ", "message": "…" }`.
 | 403 | `STORE_FORBIDDEN` | Khoá không dùng cho chi nhánh này | Không thử lại |
 | 404 | `BASKET_NOT_FOUND` | Chưa thấy giỏ. Điện thoại khách có thể đang mất mạng nên giỏ chưa lên hệ thống | **Thử lại sau** |
 | 409 | `REF_IN_USE` | Giỏ đã gắn với đơn POS khác hoặc mã đơn dùng cho giỏ khác | Không thử lại, báo quản lý |
-| 409 | `ORDER_CANCELLED` | Đơn đã bị huỷ | Không thử lại, đối soát tay |
+| 409 | `ORDER_CANCELLED` | Đơn đã bị POS huỷ hoặc huỷ sau khi thanh toán | Không thử lại, đối soát tay |
 | 5xx, timeout, 429 | | Lỗi tạm thời | **Thử lại** |
 
 ## 5. Quy tắc thử lại (bắt buộc với POS)
@@ -221,13 +221,36 @@ curl -X POST "https://scan.hcrc.vn/api/pos/v1/baskets/Q7-LM3K2AB/paid" \
   -d '{"posOrderRef":"POS-1","pointCode":"SP-0107","amount":60800,"method":"cash"}'
 ```
 
-## 6. Bill khách xem
+## 6. Huỷ đơn
+
+POS **bắt buộc báo huỷ** mỗi khi đơn đã quét mã QR mà không thu tiền, hoặc đã thu rồi huỷ (hoàn tiền, trả hàng). Nhờ vậy điện thoại khách và báo cáo luôn khớp với POS.
+
+`POST /api/pos/v1/baskets/{mã giỏ}/cancelled`
+
+```json
+{ "pointCode": "SP-0107", "posOrderRef": "POS-20261105-000123", "reason": "Khách đổi ý" }
+```
+
+| Tình huống | POS làm | BRG Scan & Checkout xử lý |
+|------------|---------|---------------------------|
+| **Khách đổi ý ở quầy, chưa thu tiền** (POS đã tạo đơn từ mã QR) | Huỷ đơn trên POS, rồi gọi lệnh huỷ | Giỏ về trạng thái đang quét. Điện thoại khách báo "Thu ngân đã huỷ đơn", khách sửa giỏ rồi thanh toán lại bằng mã giỏ mới |
+| **Huỷ hoặc hoàn tiền sau khi đã thu** | Gọi lệnh huỷ sau khi huỷ trên POS | Đơn chuyển sang "đã huỷ", khoản thu bị trừ khỏi doanh thu. Điện thoại khách báo "Đơn này đã được huỷ", bill không còn xem được |
+| **Khách bấm "Sửa giỏ hàng" trên điện thoại** trong lúc POS đang xử lý mã QR cũ | Không cần làm gì thêm. Nếu POS vẫn thu tiền thì báo thanh toán như bình thường | Vẫn ghi nhận khoản thu (tiền đã thu là thật) và ghi vào nhật ký. Giỏ mới của khách không bị ảnh hưởng |
+| **POS huỷ đơn mà điện thoại khách chưa gửi giỏ lên** (đang mất mạng) | Gọi lệnh huỷ | Trả `200` với `"status": "unknown"`, nghĩa là chưa có gì để huỷ. POS không cần thử lại |
+
+Lưu ý:
+- Gửi lệnh huỷ lại nhiều lần là an toàn, trả `"duplicate": true`.
+- Sau khi POS đã huỷ một đơn mà còn báo thanh toán cho chính đơn đó thì BRG từ chối (`ORDER_CANCELLED`). Muốn thu lại, khách khoá giỏ với mã giỏ mới.
+- **Trả hàng một phần chưa hỗ trợ.** POS xử lý một phần ở phía POS; nếu cần BRG phản ánh thì huỷ cả đơn rồi tạo đơn mới.
+- Lệnh huỷ cũng bắt buộc có `pointCode` (sai thì bị từ chối như lệnh báo thanh toán) và dùng quy tắc thử lại ở mục 5.
+
+## 7. Bill khách xem
 
 - Khách xem bill ngay trong ứng dụng web và tải bản **PDF**. Bill lưu trên điện thoại để xem lại khi mất mạng; tải PDF cần mạng.
 - Nội dung bill lấy từ `lines` và `amount` POS gửi, kèm mã đơn POS. Không in giấy.
 - Bill có nút **Khai báo hoá đơn điện tử** (link nhà cung cấp do quản trị cấu hình).
 
-## 7. Danh sách kiểm tra khi tích hợp
+## 8. Danh sách kiểm tra khi tích hợp
 
 - [ ] POS quét được mã QR mẫu `docs/mau/qr-gio-hang-mau.svg` và đọc ra đúng 2 dòng hàng, mã điểm `SP-0107`, mã giỏ `Q7-LM3K2AB`.
 - [ ] POS kiểm tra CRC16 và từ chối khi chuỗi bị sửa một ký tự.
@@ -237,4 +260,6 @@ curl -X POST "https://scan.hcrc.vn/api/pos/v1/baskets/Q7-LM3K2AB/paid" \
 - [ ] Báo thanh toán lần 1 trả `duplicate: false`, lần 2 trả `duplicate: true`, không thu hai lần.
 - [ ] Ngắt mạng giữa chừng: POS thử lại theo lịch ở mục 5 và cuối cùng báo được.
 - [ ] Số tiền POS tính khác tạm tính vẫn báo được bình thường.
+- [ ] Huỷ đơn trước khi thu: gọi lệnh huỷ, điện thoại khách báo "Thu ngân đã huỷ đơn".
+- [ ] Huỷ sau khi thu: gọi lệnh huỷ, đơn thành "đã huỷ" và doanh thu giảm đúng số tiền.
 - [ ] Khách thấy "Đã hoàn thành thanh toán" và bill khớp với bill POS.

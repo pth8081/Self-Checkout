@@ -110,8 +110,11 @@ export function orderPaid(ctx, scope, ref, body = {}) {
     if (lines && !tx.pos_bill_json) db.prepare('UPDATE transactions SET pos_bill_json = ? WHERE id = ?').run(JSON.stringify(lines), tx.id);
     return result(true);
   }
-  if (tx.status === 'cancelled' || tx.status === 'voided') throw conflict('ORDER_CANCELLED', 'Đơn này đã bị huỷ');
-  if (!['awaiting_counter', 'handed_off'].includes(tx.status)) throw conflict('NOT_PAYABLE', 'Đơn không ở trạng thái chờ thanh toán');
+  // Khách có thể sửa giỏ (giỏ bị huỷ phía điện thoại) trong lúc POS đã quét mã QR cũ và thu tiền. Tiền đã thu là thật nên vẫn ghi nhận.
+  // Chỉ từ chối khi chính POS đã huỷ đơn này hoặc đơn đã bị huỷ sau thanh toán.
+  const late = tx.status === 'cancelled' && tx.method === 'basket' && tx.pos_status !== 'cancelled';
+  if (tx.status === 'voided' || (tx.status === 'cancelled' && !late)) throw conflict('ORDER_CANCELLED', 'Đơn này đã bị huỷ');
+  if (!late && !['awaiting_counter', 'handed_off'].includes(tx.status)) throw conflict('NOT_PAYABLE', 'Đơn không ở trạng thái chờ thanh toán');
   const amount = body.amount;
   if (!Number.isInteger(amount) || amount <= 0) throw bad('BAD_AMOUNT', 'amount là số nguyên dương, đơn vị đồng');
   if (!POS_METHODS.includes(body.method)) throw bad('BAD_METHOD', `method phải là một trong: ${POS_METHODS.join(', ')}`);
@@ -127,7 +130,8 @@ export function orderPaid(ctx, scope, ref, body = {}) {
       JSON.stringify({ paidAt: body.paidAt || null, terminal: body.terminal || tx.pos_terminal || null, note: body.note || null }));
     db.prepare(`UPDATE transactions SET status='paid', method=?, paid_at=?, receipt_expires_at=?, extra_due=0, pos_status='paid', pos_amount=?,
       pos_invoice_no=?, pos_cashier=?, pos_bill_json=? WHERE id=?`).run(body.method, ts, exp, amount, invoiceNo, cashier || null, lines ? JSON.stringify(lines) : null, tx.id);
-    db.prepare(`UPDATE scan_sessions SET status='paid', ended_at=? WHERE id=?`).run(ts, tx.session_id);
+    if (!late) db.prepare(`UPDATE scan_sessions SET status='paid', ended_at=? WHERE id=?`).run(ts, tx.session_id); // giỏ đã bị khách sửa: phiên có thể đang giữ giỏ mới, không đụng tới
+    if (late) audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `POS:${scope.name}`, action: 'pos.paid_after_cancel', entity: 'transaction', entityId: tx.id, data: { amount, posOrderRef: ref } });
     if (invoiceNo) {
       const buyer = tx.buyer_json ? JSON.parse(tx.buyer_json) : {};
       db.prepare(`INSERT INTO invoices(transaction_id,type,email,tax_code,company_name,address,status,number,created_at) VALUES(?,?,?,?,?,?,'issued',?,?)`)
@@ -136,7 +140,10 @@ export function orderPaid(ctx, scope, ref, body = {}) {
     audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `POS:${scope.name}`, action: 'payment.collected', entity: 'transaction', entityId: tx.id,
       data: { source: 'pos', method: body.method, amount, posOrderRef: ref, invoiceNo, cashier } });
     if (differs) audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `POS:${scope.name}`, action: 'pos.amount_differs', entity: 'transaction', entityId: tx.id, data: { brgTotal: tx.total, posAmount: amount } });
-    if (tx.guard_skipped) markExited(db, db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.id), { id: 'SYSTEM' }, 'Không có bảo vệ');
+    if (tx.guard_skipped) {
+      if (late) db.prepare(`UPDATE transactions SET exit_status='exited', exited_at=?, exited_by='SYSTEM', exited_gate='Không có bảo vệ' WHERE id=?`).run(ts, tx.id);
+      else markExited(db, db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.id), { id: 'SYSTEM' }, 'Không có bảo vệ');
+    }
   })();
   if (tx.bill_email) { db.prepare("UPDATE transactions SET bill_email_status='pending' WHERE id=? AND bill_email_status IS NULL").run(tx.id); sendBillEmailBg(ctx, tx.id); }
   return result(false);
@@ -210,7 +217,16 @@ function basketByCode(ctx, scope, code, body) {
   return ref;
 }
 export const basketPaid = (ctx, scope, code, body = {}) => orderPaid(ctx, scope, basketByCode(ctx, scope, code, body), body);
-export const basketCancelled = (ctx, scope, code, body = {}) => orderCancelled(ctx, scope, basketByCode(ctx, scope, code, body), body);
+export function basketCancelled(ctx, scope, code, body = {}) {
+  let ref;
+  try { ref = basketByCode(ctx, scope, code, body); }
+  catch (e) {
+    // BRG chưa có giỏ này (điện thoại khách chưa gửi lên): không có gì để huỷ, POS không cần thử lại.
+    if (e.code === 'BASKET_NOT_FOUND') return { ok: true, status: 'unknown', message: 'BRG Scan & Checkout chưa có giỏ này nên không có gì để huỷ' };
+    throw e;
+  }
+  return orderCancelled(ctx, scope, ref, body);
+}
 export function basketStatus(ctx, scope, code) {
   const tx = ctx.db.prepare('SELECT * FROM transactions WHERE cart_code = ?').get(String(code).toUpperCase());
   if (!tx) throw notFound('BASKET_NOT_FOUND', 'Chưa thấy giỏ này');

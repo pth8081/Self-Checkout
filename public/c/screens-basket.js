@@ -1,7 +1,7 @@
 // Chế độ giỏ QR: khách bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng từng mặt hàng để thu ngân quét vào POS.
 // Mã QR được tạo và lưu ngay trên máy nên vẫn hiện khi mất mạng, tắt điện thoại hoặc tắt trình duyệt.
 import { html, useState, useEffect, Header, Icon, QR, Banner, Pill, Spinner, ErrorBox, Loading, go, fmt, toast, useAsync } from '/shared/lib.js';
-import { editBasket, finishBasket, syncBasket, refreshSession, loadBill, cachedBill, downloadBillPdf, setBillEmail, loadPublicBill, downloadPublicBillPdf, local, EMAIL_RE } from './store.js';
+import { setBasket, editBasket, finishBasket, syncBasket, refreshSession, loadBill, cachedBill, downloadBillPdf, setBillEmail, loadPublicBill, downloadPublicBillPdf, local, EMAIL_RE } from './store.js';
 
 /** Ô nhập email nhận bill. Trước khi thanh toán: lưu để gửi khi POS báo xong. Sau thanh toán: gửi ngay. */
 function EmailBox({ txId, paid, status, masked, initial }) {
@@ -32,7 +32,12 @@ export function Basket({ s, store }) {
     const t = setInterval(() => { if (navigator.onLine && s.session) { syncBasket().then(() => refreshSession()).catch(() => {}); } }, 6000);
     return () => clearInterval(t);
   }, [!!s.session]);
+  // Thu ngân huỷ đơn trên POS trước khi thu tiền: máy chủ trả giỏ về trạng thái đang quét. Báo khách và cho sửa giỏ.
+  useEffect(() => {
+    if (b?.synced && s.session?.status === 'active' && !tx) { toast('Thu ngân đã huỷ đơn. Bạn có thể sửa giỏ rồi thanh toán lại'); setBasket(null); go('/cart', true); }
+  }, [b?.synced, s.session?.status, !!tx]);
   if (!b) return null;
+  const voided = tx?.status === 'voided';
   const paid = tx?.status === 'paid';
   const long = b.qr.length > 900;
   const act = (name, fn) => async () => { setBusy(name); try { await fn(); } catch (e) { toast(e.message, 'err'); } finally { setBusy(''); } };
@@ -40,13 +45,14 @@ export function Basket({ s, store }) {
     <${Header} title="Thanh toán"/>
     <div class="page pad-b" style="gap:14px">
       <div class="center stack" style="align-items:center">
-        ${paid ? html`<div class="ico-tile green lg"><${Icon} name="check"/></div><${Pill} tone="ok"><${Icon} name="check" size=${14}/>Đã hoàn thành thanh toán<//><h1>Cảm ơn bạn đã mua sắm</h1>`
+        ${voided ? html`<div class="ico-tile lg"><${Icon} name="alert"/></div><${Pill} tone="warn">Đơn đã huỷ<//><h1>Đơn này đã được huỷ</h1><p class="muted">Cửa hàng đã huỷ đơn (ví dụ hoàn tiền hoặc trả hàng). Nếu cần hỗ trợ, hãy hỏi thu ngân.</p>`
+          : paid ? html`<div class="ico-tile green lg"><${Icon} name="check"/></div><${Pill} tone="ok"><${Icon} name="check" size=${14}/>Đã hoàn thành thanh toán<//><h1>Cảm ơn bạn đã mua sắm</h1>`
           : html`<${Pill} tone="warn"><span class="dot"></span>Chờ thu ngân quét mã<//><h1>Đưa mã này cho thu ngân quét vào máy tính tiền</h1>`}
       </div>
       ${paid && html`<div class="stack" style="gap:8px"><button class="btn primary" onClick=${() => go(`/bill/${tx.id}`)}><${Icon} name="receipt"/>Xem bill</button>
         ${tx.invoicePortalUrl && html`<a class="btn" href=${tx.invoicePortalUrl} target="_blank" rel="noopener"><${Icon} name="mail"/>Khai báo hoá đơn điện tử</a>`}
         <button class="btn line" disabled=${!!busy} onClick=${act('pdf', () => downloadBillPdf(tx.id, tx.code))}>${busy === 'pdf' ? html`<${Spinner} sm/>` : html`<${Icon} name="download"/>Tải bill PDF`}</button></div>`}
-      ${!paid && html`<div class="qrbox"><${QR} text=${b.qr} ecc=${long ? 'L' : 'M'} label="Mã QR giỏ hàng"/><div class="code">${b.ref}</div></div>`}
+      ${!paid && !voided && html`<div class="qrbox"><${QR} text=${b.qr} ecc=${long ? 'L' : 'M'} label="Mã QR giỏ hàng"/><div class="code">${b.ref}</div></div>`}
       <div class="card flat tight"><div class="row"><div class="grow"><div class="small muted">Tạm tính · ${b.count} mặt hàng</div>
         <b class="num" style="font-size:22px">${fmt.money(tx?.posAmount ?? b.total)}</b></div></div>
         <div class="xs muted">${paid ? 'Số tiền đã thanh toán theo máy tính tiền' : 'Số tiền cuối cùng do máy tính tiền tính theo giá và khuyến mãi tại cửa hàng'}</div></div>
@@ -54,14 +60,14 @@ export function Basket({ s, store }) {
       ${!b.synced && html`<${Banner} tone="brand" icon="info">${navigator.onLine ? 'Đang lưu giỏ lên hệ thống…' : 'Đang mất mạng. Mã QR vẫn dùng được, thu ngân vẫn quét được.'}<//>`}
       ${b.pending > 0 && html`<${Banner} tone="warn" icon="alert">${b.pending} mặt hàng quét lúc mất mạng chưa có giá trong tạm tính. Thu ngân vẫn tính đủ.<//>`}
       ${b.error && html`<${Banner} tone="warn" icon="alert">${b.error}<//>`}
-      ${!paid && html`<ol class="stack small" style="padding:0;list-style:none;gap:10px">
+      ${!paid && !voided && html`<ol class="stack small" style="padding:0;list-style:none;gap:10px">
         <li class="row" style="align-items:flex-start"><span class="avatar" style="width:26px;height:26px;font-size:12px">1</span><span>Thu ngân quét mã QR này, đơn hiện sẵn trên máy tính tiền</span></li>
         <li class="row" style="align-items:flex-start"><span class="avatar" style="width:26px;height:26px;font-size:12px">2</span><span>Thanh toán ngay tại quầy</span></li></ol>
       <div class="small muted center">Mã được lưu trên điện thoại. Mất mạng, tắt máy hay tắt trình duyệt, mở lại link cửa hàng là thấy lại.</div>`}
     </div>
     <div class="bar-bottom"><div class="in">
-      <button class="btn primary" disabled=${!!busy} onClick=${act('done', async () => { await finishBasket(); go('/', true); })}>${busy === 'done' ? html`<${Spinner} sm/>` : paid ? 'Xong' : 'Đã thanh toán xong'}</button>
-      ${!paid && html`<button class="btn line" disabled=${!!busy} onClick=${act('edit', async () => { await editBasket(); go('/cart', true); })}>${busy === 'edit' ? html`<${Spinner} sm/>` : 'Sửa giỏ hàng'}</button>`}
+      <button class="btn primary" disabled=${!!busy} onClick=${act('done', async () => { await finishBasket(); go('/', true); })}>${busy === 'done' ? html`<${Spinner} sm/>` : paid || voided ? 'Xong' : 'Đã thanh toán xong'}</button>
+      ${!paid && !voided && html`<button class="btn line" disabled=${!!busy} onClick=${act('edit', async () => { await editBasket(); go('/cart', true); })}>${busy === 'edit' ? html`<${Spinner} sm/>` : 'Sửa giỏ hàng'}</button>`}
     </div></div></div>`;
 }
 

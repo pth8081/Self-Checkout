@@ -234,6 +234,8 @@ export async function downloadBillPdf(id, code) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+export const setBasket = (basket) => setState({ basket });
+
 /** Sửa giỏ: bỏ mã QR hiện tại, mở khoá giỏ trên máy chủ nếu có thể. */
 export async function editBasket() {
   const synced = state.basket?.synced;

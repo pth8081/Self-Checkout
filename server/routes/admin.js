@@ -577,6 +577,7 @@ export default async function adminRoutes(app) {
           'payment.collected': ['ok', d.source === 'pos'
             ? `${who} báo đã thanh toán ${d.amount?.toLocaleString('vi-VN')}₫ (${({ cash: 'tiền mặt', qr_transfer: 'chuyển khoản', card: 'thẻ', ewallet: 'ví điện tử' })[d.method] || 'cách khác'})${d.invoiceNo ? `, hoá đơn ${d.invoiceNo}` : ''}`
             : `${who} thu ${d.method === 'cash' ? `tiền mặt${d.cashReceived ? `, khách đưa ${d.cashReceived.toLocaleString('vi-VN')}₫, thối ${d.change?.toLocaleString('vi-VN')}₫` : ''}` : 'chuyển khoản (đã đối chiếu)'}`],
+          'pos.paid_after_cancel': ['warn', `POS báo đã thu ${d.amount?.toLocaleString('vi-VN')}₫ sau khi khách sửa giỏ (giỏ cũ đã bị khách huỷ trên điện thoại)`],
           'pos.claimed': ['info', `${who} nhận giỏ vào đơn POS ${d.posOrderRef}${d.cashier ? `, thu ngân ${d.cashier}` : ''}`],
           'pos.amount_differs': ['warn', `Số tiền POS ${d.posAmount?.toLocaleString('vi-VN')}₫ khác tạm tính ${d.brgTotal?.toLocaleString('vi-VN')}₫`],
           'pos.released': ['warn', `${who} nhả giỏ vì POS không báo kết quả: ${d.reason}`],

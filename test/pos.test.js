@@ -701,3 +701,71 @@ test('giỏ tối đa số mặt hàng khác nhau: mặt hàng mới vượt m�
     await app.close();
   } finally { config.maxCartItems = old; }
 });
+
+// ---- Huỷ đơn ----
+async function basketSetup(ref = 'Q7-CANCEL234', device = DEVICE) {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' }, device });
+  const id = s.body.session.id;
+  await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }] }, device });
+  const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref }, device })).body.transaction;
+  return { app, admin, key, id, tx, ref };
+}
+const cancelBody = { pointCode: 'SP-Q7', posOrderRef: 'P-C1', reason: 'Khách đổi ý' };
+
+test('huỷ đơn: POS huỷ trước khi thu tiền thì giỏ về trạng thái đang quét, khách quét lại được; POS báo thanh toán cho đơn đã huỷ bị từ chối', async () => {
+  const { app, key, id, tx } = await basketSetup();
+  const c = await pos(app, key, 'POST', '/baskets/Q7-CANCEL234/cancelled', cancelBody);
+  assert.equal(c.status, 200); assert.equal(c.body.status, 'cancelled'); assert.equal(c.body.cartReleased, true);
+  const sv = (await call(app, 'GET', `/api/c/sessions/${id}`)).body.session;
+  assert.equal(sv.status, 'active'); assert.equal(sv.transaction, null);          // điện thoại sẽ báo "Thu ngân đã huỷ đơn"
+  assert.equal(sv.items.length, 1);                                               // giỏ còn nguyên để sửa
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-CANCEL234/cancelled', cancelBody)).body.duplicate, true); // báo lại an toàn
+  const late = await pos(app, key, 'POST', '/baskets/Q7-CANCEL234/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-C1', amount: tx.total, method: 'cash' });
+  assert.equal(late.status, 409); assert.equal(late.body.error, 'ORDER_CANCELLED');
+  // khách khoá lại giỏ với mã mới, POS thu bình thường
+  const tx2 = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-CANCEL999' } })).body.transaction;
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-CANCEL999/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-C2', amount: tx2.total, method: 'cash' })).status, 200);
+  await app.close();
+});
+
+test('huỷ đơn: huỷ sau khi đã thanh toán thì đơn thành "voided", khoản thu bị trừ khỏi doanh thu, khách thấy đơn đã huỷ', async () => {
+  const { app, key, id, tx } = await basketSetup();
+  const pay = { pointCode: 'SP-Q7', posOrderRef: 'P-C1', amount: tx.total, method: 'cash' };
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-CANCEL234/paid', pay)).status, 200);
+  const rev = () => app.ctx.db.prepare('SELECT COALESCE(SUM(amount),0) s FROM payments WHERE voided_at IS NULL').get().s;
+  assert.equal(rev(), tx.total);
+  const c = await pos(app, key, 'POST', '/baskets/Q7-CANCEL234/cancelled', cancelBody);
+  assert.equal(c.status, 200); assert.equal(c.body.status, 'voided');
+  assert.equal(rev(), 0);
+  assert.equal((await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.transaction.status, 'voided');
+  assert.equal((await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).status, 409); // không còn bill của đơn đã huỷ
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-CANCEL234/cancelled', cancelBody)).body.duplicate, true);
+  await app.close();
+});
+
+test('huỷ đơn: khách sửa giỏ trên điện thoại sau khi POS đã quét và thu tiền thì khoản thu vẫn được ghi nhận, không làm hỏng giỏ mới của khách', async () => {
+  const { app, key, id, tx } = await basketSetup();
+  assert.equal((await call(app, 'POST', `/api/c/sessions/${id}/unlock`)).status, 200); // khách bấm "Sửa giỏ hàng"
+  assert.equal(app.ctx.db.prepare('SELECT status FROM transactions WHERE id=?').get(tx.id).status, 'cancelled');
+  // khách khoá giỏ mới (mã mới) trong lúc POS vẫn đang thu tiền theo mã QR cũ
+  const tx2 = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-NEWBASK23' } })).body.transaction;
+  const r = await pos(app, key, 'POST', '/baskets/Q7-CANCEL234/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-OLD', amount: tx.total, method: 'cash' });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(app.ctx.db.prepare('SELECT status FROM transactions WHERE id=?').get(tx.id).status, 'paid');
+  assert.equal(app.ctx.db.prepare('SELECT COUNT(*) n FROM payments WHERE transaction_id=? AND voided_at IS NULL').get(tx.id).n, 1);
+  // giỏ mới của khách vẫn nguyên
+  const sv = (await call(app, 'GET', `/api/c/sessions/${id}`)).body.session;
+  assert.equal(sv.status, 'locked'); assert.equal(sv.transaction.id, tx2.id);
+  assert.ok(app.ctx.db.prepare(`SELECT 1 FROM audit_events WHERE action='pos.paid_after_cancel'`).get());
+  await app.close();
+});
+
+test('huỷ đơn: POS huỷ đơn mà BRG chưa có giỏ (điện thoại đang mất mạng) thì trả 200 "unknown", POS không phải thử lại', async () => {
+  const { app, key } = await basketSetup();
+  const r = await pos(app, key, 'POST', '/baskets/Q7-NOTHERE234/cancelled', cancelBody);
+  assert.equal(r.status, 200); assert.equal(r.body.status, 'unknown');
+  await app.close();
+});
