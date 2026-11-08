@@ -333,6 +333,49 @@ function DevTools({ stores }) {
     ${cur && html`<div class="hint">Mã vạch ${cur.barcode} · mã hàng ${cur.sku}</div>`}</div><${PosSimCard}/></div>`;
 }
 
+// ---- Email: gửi mã xác nhận xem lịch sử và bill về email khách ----
+function EmailCard() {
+  const st = useAsync(() => api.get('/integrations/email'), []);
+  const [f, setF] = useState(null);
+  const [testTo, setTestTo] = useState('');
+  const [busy, run] = useBusy();
+  const [err, setErr] = useState('');
+  const d = st.data;
+  useEffect(() => { if (d && !f) setF({ ...d.email, pass: '' }); }, [d]);
+  if (!d || !f) return html`<div class="card"><${Spinner}/></div>`;
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const save = () => run(async () => {
+    setErr('');
+    try { const r = await api.put('/integrations/email', { host: f.host, port: Number(f.port), secure: f.secure, user: f.user, from: f.from, fromName: f.fromName, pass: f.pass }); setF({ ...r.email, pass: '' }); await st.reload(); }
+    catch (x) { setErr(x.message); throw x; }
+  }, 'Đã lưu cấu hình email');
+  const test = () => run(async () => {
+    setErr('');
+    try { await api.post('/integrations/email/test', { to: testTo }); }
+    catch (x) { setErr(x.message); throw x; }
+  }, `Đã gửi email thử tới ${testTo}`);
+  return html`<div class="card">
+    <div class="cardhead"><div class="ico-tile"><${Icon} name="mail"/></div><div class="grow"><h2>Email gửi cho khách</h2>
+      <div class="small muted">Gửi mã xác nhận xem lịch sử trên máy khác và gửi bill (kèm PDF) về email khách.</div></div>
+      ${d.email.configured ? html`<${Pill} tone="ok"><span class="dot"></span>Đã cấu hình<//>` : html`<${Pill} tone="warn">Chưa cấu hình<//>`}</div>
+    ${!d.publicUrl && html`<${Banner} tone="warn" icon="alert" title="Chưa đặt địa chỉ công khai">Biến <code>PUBLIC_URL</code> trong file <code>.env</code> chưa có nên email chưa có link xem bill trên web. Bill PDF vẫn đính kèm.<//>`}
+    <div class="grid2" style="margin-top:12px">
+      <${Field} label="Máy chủ SMTP" hint="Ví dụ smtp.congty.vn"><input class="input" value=${f.host} onInput=${set('host')} aria-label="Máy chủ SMTP"/><//>
+      <${Field} label="Cổng"><input class="input" type="number" value=${f.port} onInput=${set('port')} aria-label="Cổng SMTP"/><//>
+      <${Field} label="Bảo mật"><select class="input" value=${f.secure} onChange=${set('secure')} aria-label="Kiểu bảo mật">${Object.entries(d.secureModes).map(([k, v]) => html`<option value=${k} key=${k}>${v}</option>`)}</select><//>
+      <${Field} label="Tài khoản đăng nhập SMTP"><input class="input" value=${f.user} onInput=${set('user')} autocomplete="off" aria-label="Tài khoản SMTP"/><//>
+      <${Field} label="Mật khẩu" hint=${f.hasPassword ? 'Đã lưu. Để trống nếu không đổi' : 'Chưa có'}><input class="input" type="password" value=${f.pass} onInput=${set('pass')} autocomplete="new-password" aria-label="Mật khẩu SMTP"/><//>
+      <${Field} label="Địa chỉ người gửi" hint="Email hiện ở dòng Từ"><input class="input" value=${f.from} onInput=${set('from')} aria-label="Địa chỉ người gửi"/><//>
+      <${Field} label="Tên người gửi"><input class="input" value=${f.fromName} onInput=${set('fromName')} placeholder="BRG Scan & Checkout" aria-label="Tên người gửi"/><//>
+    </div>
+    ${err && html`<div class="errtext" role="alert">${err}</div>`}
+    <div class="row wrap" style="margin-top:12px;gap:8px"><button class="btn primary sm" disabled=${busy} onClick=${save}>Lưu cấu hình</button></div>
+    <div class="row wrap" style="margin-top:14px;gap:8px;align-items:flex-end">
+      <div class="field grow"><label for="mail-test">Gửi email thử tới</label><input id="mail-test" class="input" type="email" value=${testTo} onInput=${(e) => setTestTo(e.target.value)} placeholder="email của bạn"/></div>
+      <button class="btn line sm" disabled=${busy || !testTo || !d.email.configured} onClick=${test}>Gửi thử</button></div>
+    <div class="hint">Mật khẩu được mã hoá khi lưu và không hiện lại. Nên dùng một tài khoản email riêng chỉ để gửi thư tự động. Với Gmail hoặc Microsoft 365 hãy dùng mật khẩu ứng dụng.</div></div>`;
+}
+
 export function Integrations({ stores }) {
   const st = useAsync(() => api.get('/integrations'), []);
   return html`<div class="stack-lg"><${PageHead} title="Tích hợp" sub="Giám sát và cấu hình POS, chuyển khoản QR và hoá đơn điện tử."/>
@@ -340,6 +383,7 @@ export function Integrations({ stores }) {
       <${Banner} tone="info" icon="info" title="Đang chạy bản giả lập">${d.note}<//>
       <${PosCard} d=${d} reload=${st.reload}/>
       <${PosApiCard} d=${d} stores=${stores} reload=${st.reload}/>
+      <${EmailCard}/>
       <div class="two"><${TransferCard} stores=${stores}/><${InvoiceCard} d=${d} reload=${st.reload}/></div>
       <${DevTools} stores=${stores}/>`}<//></div>`;
 }

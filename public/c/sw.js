@@ -1,5 +1,5 @@
 // Tạo tự động bởi scripts/build-sw.js, không sửa tay.
-const VERSION = 'a7c5c32c4227';
+const VERSION = 'e36e4735a763';
 const CACHE = 'brg-c-' + VERSION;
 const SHELL = [
  "/c/",

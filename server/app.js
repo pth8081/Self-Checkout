@@ -1,3 +1,4 @@
+import { createMailer } from './services/mailer.js';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import { config } from './config.js';
@@ -11,11 +12,13 @@ import adminRoutes from './routes/admin.js';
 import posRoutes from './routes/pos.js';
 
 /** Dựng ứng dụng. Tham số cho phép thay CSDL, RNG, adapter khi kiểm thử. */
-export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = false, pos, invoicer, trustProxy = false } = {}) {
+export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = false, pos, invoicer, mailer, trustProxy = false } = {}) {
   const db = openDb(dbFile);
   const ctx = { db, rng };
   ctx.pos = pos || createMockPos(db);
   ctx.invoicer = invoicer || createMockInvoicer(db);
+  ctx.mailer = mailer || createMailer(db);
+  ctx.bg = new Set(); // việc nền đang chạy (gửi email), để tắt máy chủ hoặc kiểm thử đợi cho xong
 
   const app = Fastify({ logger, bodyLimit: 1_000_000, trustProxy });
   app.decorate('ctx', ctx);
@@ -49,6 +52,6 @@ export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = f
       // Service worker phải luôn tải mới để cập nhật được.
       if (p.endsWith('sw.js')) res.header('Cache-Control', 'no-cache');
     } });
-  app.addHook('onClose', async () => db.close());
+  app.addHook('onClose', async () => { await Promise.allSettled([...ctx.bg]); db.close(); });
   return app;
 }

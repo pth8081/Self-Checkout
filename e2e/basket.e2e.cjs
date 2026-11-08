@@ -2,10 +2,23 @@
 const {chromium}=require('playwright');
 const BASE=process.env.BASE||'http://localhost:3400';const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function api(method,url,body,headers={}){const r=await fetch(BASE+url,{method,headers:{'content-type':'application/json',...headers},body:body?JSON.stringify(body):undefined});return {status:r.status,body:await r.json().catch(()=>null)};}
+// Máy chủ SMTP giả: nhận thư và lưu lại để kiểm tra.
+const net=require('net');const mails=[];
+const smtp=net.createServer(sock=>{let data=false,buf='';sock.write('220 sink ESMTP\r\n');
+ sock.on('data',d=>{buf+=d.toString('utf8');
+  if(data){ if(buf.includes('\r\n.\r\n')){ mails.push(buf);buf='';data=false;sock.write('250 OK queued\r\n'); } return; }
+  let i;while((i=buf.indexOf('\r\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+2);
+   if(/^EHLO|^HELO/i.test(line))sock.write('250-sink\r\n250 8BITMIME\r\n');
+   else if(/^MAIL|^RCPT|^RSET|^NOOP/i.test(line))sock.write('250 OK\r\n');
+   else if(/^DATA/i.test(line)){sock.write('354 go\r\n');data=true;if(buf.includes('\r\n.\r\n')){mails.push(buf);buf='';data=false;sock.write('250 OK queued\r\n');}break;}
+   else if(/^QUIT/i.test(line)){sock.write('221 bye\r\n');sock.end();}else sock.write('250 OK\r\n');}});});
 (async()=>{
+ await new Promise(r=>smtp.listen(2525,'127.0.0.1',r));
  const fails=[];const ok=(n,c)=>{console.log(c?'OK  ':'FAIL',n);if(!c)fails.push(n)};
  const adm=(await api('POST','/api/a/login',{account:'QT0001',password:'Admin@123'})).body.token;const AH={authorization:'Bearer '+adm};
  await api('PUT','/api/a/stores/Q7',{posCode:'SP-0107'},AH);
+ const cfgMail=await api('PUT','/api/a/integrations/email',{host:'127.0.0.1',port:2525,secure:'none',from:'no-reply@congty.vn',fromName:'BRG Scan & Checkout'},AH);ok('cấu hình email',cfgMail.status===200);
+ const tmail=await api('POST','/api/a/integrations/email/test',{to:'it@congty.vn'},AH);ok('gửi email thử qua SMTP giả',tmail.status===200&&mails.length===1);
  const prods=(await api('GET','/api/a/dev/pos-products?storeId=Q7',null,AH)).body.products;
  const P=n=>prods.find(x=>x.name.startsWith(n));
  const b=await chromium.launch({args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream']});
@@ -39,6 +52,9 @@ async function api(method,url,body,headers={}){const r=await fetch(BASE+url,{met
  await p.click('text=Sửa giỏ hàng');await p.waitForURL(/#\/cart/);await sleep(500);
  await p.click('.bar-bottom .btn.primary');await p.waitForURL(/#\/basket/);await sleep(800);
  ok('mã giỏ mới sau khi sửa',(await p.innerText('.code'))!==qr.split('|')[2]);
+ // 4b. khách để lại email nhận bill
+ ok('có ô email nhận bill',await p.isVisible('#bill-email'));
+ await p.fill('#bill-email','khach@example.com');await p.click('text=Lưu');await sleep(1500);
  // 5. POS báo thanh toán kèm bill thật -> khách thấy hoàn thành, xem bill, tải PDF
  const key=(await api('POST','/api/a/pos/keys',{name:'POS e2e'},AH)).body.key;const code=await p.innerText('.code');
  await sleep(1500); // chờ giỏ đồng bộ lên máy chủ
@@ -47,6 +63,13 @@ async function api(method,url,body,headers={}){const r=await fetch(BASE+url,{met
  ok('POS báo thanh toán thành công',paid.status===200);
  await p.waitForSelector('text=Đã hoàn thành thanh toán',{timeout:15000}).catch(()=>{});
  ok('khách thấy "Đã hoàn thành thanh toán"',await p.isVisible('text=Đã hoàn thành thanh toán'));
+ for(let i=0;i<20&&mails.length<2;i++)await sleep(500);
+ ok('bill được gửi về email khách (có PDF)',mails.length>=2&&/khach@example\.com/.test(mails[1])&&/application\/pdf/.test(mails[1]));
+ const rawMail=(mails[1]||'').replace(/=\r\n/g,'').replace(/=3D/g,'=');
+ const linkM=/(http:\/\/localhost:3400\/c\/#\/bill-link\/B1\.[A-Za-z0-9._-]+)/.exec(rawMail);
+ ok('email có link xem bill',!!linkM);
+ if(linkM){const c2=await b.newContext({viewport:{width:390,height:800}});const q=await c2.newPage();await q.goto(linkM[1]);await sleep(1800);
+  ok('mở link bill từ email (máy lạ, không đăng nhập)',(await q.innerText('body')).includes('Sữa tươi 1L')&&(await q.innerText('body')).includes('C26-9'));await c2.close();}
  await p.click('text=Xem bill');await p.waitForURL(/#\/bill\//);await sleep(800);
  ok('bill hiện dòng và tổng',(await p.innerText('body')).includes('Sữa tươi 1L')&&(await p.innerText('body')).includes('Bill từ máy tính tiền'));
  const [dl]=await Promise.all([p.waitForEvent('download',{timeout:8000}).catch(()=>null),p.click('text=Tải bill PDF')]);

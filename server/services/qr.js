@@ -44,6 +44,15 @@ export function makeReceiptToken(txId, expiresAtIso) {
   return `${body}.${mac(body)}`;
 }
 
+// ---- Link xem bill không cần đăng nhập (gửi trong email): B1.<txId>.<chữ ký>, không hết hạn ----
+export const makeBillToken = (txId) => `B1.${txId}.${mac(`B1.${txId}`)}`;
+export function parseBillToken(raw) {
+  const m = /^B1\.([A-Z0-9-]+)\.([A-Za-z0-9_-]{22})$/.exec(String(raw || '').trim());
+  if (!m) return null;
+  const a = Buffer.from(mac(`B1.${m[1]}`)), b = Buffer.from(m[2]);
+  return a.length === b.length && crypto.timingSafeEqual(a, b) ? { txId: m[1] } : null;
+}
+
 export function parseReceiptToken(raw) {
   const m = /^R1\.([A-Z0-9-]+)\.(\d+)\.([A-Za-z0-9_-]{22})$/.exec(String(raw || '').trim());
   if (!m) return null;

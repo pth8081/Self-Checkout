@@ -8,6 +8,17 @@ access: chain
 
 # Dữ liệu, nhật ký và tích hợp
 
+## Email gửi cho khách
+
+Khách **không phải đăng nhập**. Hệ thống nhận ra khách bằng mã thiết bị lưu trong trình duyệt. Email dùng cho hai việc:
+
+- **Bill:** khách để lại email ở màn mã QR (không bắt buộc). Khi POS báo thanh toán, hệ thống gửi bill kèm PDF và link xem bill. Gửi lỗi thì tự thử lại tối đa 5 lần trong 24 giờ.
+- **Xem lịch sử trên máy khác:** khách nhập email, nhận mã xác nhận 6 số, nhập mã để xem các đơn đã mua.
+
+Cấu hình ở trang **Tích hợp**, thẻ **Email gửi cho khách** (chỉ quản trị chuỗi): máy chủ SMTP, cổng, kiểu bảo mật, tài khoản, mật khẩu, địa chỉ người gửi. Bấm **Lưu**, rồi **Gửi thử** tới email của bạn. Mật khẩu được mã hoá khi lưu và không hiện lại. Nên dùng một tài khoản email riêng chỉ để gửi thư tự động; với Gmail hoặc Microsoft 365 dùng mật khẩu ứng dụng. Muốn email có link xem bill trên web, đặt `PUBLIC_URL` trong file `.env` của máy chủ.
+
+Chưa cấu hình email thì khách vẫn thanh toán và xem bill trong ứng dụng bình thường, chỉ không nhận được email.
+
 ## Dữ liệu sản phẩm từ POS
 
 - Giá, tồn kho, khuyến mãi, trạng thái bán đến từ **POS** (nguồn gốc). BRG Scan & Checkout giữ một **bản sao** để quét nhanh và đồng bộ định kỳ.

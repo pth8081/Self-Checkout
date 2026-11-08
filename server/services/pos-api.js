@@ -8,6 +8,7 @@ import { config } from '../config.js';
 import { nowIso, bad, notFound, conflict, forbidden, money } from '../util.js';
 import { audit } from './audit.js';
 import { getStoreConfig, txView, markExited } from './core.js';
+import { sendBillEmailBg } from './bill-email.js';
 
 export const hashKey = (k) => crypto.createHash('sha256').update(k).digest('hex');
 export function newKey() {
@@ -136,6 +137,7 @@ export function orderPaid(ctx, scope, ref, body = {}) {
     if (differs) audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `POS:${scope.name}`, action: 'pos.amount_differs', entity: 'transaction', entityId: tx.id, data: { brgTotal: tx.total, posAmount: amount } });
     if (tx.guard_skipped) markExited(db, db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.id), { id: 'SYSTEM' }, 'Không có bảo vệ');
   })();
+  if (tx.bill_email) { db.prepare("UPDATE transactions SET bill_email_status='pending' WHERE id=? AND bill_email_status IS NULL").run(tx.id); sendBillEmailBg(ctx, tx.id); }
   return result(false);
 }
 

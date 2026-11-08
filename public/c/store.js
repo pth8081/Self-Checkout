@@ -133,6 +133,19 @@ export async function refreshSession() {
 }
 
 // ---------- Giỏ QR cho POS ----------
+export const EMAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+/** Khách để lại email nhận bill: lưu trên máy và gửi lên máy chủ khi giỏ đã đồng bộ (hoặc đã thanh toán thì gửi bill ngay). */
+export async function setBillEmail(email, txId) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(e)) throw new Error('Email chưa đúng');
+  local.set('brg.c.email', e);
+  if (state.basket) setState({ basket: { ...state.basket, email: e } });
+  const id = txId || (state.basket?.synced ? state.session?.transaction?.id : null);
+  if (id) { const r = await api.post(`/transactions/${encodeURIComponent(id)}/bill-email`, { email: e }); await refreshSession(); return r.status; }
+  return 'saved';
+}
+
+
 /** Mặt hàng để đưa vào QR: giỏ đã đồng bộ cộng cả mặt hàng quét lúc mất mạng (chỉ cần mã vạch và số lượng). */
 export function basketItems(st) {
   const v = cartView(st);
@@ -157,11 +170,12 @@ export function makeBasket() {
   const items = basketItems(state);
   if (!items.length) throw new Error('Giỏ hàng đang trống');
   const v = cartView(state);
+  const rememberedMail = local.get('brg.c.email', '');
   const point = state.store?.pointCode;
   if (!point) throw new Error('Cửa hàng chưa có Mã điểm nên chưa thanh toán được. Hãy báo nhân viên');
   const ref = makeBasketRef(state.storeCode);
   const qr = encodeBasket({ point, ref, items, total: v.total });
-  setState({ basket: { ref, qr, total: v.total, count: v.itemCount + v.pendingCount, pending: v.pendingCount, synced: false, at: Date.now(), error: null } });
+  setState({ basket: { ref, qr, total: v.total, count: v.itemCount + v.pendingCount, pending: v.pendingCount, synced: false, at: Date.now(), error: null, email: state.store?.emailEnabled && EMAIL_RE.test(rememberedMail) ? rememberedMail : '' } });
   syncBasket();
 }
 
@@ -174,7 +188,7 @@ export async function syncBasket() {
     try {
       if (state.queue.length) { const m = await flush(); if (m === null) return; }
       if (!state.basket || state.basket.ref !== b.ref) return;
-      const r = await api.post(`/sessions/${state.session.id}/basket`, { ref: b.ref });
+      const r = await api.post(`/sessions/${state.session.id}/basket`, { ref: b.ref, email: state.basket.email || undefined });
       const tx = r.transaction;
       setState({ session: r.session, online: true, basket: { ...state.basket, synced: true, total: tx.total, count: tx.itemCount, qr: tx.basketQr || state.basket.qr, pending: 0, error: null } });
     } catch (e) {
@@ -198,6 +212,15 @@ export async function loadBill(id) {
     LS.set(BILLS, all);
     return r.bill;
   } catch (e) { const c = cachedBill(id); if (c && e.status === 0) return c; throw e; }
+}
+export async function loadPublicBill(token) { return (await api.get(`/bill/${encodeURIComponent(token)}`)).bill; }
+export async function downloadPublicBillPdf(token, code) {
+  const res = await fetch(`/api/c/bill/${encodeURIComponent(token)}/pdf`);
+  if (!res.ok) throw new Error('Không tải được bill PDF');
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a'); a.href = url; a.download = `bill-${code || 'bill'}.pdf`; a.rel = 'noopener'; a.target = '_blank';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 /** Tải bill PDF về máy (iOS có thể mở ra tab mới, khách dùng nút Chia sẻ để lưu). */
 export async function downloadBillPdf(id, code) {

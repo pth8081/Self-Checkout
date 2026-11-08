@@ -27,6 +27,7 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
+        if (location.hash.startsWith('#/bill-link/')) { setBoot({ done: true }); return; } // xem bill từ email, không cần cửa hàng hay phiên
         const q = new URLSearchParams(location.search).get('s');
         if (q) { setStoreCode(q); history.replaceState(null, '', `/c/${location.hash}`); }
         const code = getState().storeCode;
@@ -119,6 +120,7 @@ function App() {
     case path === '/scan' && !!s.session && !!store: return html`<${Scan} s=${s} store=${store} onBlocked=${() => go('/blocked', true)}/><${Toasts}/>`;
     case path === '/manual' && !!s.session && !!store: return html`<${Manual} s=${s} store=${store}/><${Toasts}/>`;
     case path === '/cart' && !!s.session && !!store: return html`<${OfflineBar}/><${Cart} s=${s} store=${store}/><${Toasts}/>`;
+    case path.startsWith('/bill-link/'): return html`<${Bill} token=${decodeURIComponent(path.slice(11))}/><${Toasts}/>`;
     case path.startsWith('/bill/'): return html`<${OfflineBar}/><${Bill} id=${path.slice(6)}/><${Toasts}/>`;
     case path === '/basket' && !!s.basket && !!store: return html`<${OfflineBar}/><${Basket} s=${s} store=${store}/><${Toasts}/>`;
     case path === '/pay' && !!s.session && !!store: return html`<${OfflineBar}/><${PayMethod} s=${s} store=${store}/><${Toasts}/>`;

@@ -91,7 +91,7 @@ Hiện `pay_online` luôn tắt và API cấu hình từ chối bật. Hướng 
 
 - Chưa thử camera và quét mã trên điện thoại thật; đã thử bằng luồng video giả với mã EAN-13 (ZXing giải mã đúng), chưa thử BarcodeDetector gốc.
 - QR chuyển khoản tự dựng theo chuẩn VietQR chưa kiểm chứng với các app ngân hàng thật; thông tin ngân hàng trong dữ liệu mẫu là giả.
-- Chưa gửi email thật (mã xác nhận lịch sử, hoá đơn). Ở môi trường thử mã được trả về trong phản hồi; ở production chỉ ghi log máy chủ.
+- Email (mã xác nhận xem lịch sử trên máy khác, bill gửi về email khách) gửi qua máy chủ SMTP do quản trị chuỗi cấu hình ở trang Tích hợp. Chưa cấu hình thì ở môi trường thử mã trả về trong phản hồi, ở production báo rõ là chưa gửi được. Bill gửi lỗi được thử lại tối đa 5 lần trong 24 giờ.
 - Chưa có: hàng bán theo cân, đặt lại mật khẩu quản trị qua email, huỷ giao dịch từ app nhân viên, giao diện quản trị tối ưu cho điện thoại, thông báo đẩy.
 - Xác nhận thu tiền do người thực hiện: cần quy trình bàn giao ca và đối soát sao kê hằng ngày (A10).
 - SQLite phù hợp một máy chủ. Nhiều máy chủ hoặc tải lớn cần chuyển sang PostgreSQL (lớp truy cập tập trung ở `server/db.js` và các câu lệnh SQL trong `server/services`).

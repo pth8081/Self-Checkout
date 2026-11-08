@@ -428,3 +428,111 @@ test('mã điểm là khoá: POS gửi sai hoặc thiếu mã điểm thì bị 
   assert.equal((await call(app, 'PUT', '/api/a/stores/Q7', { token: admin, body: { enabled: true } })).body.error, 'NO_POS_CODE');
   await app.close();
 });
+
+// ---- Email: cấu hình SMTP, mã xác nhận, gửi bill ----
+function fakeMail({ fail = 0 } = {}) {
+  const sent = []; let calls = 0;
+  return { sent, opts: { transportFactory: () => ({ sendMail: async (m) => { calls++; if (calls <= fail) throw new Error('SMTP từ chối'); sent.push(m); return { messageId: 'x' }; } }) } };
+}
+async function configureMail(app, admin) {
+  return call(app, 'PUT', '/api/a/integrations/email', { token: admin, body: { host: 'smtp.congty.vn', port: 587, secure: 'starttls', user: 'bot@congty.vn', pass: 'Mật-khẩu-bí-mật', from: 'no-reply@congty.vn', fromName: 'BRG Scan & Checkout' } });
+}
+
+test('email: quản trị cấu hình SMTP, mật khẩu không bao giờ trả lại và được mã hoá trong CSDL; chỉ quản trị chuỗi; gửi thử', async () => {
+  const { createMailer } = await import('../server/services/mailer.js');
+  const fm = fakeMail();
+  const app = await makeApp({ basket: true, mailer: undefined });
+  app.ctx.mailer = createMailer(app.ctx.db, fm.opts);
+  const admin = (await adminLogin(app)).body.token;
+  const q7 = (await adminLogin(app, 'QT0007')).body.token;
+  assert.equal((await call(app, 'GET', '/api/a/integrations/email', { token: admin })).body.email.configured, false);
+  assert.equal((await call(app, 'PUT', '/api/a/integrations/email', { token: q7, body: { host: 'x.com' } })).status, 403);
+  assert.equal((await call(app, 'PUT', '/api/a/integrations/email', { token: admin, body: { host: 'smtp.congty.vn', port: 99999 } })).status, 400);
+  const saved = await configureMail(app, admin);
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.email.configured, true);
+  assert.equal(saved.body.email.hasPassword, true);
+  assert.ok(!JSON.stringify(saved.body).includes('bí-mật'));
+  assert.ok(!JSON.stringify((await call(app, 'GET', '/api/a/integrations/email', { token: admin })).body).includes('bí-mật'));
+  const raw = app.ctx.db.prepare(`SELECT value FROM settings WHERE key='email'`).get().value;
+  assert.ok(!raw.includes('bí-mật'));
+  // sửa host mà không gửi mật khẩu thì giữ mật khẩu cũ
+  const again = await call(app, 'PUT', '/api/a/integrations/email', { token: admin, body: { host: 'smtp2.congty.vn' } });
+  assert.equal(again.body.email.hasPassword, true);
+  assert.equal((await call(app, 'POST', '/api/a/integrations/email/test', { token: admin, body: { to: 'khong-hop-le' } })).status, 400);
+  assert.equal((await call(app, 'POST', '/api/a/integrations/email/test', { token: admin, body: { to: 'it@congty.vn' } })).status, 200);
+  assert.equal(fm.sent.length, 1);
+  assert.equal(fm.sent[0].to, 'it@congty.vn');
+  await app.close();
+});
+
+test('email: mã xác nhận gửi qua email khi đã cấu hình (không trả mã về trình duyệt); chưa cấu hình ở production thì báo rõ', async () => {
+  const { createMailer } = await import('../server/services/mailer.js');
+  const fm = fakeMail();
+  const app = await makeApp();
+  app.ctx.mailer = createMailer(app.ctx.db, fm.opts);
+  const admin = (await adminLogin(app)).body.token;
+  // chưa cấu hình, môi trường thử: trả mã để thử
+  assert.ok((await call(app, 'POST', '/api/c/identity/request', { body: { email: 'khach@example.com' } })).body.devCode);
+  await configureMail(app, admin);
+  const r = await call(app, 'POST', '/api/c/identity/request', { body: { email: 'khach2@example.com' }, device: 'other-1234567890abcdef' });
+  assert.equal(r.status, 200); assert.equal(r.body.devCode, undefined);
+  assert.equal(fm.sent.length, 1);
+  assert.match(fm.sent[0].text, /\b\d{6}\b/);
+  const code = /\b(\d{6})\b/.exec(fm.sent[0].text)[1];
+  const v = await call(app, 'POST', '/api/c/identity/verify', { body: { email: 'khach2@example.com', code }, device: 'other-1234567890abcdef' });
+  assert.equal(v.body.linked, true);
+  await app.close();
+});
+
+test('email: bill gửi về email khách khi POS báo thanh toán (kèm PDF và link); lỗi thì thử lại, không gửi trùng; link xem bill không cần đăng nhập', async () => {
+  const { createMailer } = await import('../server/services/mailer.js');
+  const { retryBillEmails } = await import('../server/services/bill-email.js');
+  const { config } = await import('../server/config.js');
+  config.publicUrl = 'https://scan.congty.vn';
+  const fm = fakeMail({ fail: 1 });
+  const app = await makeApp({ basket: true });
+  app.ctx.mailer = createMailer(app.ctx.db, fm.opts);
+  const admin = (await adminLogin(app)).body.token;
+  await configureMail(app, admin);
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  const id = s.body.session.id;
+  await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }] } });
+  assert.equal((await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-MAIL2345', email: 'sai-email' } })).status, 400);
+  const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-MAIL2345', email: 'Khach@Example.com' } })).body.transaction;
+  assert.equal(tx.billEmail, 'k***@example.com');
+  // POS báo thanh toán: gửi lần 1 lỗi (SMTP từ chối)
+  const body = { pointCode: 'SP-Q7', posOrderRef: 'P-MAIL', amount: tx.total, method: 'cash', invoiceNo: 'C26-77' };
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-MAIL2345/paid', body)).status, 200);
+  await Promise.all([...app.ctx.bg]);
+  assert.equal(fm.sent.length, 0);
+  assert.equal(app.ctx.db.prepare('SELECT bill_email_status s FROM transactions WHERE id=?').get(tx.id).s, 'failed');
+  // thử lại: gửi được, kèm PDF và link
+  await retryBillEmails(app.ctx);
+  assert.equal(fm.sent.length, 1);
+  const m = fm.sent[0];
+  assert.equal(m.to, 'khach@example.com');
+  assert.equal(m.attachments[0].content.subarray(0, 4).toString(), '%PDF');
+  const link = /https:\/\/scan\.congty\.vn\/c\/#\/bill-link\/(B1\.[A-Za-z0-9._-]+)/.exec(m.text);
+  assert.ok(link);
+  // thử lại lần nữa và POS báo trùng: không gửi thêm
+  await retryBillEmails(app.ctx);
+  await pos(app, key, 'POST', '/baskets/Q7-MAIL2345/paid', body);
+  await Promise.all([...app.ctx.bg]);
+  assert.equal(fm.sent.length, 1);
+  // link xem bill không cần mã thiết bị; sai chữ ký thì 404
+  const pub = await app.inject({ method: 'GET', url: `/api/c/bill/${link[1]}` });
+  assert.equal(pub.statusCode, 200);
+  assert.equal(JSON.parse(pub.body).bill.invoiceNo, 'C26-77');
+  assert.equal((await app.inject({ method: 'GET', url: `/api/c/bill/${link[1].slice(0, -2)}xx` })).statusCode, 404);
+  const pdf = await app.inject({ method: 'GET', url: `/api/c/bill/${link[1]}/pdf` });
+  assert.equal(pdf.statusCode, 200); assert.equal(pdf.rawPayload.subarray(0, 4).toString(), '%PDF');
+  // khách thêm email sau khi đã thanh toán: gửi ngay
+  const r = await call(app, 'POST', `/api/c/transactions/${tx.id}/bill-email`, { body: { email: 'khac@example.com' } });
+  assert.equal(r.body.status, 'sending');
+  await Promise.all([...app.ctx.bg]);
+  assert.equal(fm.sent.length, 2); assert.equal(fm.sent[1].to, 'khac@example.com');
+  config.publicUrl = '';
+  await app.close();
+});

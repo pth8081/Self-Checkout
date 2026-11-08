@@ -146,6 +146,8 @@ CREATE TABLE IF NOT EXISTS integration_keys (
 
 /** Thêm cột còn thiếu cho CSDL tạo từ phiên bản cũ (CREATE TABLE IF NOT EXISTS không tự thêm cột). */
 const MIGRATIONS = [
+  ['transactions', 'bill_email', 'TEXT'], ['transactions', 'bill_email_status', 'TEXT'], ['transactions', 'bill_email_tries', 'INTEGER NOT NULL DEFAULT 0'],
+  ['transactions', 'bill_email_error', 'TEXT'], ['transactions', 'bill_email_at', 'TEXT'],
   ['transactions', 'pos_bill_json', 'TEXT'], ['transactions', 'pos_invoice_url', 'TEXT'],
   ['store_config', 'checkout_mode', "TEXT NOT NULL DEFAULT 'basket'"],
   ['stores', 'pos_code', "TEXT NOT NULL DEFAULT ''"],

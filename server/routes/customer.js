@@ -5,6 +5,8 @@ import {
 } from '../services/core.js';
 import { issueInvoice } from '../services/invoice.js';
 import { billOf, billPdf } from '../services/bill.js';
+import { sendBillEmailBg } from '../services/bill-email.js';
+import { parseBillToken } from '../services/qr.js';
 import { audit } from '../services/audit.js';
 import { normalizeBarcode } from '../services/barcode.js';
 import { promoLabel } from '../services/pricing.js';
@@ -19,6 +21,7 @@ export default async function customerRoutes(app) {
   app.addHook('preHandler', async (req) => {
     const id = req.headers['x-device-id'];
     if (req.url.includes('/store') && req.method === 'GET') { req.deviceId = typeof id === 'string' ? id : ''; return; }
+    if (req.method === 'GET' && req.url.startsWith('/api/c/bill/')) { req.deviceId = ''; return; } // link bill trong email: chữ ký thay cho đăng nhập
     const okId = (v) => typeof v === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(v);
     const hasCookie = /(?:^|;\s*)brgd=[A-Za-z0-9_-]{16,64}/.test(req.headers.cookie || '');
     if (!okId(id) && !hasCookie) throw bad('NO_DEVICE', 'Thiếu mã thiết bị');
@@ -54,7 +57,7 @@ export default async function customerRoutes(app) {
   app.get('/stores', async () => ({
     stores: db.prepare('SELECT id, name, address, enabled FROM stores ORDER BY name').all().map((s) => ({ ...s, enabled: !!s.enabled }))
   }));
-  app.get('/store/:id', async (req) => storeView(db, String(req.params.id).toUpperCase()));
+  app.get('/store/:id', async (req) => ({ ...storeView(db, String(req.params.id).toUpperCase()), emailEnabled: ctx.mailer.enabled() }));
 
   // Tra cứu sản phẩm theo mã (màn nhập mã bằng tay): chỉ trả thông tin công khai, không thêm vào giỏ.
   app.get('/products/lookup', async (req) => {
@@ -97,7 +100,7 @@ export default async function customerRoutes(app) {
   });
   app.post('/sessions/:id/basket', async (req) => {
     const s = session(req);
-    const transaction = lockBasket(ctx, s, { ref: req.body?.ref });
+    const transaction = lockBasket(ctx, s, { ref: req.body?.ref, email: req.body?.email });
     return { session: sessionView(ctx, s.id), transaction };
   });
   app.post('/sessions/:id/finish', async (req) => { finishBasket(ctx, session(req)); return { ok: true }; });
@@ -120,6 +123,35 @@ export default async function customerRoutes(app) {
     const pdf = await billPdf(b);
     reply.header('content-type', 'application/pdf').header('content-disposition', `inline; filename="bill-${b.code}.pdf"`).header('cache-control', 'private, no-store');
     return reply.send(pdf);
+  });
+
+  // ---- Gửi bill về email ----
+  const MAIL = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+  app.post('/transactions/:id/bill-email', async (req) => {
+    const tx = ownTx(req);
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!MAIL.test(email) || email.length > 120) throw bad('BAD_EMAIL', 'Email không hợp lệ');
+    if (!['awaiting_counter', 'handed_off', 'paid'].includes(tx.status)) throw conflict('NOT_ACTIVE', 'Giao dịch này không còn nhận bill');
+    if (tx.bill_email !== email) db.prepare(`UPDATE transactions SET bill_email = ?, bill_email_status = NULL, bill_email_tries = 0, bill_email_error = NULL WHERE id = ?`).run(email, tx.id);
+    if (tx.status === 'paid') {
+      if (!ctx.mailer.enabled()) throw new HttpError(503, 'EMAIL_NOT_CONFIGURED', 'Hệ thống chưa cấu hình gửi email');
+      db.prepare(`UPDATE transactions SET bill_email_status = 'pending' WHERE id = ? AND bill_email_status IS NULL`).run(tx.id);
+      sendBillEmailBg(ctx, tx.id);
+    }
+    return { ok: true, status: tx.status === 'paid' ? 'sending' : 'saved' };
+  });
+  // Link xem bill trong email, không cần đăng nhập (chữ ký trong đường dẫn)
+  const byToken = (req) => {
+    const t = parseBillToken(req.params.token);
+    const tx = t && db.prepare('SELECT * FROM transactions WHERE id = ?').get(t.txId);
+    if (!tx || tx.status !== 'paid') throw notFound('BILL_NOT_FOUND', 'Không tìm thấy bill');
+    return tx;
+  };
+  app.get('/bill/:token', async (req) => ({ bill: billOf(ctx, byToken(req)) }));
+  app.get('/bill/:token/pdf', async (req, reply) => {
+    const b = billOf(ctx, byToken(req));
+    reply.header('content-type', 'application/pdf').header('content-disposition', `inline; filename="bill-${b.code}.pdf"`).header('cache-control', 'private, no-store');
+    return reply.send(await billPdf(b));
   });
 
   // ---- Hoá đơn & đánh giá ----
@@ -183,10 +215,19 @@ export default async function customerRoutes(app) {
     db.prepare(`INSERT INTO identity_codes(device_id,email,code,expires_at,tries) VALUES(?,?,?,?,0)
       ON CONFLICT(device_id,email) DO UPDATE SET code=excluded.code, expires_at=excluded.expires_at, tries=0`)
       .run(req.deviceId, email, code, new Date(Date.now() + 10 * 60_000).toISOString());
-    // Chưa nối dịch vụ gửi email: ở môi trường thử trả mã về để kiểm tra, production chỉ ghi log máy chủ.
+    if (ctx.mailer.enabled()) {
+      try {
+        await ctx.mailer.send({ to: email, subject: 'Mã xác nhận xem lịch sử mua sắm', text: `Mã xác nhận của bạn là ${code}. Mã có hiệu lực 10 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
+          html: `<div style="font-family:Arial,sans-serif"><p>Mã xác nhận xem lịch sử mua sắm BRG Scan &amp; Checkout:</p><p style="font-size:28px;letter-spacing:6px"><b>${code}</b></p><p style="color:#777">Mã có hiệu lực 10 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.</p></div>` });
+      } catch (e) {
+        app.log.error({ err: e.message }, 'Gửi email xác nhận lỗi');
+        throw new HttpError(502, 'EMAIL_FAILED', 'Chưa gửi được email. Hãy thử lại sau ít phút');
+      }
+      return { sent: true };
+    }
+    // Chưa cấu hình email: môi trường thử trả mã về để kiểm tra, production báo rõ để khách không chờ mã sẽ không đến.
     if (!config.isProd) return { sent: true, devCode: code };
-    app.log.warn({ email }, 'Chưa cấu hình gửi email xác nhận');
-    return { sent: true };
+    throw new HttpError(503, 'EMAIL_NOT_CONFIGURED', 'Hệ thống chưa gửi được email xác nhận. Hãy liên hệ cửa hàng');
   });
   app.post('/identity/verify', async (req) => {
     const email = String(req.body?.email || '').trim().toLowerCase();

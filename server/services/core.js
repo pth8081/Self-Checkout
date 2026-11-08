@@ -11,6 +11,8 @@ import { issueInvoice } from './invoice.js';
 import { canCash, canGate, isManager } from '../auth.js';
 import { encodeBasket, makeBasketRef } from '../../public/shared/basket.js';
 
+const maskEmail = (e) => (e ? e.replace(/^(.).*(@.*)$/, '$1***$2') : null);
+
 // ====================== Chi nhánh ======================
 export function getStoreConfig(db, storeId) {
   const store = db.prepare('SELECT * FROM stores WHERE id = ?').get(storeId);
@@ -205,6 +207,7 @@ export function txView(ctx, tx, { staff = false } = {}) {
     posStatus: tx.pos_status, posOrderRef: tx.pos_order_ref, posAmount: tx.pos_amount, posInvoiceNo: tx.pos_invoice_no,
     posClaimedAt: tx.pos_claimed_at, posCashier: tx.pos_cashier, posTerminal: tx.pos_terminal,
     buyer: tx.buyer_json ? JSON.parse(tx.buyer_json) : null,
+    billEmail: maskEmail(tx.bill_email), billEmailStatus: tx.bill_email_status || null,
     bill: tx.status === 'paid' ? { source: tx.pos_bill_json ? 'pos' : 'brg', invoiceNo: tx.pos_invoice_no, invoiceUrl: tx.pos_invoice_url, total: tx.pos_amount ?? tx.total } : null,
     // Chi nhánh không có bảo vệ: khách ra thẳng, không có mã QR ra cổng.
     receipt: paid && !tx.guard_skipped ? { token: makeReceiptToken(tx.id, tx.receipt_expires_at), expiresAt: tx.receipt_expires_at, expired: !!expired } : null,
@@ -319,7 +322,7 @@ export function lockSession(ctx, session, { method, acceptChanges = false, buyer
  * Chế độ giỏ QR: khoá giỏ để ghi nhận tạm tính theo giá của đúng chi nhánh. Không hỏi cách thanh toán.
  * `ref` do điện thoại sinh (có trong mã QR), gửi lại cùng ref thì trả kết quả cũ.
  */
-export function lockBasket(ctx, session, { ref } = {}) {
+export function lockBasket(ctx, session, { ref, email } = {}) {
   const { db } = ctx;
   const { store, cfg } = getStoreConfig(db, session.store_id);
   if (!store.enabled) throw conflict('STORE_DISABLED', 'Chi nhánh này chưa bật Scan & Checkout');
@@ -328,9 +331,12 @@ export function lockBasket(ctx, session, { ref } = {}) {
   const code = String(ref || '').toUpperCase();
   if (!/^[A-Z0-9]{1,6}-[A-Z0-9]{6,12}$/.test(code)) throw bad('BAD_REF', 'Mã giỏ không hợp lệ');
   const same = db.prepare('SELECT * FROM transactions WHERE store_id = ? AND cart_code = ?').get(session.store_id, code);
+  const mail = String(email || '').trim().toLowerCase();
+  if (mail && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(mail)) throw bad('BAD_EMAIL', 'Email không hợp lệ');
   if (same) {
     if (same.session_id !== session.id) throw conflict('REF_USED', 'Mã giỏ đã dùng, hãy tạo lại');
-    return txView(ctx, same);
+    if (mail && !same.bill_email) db.prepare('UPDATE transactions SET bill_email = ? WHERE id = ?').run(mail, same.id);
+    return txView(ctx, db.prepare('SELECT * FROM transactions WHERE id = ?').get(same.id));
   }
   if (session.status === 'locked') {
     // Khách đổi ý: bỏ giao dịch cũ chưa thu rồi khoá lại với mã mới.
@@ -353,9 +359,9 @@ export function lockBasket(ctx, session, { ref } = {}) {
     const snapshot = fresh.map((i) => ({ sku: i.sku, barcode: i.barcode, name: i.name, price: i.unit_price, qty: i.qty, discount: lineDiscount(i), ageRestricted: !!i.age_restricted }));
     const ts = nowIso();
     db.prepare(`INSERT INTO transactions(id,session_id,store_id,device_id,cart_code,transfer_content,subtotal,discount,total,method,status,
-      check_required,items_json,item_count,age_restricted,created_at,guard_skipped) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      check_required,items_json,item_count,age_restricted,created_at,guard_skipped,bill_email) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
       .run(id, session.id, session.store_id, session.device_id, code, code, t.subtotal, t.discount, t.total, 'basket', 'awaiting_counter', 0,
-        JSON.stringify(snapshot), itemCount(fresh), fresh.some((i) => i.age_restricted) ? 1 : 0, ts, 1);
+        JSON.stringify(snapshot), itemCount(fresh), fresh.some((i) => i.age_restricted) ? 1 : 0, ts, 1, mail || null);
     db.prepare(`UPDATE scan_sessions SET status='locked', locked_at=?, last_activity=? WHERE id=?`).run(ts, ts, session.id);
     logScan(db, session, 'cart_locked', null, id);
     audit(db, { storeId: session.store_id, actorType: 'customer', actorId: session.device_id.slice(0, 8), action: 'basket.created', entity: 'transaction', entityId: id, data: { total: t.total, items: fresh.length, ref: code } });

@@ -1,7 +1,27 @@
 // Chế độ giỏ QR: khách bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng từng mặt hàng để thu ngân quét vào POS.
 // Mã QR được tạo và lưu ngay trên máy nên vẫn hiện khi mất mạng, tắt điện thoại hoặc tắt trình duyệt.
 import { html, useState, useEffect, Header, Icon, QR, Banner, Pill, Spinner, ErrorBox, Loading, go, fmt, toast, useAsync } from '/shared/lib.js';
-import { editBasket, finishBasket, syncBasket, refreshSession, loadBill, cachedBill, downloadBillPdf } from './store.js';
+import { editBasket, finishBasket, syncBasket, refreshSession, loadBill, cachedBill, downloadBillPdf, setBillEmail, loadPublicBill, downloadPublicBillPdf, local, EMAIL_RE } from './store.js';
+
+/** Ô nhập email nhận bill. Trước khi thanh toán: lưu để gửi khi POS báo xong. Sau thanh toán: gửi ngay. */
+function EmailBox({ txId, paid, status, masked, initial }) {
+  const [v, setV] = useState(initial || '');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const ok = EMAIL_RE.test(v.trim());
+  const submit = async () => {
+    setBusy(true); setMsg('');
+    try { const r = await setBillEmail(v, txId); setMsg(r === 'sending' ? 'Đang gửi bill, kiểm tra hộp thư trong ít phút' : 'Đã lưu. Bill sẽ gửi về email này khi thanh toán xong'); }
+    catch (e) { setMsg(e.message); } finally { setBusy(false); }
+  };
+  if (paid && masked && status === 'sent') return html`<div class="card flat tight small"><${Icon} name="mail" size=${16}/> Đã gửi bill tới <b>${masked}</b></div>`;
+  return html`<div class="card flat tight stack" style="gap:8px">
+    <label class="small b" for="bill-email">${paid ? 'Gửi bill về email' : 'Nhận bill qua email (không bắt buộc)'}</label>
+    ${masked && html`<div class="xs muted">${status === 'sent' ? '' : paid ? `Đang gửi bill tới ${masked}` : `Sẽ gửi tới ${masked}`}</div>`}
+    <div class="row" style="gap:8px"><input id="bill-email" class="input grow" type="email" inputmode="email" autocomplete="email" placeholder="ten@email.com" value=${v} onInput=${(e) => setV(e.target.value)}/>
+      <button class="btn line auto" disabled=${busy || !ok} onClick=${submit}>${busy ? html`<${Spinner} sm/>` : paid ? 'Gửi' : 'Lưu'}</button></div>
+    ${msg && html`<div class="xs muted" role="status">${msg}</div>`}</div>`;
+}
 
 export function Basket({ s, store }) {
   const b = s.basket;
@@ -29,6 +49,7 @@ export function Basket({ s, store }) {
       <div class="card flat tight"><div class="row"><div class="grow"><div class="small muted">Tạm tính · ${b.count} mặt hàng</div>
         <b class="num" style="font-size:22px">${fmt.money(tx?.posAmount ?? b.total)}</b></div></div>
         <div class="xs muted">${paid ? 'Số tiền đã thanh toán theo máy tính tiền' : 'Số tiền cuối cùng do máy tính tiền tính theo giá và khuyến mãi tại cửa hàng'}</div></div>
+      ${store.emailEnabled && html`<${EmailBox} key=${paid ? 'p' : 'u'} txId=${tx?.id} paid=${paid} status=${tx?.billEmailStatus} masked=${tx?.billEmail} initial=${b.email || local.get('brg.c.email', '')}/>`}
       ${!b.synced && html`<${Banner} tone="brand" icon="info">${navigator.onLine ? 'Đang lưu giỏ lên hệ thống…' : 'Đang mất mạng. Mã QR vẫn dùng được, thu ngân vẫn quét được.'}<//>`}
       ${b.pending > 0 && html`<${Banner} tone="warn" icon="alert">${b.pending} mặt hàng quét lúc mất mạng chưa có giá trong tạm tính. Thu ngân vẫn tính đủ.<//>`}
       ${b.error && html`<${Banner} tone="warn" icon="alert">${b.error}<//>`}
@@ -44,13 +65,13 @@ export function Basket({ s, store }) {
 }
 
 /** Màn hình bill: bill thật từ POS (nếu POS đã gửi) hoặc tạm tính của BRG, kèm tải PDF. */
-export function Bill({ id }) {
-  const { data, error, loading, reload } = useAsync(() => loadBill(id), [id]);
+export function Bill({ id, token }) {
+  const { data, error, loading, reload } = useAsync(() => (token ? loadPublicBill(token) : loadBill(id)), [id, token]);
   const [busy, setBusy] = useState(false);
-  const b = data || cachedBill(id);
+  const b = data || (token ? null : cachedBill(id));
   if (loading && !b) return html`<div class="page"><${Loading}/></div>`;
   if (!b) return html`<div class="page"><${Header} onBack=${() => history.back()} title="Bill"/><${ErrorBox} error=${error} retry=${reload}/></div>`;
-  return html`<div style="display:flex;flex-direction:column;flex:1"><${Header} onBack=${() => history.back()} title="Bill" sub=${`${fmt.when(b.paidAt)} · ${b.storeName}`}/>
+  return html`<div style="display:flex;flex-direction:column;flex:1"><${Header} onBack=${token ? undefined : () => history.back()} title="Bill" sub=${`${fmt.when(b.paidAt)} · ${b.storeName}`}/>
     <div class="page pad-b" style="gap:14px">
       <div class="row wrap"><${Pill} tone=${b.provisional ? 'warn' : 'ok'}>${b.provisional ? 'Tạm tính' : 'Bill từ máy tính tiền'}<//><${Pill} tone="brand">${b.methodLabel}<//>${b.invoiceNo && html`<${Pill}>HĐ ${b.invoiceNo}<//>`}</div>
       ${b.provisional && html`<${Banner} tone="warn" icon="info">Đây là tạm tính của ứng dụng, chưa nhận được bill chính thức từ máy tính tiền. Số tiền thực trả theo hoá đơn của cửa hàng.<//>`}
@@ -62,5 +83,5 @@ export function Bill({ id }) {
       <div class="small muted">Mã giỏ ${b.code}${b.cashier ? ` · Thu ngân ${b.cashier}` : ''}</div>
       ${b.invoiceUrl && html`<a class="btn line" href=${b.invoiceUrl} target="_blank" rel="noopener"><${Icon} name="mail"/>Xem hoá đơn điện tử</a>`}
     </div>
-    <div class="bar-bottom"><div class="in"><button class="btn primary" disabled=${busy} onClick=${async () => { setBusy(true); try { await downloadBillPdf(b.id, b.code); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } }}>${busy ? html`<${Spinner} sm/>` : html`<${Icon} name="download"/>Tải bill PDF`}</button></div></div></div>`;
+    <div class="bar-bottom"><div class="in"><button class="btn primary" disabled=${busy} onClick=${async () => { setBusy(true); try { await (token ? downloadPublicBillPdf(token, b.code) : downloadBillPdf(b.id, b.code)); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } }}>${busy ? html`<${Spinner} sm/>` : html`<${Icon} name="download"/>Tải bill PDF`}</button></div></div></div>`;
 }

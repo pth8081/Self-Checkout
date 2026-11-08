@@ -2,6 +2,7 @@ import { buildApp } from './app.js';
 import { config } from './config.js';
 import { retryPendingInvoices } from './services/invoice.js';
 import { sweepStaleCarts } from './services/core.js';
+import { retryBillEmails } from './services/bill-email.js';
 
 // TRUST_PROXY=1 khi chạy sau Nginx để ghi đúng địa chỉ IP khách trong nhật ký.
 const app = buildApp({ logger: { level: process.env.LOG_LEVEL || 'info' }, trustProxy: process.env.TRUST_PROXY === '1' });
@@ -17,6 +18,8 @@ if (process.env.RUN_JOBS !== '0') {
   timers.push(setInterval(tick, syncEvery));
   // Thử lại hoá đơn điện tử còn treo.
   timers.push(setInterval(() => retryPendingInvoices(db, app.ctx.invoicer).catch((e) => app.log.error(e)), 120_000));
+  // Thử lại gửi bill qua email khi lần đầu lỗi.
+  timers.push(setInterval(() => retryBillEmails(app.ctx).catch((e) => app.log.error(e)), 120_000));
   // Dọn giỏ bị bỏ quên mỗi giờ.
   const sweep = () => { try { const n = sweepStaleCarts(app.ctx, Number(process.env.CART_TTL_HOURS || 12)); if (n) app.log.info({ n }, 'Đã dọn giỏ bỏ quên'); } catch (e) { app.log.error(e); } };
   timers.push(setInterval(sweep, 3600_000));

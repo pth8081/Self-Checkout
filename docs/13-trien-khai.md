@@ -91,6 +91,7 @@ Bảng biến môi trường:
 | `TRUST_PROXY` | | `1` khi chạy sau Nginx |
 | `DB_FILE` | `data/brg.db` | Đường dẫn file CSDL. Đặt ngoài thư mục mã nguồn, ví dụ `/var/lib/brg/brg.db` |
 | `RECEIPT_TTL_MIN` | `180` | Thời hạn QR biên nhận (phút). Chỉ dùng ở luồng cũ có bảo vệ cổng ra |
+| `PUBLIC_URL` | | Địa chỉ công khai, ví dụ `https://scan.congty.vn`. Dùng làm link xem bill trong email. Không đặt thì email vẫn gửi (kèm PDF) nhưng không có link |
 | `CART_TTL_HOURS` | `12` | Giỏ bị bỏ quên quá số giờ này thì được dọn tự động (giỏ POS đã nhận thì giữ) |
 | `POS_SYNC_SECONDS` | `60` | Chu kỳ đồng bộ POS |
 | `RUN_JOBS` | bật | `0` để tắt công việc nền ở một tiến trình (chỉ khi chạy nhiều tiến trình) |
@@ -154,6 +155,7 @@ sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 2. **Chi nhánh:** thêm từng chi nhánh, nhập **Mã điểm** (mã siêu thị trong hệ thống giá và POS).
 3. **Sản phẩm và giá:** khi chưa có API giá thật, nhập từ file CSV:
    `npm run import-products -- docs/mau/san-pham-mau.csv` (xem file mẫu để biết các cột; thêm `--replace` để thay toàn bộ sản phẩm của chi nhánh). Khi API giá thật có, bước này không còn dùng.
+3b. **Email:** ở mục **Tích hợp**, thẻ "Email gửi cho khách", nhập máy chủ SMTP của công ty (máy chủ, cổng, kiểu bảo mật, tài khoản, mật khẩu, địa chỉ người gửi), bấm Lưu rồi "Gửi thử". Dùng để gửi mã xác nhận xem lịch sử trên máy khác và gửi bill về email khách. Mật khẩu được mã hoá khi lưu, không hiện lại.
 4. Mục **Tích hợp:** bấm "Đồng bộ ngay" cho từng chi nhánh, tạo **khoá API cho POS** (chỉ hiện một lần, lưu lại), gửi cho đơn vị POS cùng `docs/api-qr-gio-hang.md`.
 5. Trang **Chi nhánh:** bật Scan & Checkout cho chi nhánh. Mặc định chi nhánh dùng chế độ **Giỏ QR cho POS**.
 6. Dùng điện thoại quét mã QR cổng vào (nút "Mã QR dán cổng vào"), quét thử vài mặt hàng, bấm Thanh toán và để POS quét thử.

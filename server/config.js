@@ -24,5 +24,7 @@ export const config = {
   authTokenHours: 12,
   maxPinFails: 5,
   lockMinutes: 15,
+  // Địa chỉ công khai của hệ thống (dùng làm link trong email), ví dụ https://scan.congty.vn
+  publicUrl: (process.env.PUBLIC_URL || '').replace(/\/$/, ''),
   currency: 'VND'
 };
