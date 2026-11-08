@@ -44,6 +44,7 @@ export function Basket({ s, store }) {
           : html`<${Pill} tone="warn"><span class="dot"></span>Chờ thu ngân quét mã<//><h1>Đưa mã này cho thu ngân quét vào máy tính tiền</h1>`}
       </div>
       ${paid && html`<div class="stack" style="gap:8px"><button class="btn primary" onClick=${() => go(`/bill/${tx.id}`)}><${Icon} name="receipt"/>Xem bill</button>
+        ${tx.invoicePortalUrl && html`<a class="btn" href=${tx.invoicePortalUrl} target="_blank" rel="noopener"><${Icon} name="mail"/>Khai báo hoá đơn điện tử</a>`}
         <button class="btn line" disabled=${!!busy} onClick=${act('pdf', () => downloadBillPdf(tx.id, tx.code))}>${busy === 'pdf' ? html`<${Spinner} sm/>` : html`<${Icon} name="download"/>Tải bill PDF`}</button></div>`}
       ${!paid && html`<div class="qrbox"><${QR} text=${b.qr} ecc=${long ? 'L' : 'M'} label="Mã QR giỏ hàng"/><div class="code">${b.ref}</div></div>`}
       <div class="card flat tight"><div class="row"><div class="grow"><div class="small muted">Tạm tính · ${b.count} mặt hàng</div>
@@ -81,7 +82,8 @@ export function Bill({ id, token }) {
       <div class="card flat"><div class="sum num">${b.discount > 0 && html`<div><span class="muted">Khuyến mãi</span><span style="color:var(--ok)">−${fmt.money(b.discount)}</span></div>`}
         <div class="tot"><span>Tổng thanh toán</span><span>${fmt.money(b.total)}</span></div></div></div>
       <div class="small muted">Mã giỏ ${b.code}${b.cashier ? ` · Thu ngân ${b.cashier}` : ''}</div>
-      ${b.invoiceUrl && html`<a class="btn line" href=${b.invoiceUrl} target="_blank" rel="noopener"><${Icon} name="mail"/>Xem hoá đơn điện tử</a>`}
+      ${b.invoicePortalUrl && html`<a class="btn primary" href=${b.invoicePortalUrl} target="_blank" rel="noopener"><${Icon} name="receipt"/>Khai báo hoá đơn điện tử</a>`}
+      ${b.invoiceUrl && html`<a class="btn line" href=${b.invoiceUrl} target="_blank" rel="noopener"><${Icon} name="mail"/>Tra cứu hoá đơn điện tử</a>`}
     </div>
     <div class="bar-bottom"><div class="in"><button class="btn primary" disabled=${busy} onClick=${async () => { setBusy(true); try { await (token ? downloadPublicBillPdf(token, b.code) : downloadBillPdf(b.id, b.code)); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } }}>${busy ? html`<${Spinner} sm/>` : html`<${Icon} name="download"/>Tải bill PDF`}</button></div></div></div>`;
 }

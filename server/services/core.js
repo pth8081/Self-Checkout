@@ -8,6 +8,7 @@ import { normalizeBarcode } from './barcode.js';
 import { vietQrPayload, makeReceiptToken, parseReceiptToken } from './qr.js';
 import { audit } from './audit.js';
 import { issueInvoice } from './invoice.js';
+import { portalUrl } from './bill.js';
 import { canCash, canGate, isManager } from '../auth.js';
 import { encodeBasket, makeBasketRef } from '../../public/shared/basket.js';
 
@@ -207,6 +208,7 @@ export function txView(ctx, tx, { staff = false } = {}) {
     posStatus: tx.pos_status, posOrderRef: tx.pos_order_ref, posAmount: tx.pos_amount, posInvoiceNo: tx.pos_invoice_no,
     posClaimedAt: tx.pos_claimed_at, posCashier: tx.pos_cashier, posTerminal: tx.pos_terminal,
     buyer: tx.buyer_json ? JSON.parse(tx.buyer_json) : null,
+    invoicePortalUrl: tx.status === 'paid' ? portalUrl(db, tx) : null,
     billEmail: maskEmail(tx.bill_email), billEmailStatus: tx.bill_email_status || null,
     bill: tx.status === 'paid' ? { source: tx.pos_bill_json ? 'pos' : 'brg', invoiceNo: tx.pos_invoice_no, invoiceUrl: tx.pos_invoice_url, total: tx.pos_amount ?? tx.total } : null,
     // Chi nhánh không có bảo vệ: khách ra thẳng, không có mã QR ra cổng.

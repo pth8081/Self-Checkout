@@ -338,6 +338,6 @@ export function Order({ id }) {
         <div class="grow"><div class="name">${i.name}</div><div class="small muted num">${fmt.money(i.price)} × ${i.qty}</div></div><b class="num">${fmt.money(i.price * i.qty - (i.discount || 0))}</b></div>`)}</div></div>
       <div class="card flat"><div class="sum num"><div><span class="muted">Tạm tính</span><span>${fmt.money(tx.subtotal)}</span></div>${tx.discount > 0 && html`<div><span class="muted">Khuyến mãi</span><span style="color:var(--ok)">−${fmt.money(tx.discount)}</span></div>`}<div class="tot"><span>Đã trả</span><span>${fmt.money(paidAmount(tx))}</span></div></div></div>
     </div>
-    <div class="bar-bottom"><div class="in">${tx.bill && html`<button class="btn primary" onClick=${() => go(`/bill/${tx.id}`)}><${Icon} name="receipt"/>Xem bill</button>`}<button class="btn" onClick=${() => go(`/invoice/${tx.id}`)}><${Icon} name="mail"/>${tx.invoice ? 'Hoá đơn điện tử' : 'Yêu cầu hoá đơn'}</button></div></div></div>`;
+    <div class="bar-bottom"><div class="in">${tx.bill && html`<button class="btn primary" onClick=${() => go(`/bill/${tx.id}`)}><${Icon} name="receipt"/>Xem bill</button>`}${tx.invoicePortalUrl ? html`<a class="btn" href=${tx.invoicePortalUrl} target="_blank" rel="noopener"><${Icon} name="mail"/>Khai báo hoá đơn điện tử</a>` : tx.method === 'basket' ? null : html`<button class="btn" onClick=${() => go(`/invoice/${tx.id}`)}><${Icon} name="mail"/>${tx.invoice ? 'Hoá đơn điện tử' : 'Yêu cầu hoá đơn'}</button>`}</div></div></div>`;
 }
 void resetSession; void setState; void deviceId; void Confirm;

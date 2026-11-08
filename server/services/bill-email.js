@@ -15,8 +15,8 @@ function content(b, link) {
   const html = `<div style="font-family:Arial,sans-serif;max-width:520px"><h2 style="margin:0 0 4px">BRG Scan &amp; Checkout</h2><p style="margin:0 0 12px;color:#555">${esc(b.storeName)} · mã giỏ ${esc(b.code)}</p>
 <table style="width:100%;border-collapse:collapse;border-top:1px solid #ddd">${rows}</table>
 <p style="font-size:16px"><b>Tổng thanh toán: ${vnd(b.total)}</b></p>${b.invoiceNo ? `<p>Hoá đơn điện tử: ${esc(b.invoiceNo)}${b.invoiceUrl ? ` · <a href="${esc(b.invoiceUrl)}">tra cứu</a>` : ''}</p>` : ''}
-${link ? `<p><a href="${esc(link)}">Xem bill trên web</a></p>` : ''}<p style="color:#777;font-size:12px">Bill PDF đính kèm email này.${b.provisional ? ' Đây là tạm tính, chưa có bill chính thức từ máy tính tiền.' : ''}</p></div>`;
-  const text = `BRG Scan & Checkout\n${b.storeName} · mã giỏ ${b.code}\n\n${b.lines.map((l) => `${l.name}: ${l.qty} x ${vnd(l.unitPrice)} = ${vnd(l.lineTotal)}`).join('\n')}\n\nTổng thanh toán: ${vnd(b.total)}\n${b.invoiceNo ? `Hoá đơn điện tử: ${b.invoiceNo}\n` : ''}${link ? `Xem bill: ${link}\n` : ''}`;
+${b.invoicePortalUrl ? `<p><a href="${esc(b.invoicePortalUrl)}"><b>Khai báo hoá đơn điện tử</b></a></p>` : ''}${link ? `<p><a href="${esc(link)}">Xem bill trên web</a></p>` : ''}<p style="color:#777;font-size:12px">Bill PDF đính kèm email này.${b.provisional ? ' Đây là tạm tính, chưa có bill chính thức từ máy tính tiền.' : ''}</p></div>`;
+  const text = `BRG Scan & Checkout\n${b.storeName} · mã giỏ ${b.code}\n\n${b.lines.map((l) => `${l.name}: ${l.qty} x ${vnd(l.unitPrice)} = ${vnd(l.lineTotal)}`).join('\n')}\n\nTổng thanh toán: ${vnd(b.total)}\n${b.invoiceNo ? `Hoá đơn điện tử: ${b.invoiceNo}\n` : ''}${b.invoicePortalUrl ? `Khai báo hoá đơn điện tử: ${b.invoicePortalUrl}\n` : ''}${link ? `Xem bill: ${link}\n` : ''}`;
   return { html, text };
 }
 

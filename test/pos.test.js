@@ -608,3 +608,38 @@ test('email: quản trị lưu chứng chỉ qua API, xem được vân tay và 
   assert.equal((await put({ tlsMode: 'insecure' })).body.email.tlsMode, 'insecure');
   await app.close();
 });
+
+test('link khai báo hoá đơn điện tử: quản trị cấu hình, thay ký hiệu theo giao dịch, hiện trong bill, email, PDF và màn khách; sai link bị từ chối', async () => {
+  const { createMailer } = await import('../server/services/mailer.js');
+  const fm = fakeMail();
+  const app = await makeApp({ basket: true });
+  app.ctx.mailer = createMailer(app.ctx.db, fm.opts);
+  const admin = (await adminLogin(app)).body.token;
+  const q7 = (await adminLogin(app, 'QT0007')).body.token;
+  await configureMail(app, admin);
+  const put = (body, token = admin) => call(app, 'PUT', '/api/a/integrations/invoice-portal', { token, body });
+  assert.equal((await put({ url: 'x' }, q7)).status, 403);
+  assert.equal((await put({ url: 'http://khong-https.vn' })).status, 400);
+  assert.equal((await put({ url: 'javascript:alert(1)' })).status, 400);
+  assert.equal((await put({ url: 'https://hd.vn/kb?a={khongco}' })).body.error, 'BAD_PLACEHOLDER');
+  assert.equal((await put({ url: 'https://hoadon.nhacungcap.vn/khai-bao?ma={code}&so={invoiceNo}&tien={amount}&cn={storeCode}&diem={posCode}' })).status, 200);
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  const id = s.body.session.id;
+  await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }] } });
+  const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-PORTAL23', email: 'k@example.com' } })).body.transaction;
+  assert.equal(tx.invoicePortalUrl, null); // chưa thanh toán thì chưa có
+  await pos(app, key, 'POST', '/baskets/Q7-PORTAL23/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-PORTAL', amount: tx.total, method: 'cash', invoiceNo: 'C26 TAA/1' });
+  await Promise.all([...app.ctx.bg]);
+  const want = `https://hoadon.nhacungcap.vn/khai-bao?ma=Q7-PORTAL23&so=${encodeURIComponent('C26 TAA/1')}&tien=${tx.total}&cn=Q7&diem=SP-Q7`;
+  const bill = (await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill;
+  assert.equal(bill.invoicePortalUrl, want);
+  assert.equal((await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.transaction.invoicePortalUrl, want);
+  assert.ok(fm.sent[0].html.includes('Khai báo hoá đơn điện tử') && fm.sent[0].text.includes(want));
+  const pdf = await app.inject({ method: 'GET', url: `/api/c/transactions/${tx.id}/bill.pdf`, headers: { 'x-device-id': DEVICE } });
+  assert.equal(pdf.statusCode, 200);
+  // xoá link thì nút biến mất
+  assert.equal((await put({ url: '' })).status, 200);
+  assert.equal((await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill.invoicePortalUrl, null);
+  await app.close();
+});
