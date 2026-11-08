@@ -683,3 +683,21 @@ test('bill: POS giảm giá cấp hoá đơn (tổng tiền khác tổng các d�
   assert.equal(bill.lines[0].lineTotal + bill.adjustment, bill.total);
   await app.close();
 });
+
+test('giỏ tối đa số mặt hàng khác nhau: mặt hàng mới vượt mức bị từ chối, tăng số lượng mặt hàng đã có vẫn được', async () => {
+  const { config } = await import('../server/config.js');
+  const old = config.maxCartItems; config.maxCartItems = 2;
+  try {
+    const app = await makeApp({ basket: true });
+    const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+    const id = s.body.session.id;
+    const scan = async (sku, opId) => (await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: opId, type: 'scan', barcode: barcodeOf(app, 'Q7', sku) }] } })).body.results[0];
+    assert.equal((await scan('SUA01', 'a')).ok, true);
+    assert.equal((await scan('MI01', 'b')).ok, true);
+    const full = await scan('TRU01', 'c');
+    assert.equal(full.ok, false); assert.equal(full.code, 'CART_FULL');
+    assert.equal((await scan('SUA01', 'd')).ok, true); // mặt hàng đã có: tăng số lượng
+    assert.equal((await call(app, 'GET', '/api/c/store/Q7')).body.maxCartItems, 2);
+    await app.close();
+  } finally { config.maxCartItems = old; }
+});

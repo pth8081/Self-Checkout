@@ -92,6 +92,7 @@ Bảng biến môi trường:
 | `DB_FILE` | `data/brg.db` | Đường dẫn file CSDL. Đặt ngoài thư mục mã nguồn, ví dụ `/var/lib/brg/brg.db` |
 | `RECEIPT_TTL_MIN` | `180` | Thời hạn QR biên nhận (phút). Chỉ dùng ở luồng cũ có bảo vệ cổng ra |
 | `PUBLIC_URL` | | Địa chỉ công khai, ví dụ `https://scan.hcrc.vn`. Dùng làm link xem bill trong email. Không đặt thì email vẫn gửi (kèm PDF) nhưng không có link |
+| `MAX_CART_ITEMS` | `60` | Số mặt hàng khác nhau tối đa mỗi giỏ. Mã QR chứa cả giỏ nên giỏ quá lớn khó quét |
 | `CART_TTL_HOURS` | `12` | Giỏ bị bỏ quên quá số giờ này thì được dọn tự động (giỏ POS đã nhận thì giữ) |
 | `POS_SYNC_SECONDS` | `60` | Chu kỳ đồng bộ POS |
 | `RUN_JOBS` | bật | `0` để tắt công việc nền ở một tiến trình (chỉ khi chạy nhiều tiến trình) |

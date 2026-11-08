@@ -20,6 +20,8 @@ export const config = {
   secret: process.env.APP_SECRET || 'dev-only-secret-change-me',
   tzOffsetHours: 7, // Việt Nam, không có giờ mùa hè
   receiptTtlMinutes: Number(process.env.RECEIPT_TTL_MIN || 180),
+  // Số mặt hàng khác nhau tối đa trong một giỏ. Mã QR chứa cả giỏ nên giỏ quá lớn khó quét; 60 mặt hàng cho mã QR cỡ vừa, quét tốt trên máy quét 2D.
+  maxCartItems: Number(process.env.MAX_CART_ITEMS || 60),
   sessionResumeHours: 6,
   authTokenHours: 12,
   maxPinFails: 5,

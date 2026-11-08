@@ -31,7 +31,7 @@ export function storeView(db, storeId) {
   return {
     id: store.id, name: store.name, address: store.address, enabled: !!store.enabled,
     paymentSource: cfg.payment_source, guardCheck: !!cfg.guard_check,
-    basket: cfg.checkout_mode === 'basket', pointCode: store.pos_code || '',
+    basket: cfg.checkout_mode === 'basket', pointCode: store.pos_code || '', maxCartItems: config.maxCartItems,
     payment: { cash: !pos && !!cfg.pay_cash, qrTransfer: !pos && !!cfg.pay_qr && bankOk, pos, online: false /* chưa tích hợp */ }
   };
 }
@@ -137,6 +137,9 @@ function runOp(ctx, session, op) {
     if (!p) { recordUnknown(db, session.store_id, n.code); logScan(db, session, 'scan_fail', n.code, 'not_found'); return { ok: false, code: 'NOT_FOUND', barcode: n.code, message: 'Sản phẩm chưa có trong hệ thống của chi nhánh' }; }
     if (!p.active) { logScan(db, session, 'scan_fail', n.code, 'inactive'); return { ok: false, code: 'INACTIVE', barcode: n.code, name: p.name, message: 'Sản phẩm này đang ngừng bán' }; }
     const cur = db.prepare('SELECT * FROM cart_items WHERE session_id = ? AND sku = ?').get(session.id, p.sku);
+    if (!cur && db.prepare('SELECT COUNT(*) n FROM cart_items WHERE session_id = ?').get(session.id).n >= config.maxCartItems) {
+      return { ok: false, code: 'CART_FULL', barcode: n.code, name: p.name, message: `Giỏ đã đủ ${config.maxCartItems} mặt hàng khác nhau. Hãy thanh toán giỏ này, rồi quét giỏ mới cho phần còn lại` };
+    }
     const want = (cur?.qty || 0) + 1;
     if (want > 99) return { ok: false, code: 'BAD_QTY', message: 'Số lượng tối đa mỗi mặt hàng là 99' };
     if (cur) db.prepare('UPDATE cart_items SET qty = ? WHERE id = ?').run(want, cur.id);

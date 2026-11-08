@@ -81,7 +81,9 @@ BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T60800|1E1A
 | `T` | **Tạm tính** của BRG Scan & Checkout (VND). Chỉ để đối chiếu, **không dùng làm số tiền thu** |
 | CRC16 | CRC16-CCITT (đa thức `0x1021`, khởi tạo `0xFFFF`), 4 ký tự hex viết hoa, tính trên toàn bộ chuỗi đứng **trước dấu `|` cuối cùng** |
 
-Mã QR có thể dài với giỏ nhiều mặt hàng. Máy quét nên là loại đọc được mã 2D (không phải máy laser đọc vạch).
+**Mã QR chứa được bao nhiêu mặt hàng?** Mỗi mặt hàng chiếm khoảng 16 ký tự. Giới hạn kỹ thuật của mã QR là khoảng 180 mặt hàng khác nhau, nhưng mã càng lớn càng khó quét từ màn hình điện thoại. Vì vậy ứng dụng giới hạn **tối đa 60 mặt hàng khác nhau mỗi giỏ** (đổi được bằng biến `MAX_CART_ITEMS` trong `.env` của máy chủ). Mỗi mặt hàng có số lượng từ 1 đến 99. Giỏ 60 mặt hàng cho mã QR dài khoảng 1.000 ký tự, cỡ 109 × 109 ô, máy quét 2D thông thường đọc tốt. Khách vượt mức được báo "Giỏ đã đầy", thanh toán giỏ này rồi quét giỏ mới cho phần còn lại.
+
+Máy quét nên là loại đọc được mã 2D (không phải máy laser đọc vạch).
 
 ### Tính CRC16 (ví dụ)
 

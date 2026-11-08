@@ -21,7 +21,7 @@ function ScanSheet({ result, onClose, onManual, onHelp }) {
       <button class="btn primary" onClick=${onClose}>Quét mặt hàng tiếp theo</button></div></div>`;
   }
   if (result.kind === 'error') {
-    const titles = { NOT_FOUND: 'Không tìm thấy sản phẩm', INVALID_BARCODE: 'Không đọc được mã vạch', INACTIVE: 'Sản phẩm đang ngừng bán', OUT_OF_STOCK: 'Sản phẩm đã hết hàng' };
+    const titles = { NOT_FOUND: 'Không tìm thấy sản phẩm', INVALID_BARCODE: 'Không đọc được mã vạch', INACTIVE: 'Sản phẩm đang ngừng bán', OUT_OF_STOCK: 'Sản phẩm đã hết hàng', CART_FULL: 'Giỏ đã đầy' };
     return html`<div class="overlay" style="background:transparent;pointer-events:none"><div class="sheet" style="pointer-events:auto">
       <div class="row"><div class="ico-tile err"><${Icon} name="alert"/></div><div class="grow"><b style="font-size:17px">${titles[result.code] || 'Không thêm được sản phẩm'}</b>${result.barcode && html`<div class="small muted num">Mã ${result.barcode}</div>`}</div></div>
       <p class="muted">${result.message}${result.code === 'NOT_FOUND' ? '. Bạn có thể thử lại hoặc gọi nhân viên hỗ trợ.' : ''}</p>

@@ -169,6 +169,8 @@ function adoptBasket(session) {
 export function makeBasket() {
   const items = basketItems(state);
   if (!items.length) throw new Error('Giỏ hàng đang trống');
+  const max = state.store?.maxCartItems || 60;
+  if (items.length > max) throw new Error(`Giỏ có ${items.length} mặt hàng khác nhau, tối đa ${max}. Hãy bỏ bớt, thanh toán phần này rồi quét giỏ mới cho phần còn lại`);
   const v = cartView(state);
   const rememberedMail = local.get('brg.c.email', '');
   const point = state.store?.pointCode;
