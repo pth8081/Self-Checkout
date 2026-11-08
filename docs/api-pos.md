@@ -26,7 +26,7 @@ Nếu thu ngân huỷ đơn trên POS, POS gọi `POST /orders/{mã đơn}/cance
 
 | | |
 |---|---|
-| Địa chỉ cơ sở | `https://<tên miền BRG>/api/pos/v1` (**bắt buộc HTTPS** ở môi trường thật) |
+| Địa chỉ cơ sở | `https://scan.hcrc.vn/api/pos/v1` (**bắt buộc HTTPS** ở môi trường thật) |
 | Định dạng | JSON UTF-8, `Content-Type: application/json` |
 | Tiền | **Số nguyên, đơn vị đồng** (VND), ví dụ `112800` |
 | Thời gian | ISO 8601, ví dụ `2026-11-05T09:30:00+07:00` |
@@ -208,7 +208,7 @@ Với 409 `NOT_PAYABLE` khi nhận giỏ: báo thu ngân giỏ này không còn 
 
 ```bash
 KEY=brgpos_...                       # khoá do quản trị cấp
-BASE=https://brg.example.com
+BASE=https://scan.hcrc.vn
 
 curl -s $BASE/api/pos/v1/health -H "Authorization: Bearer $KEY"
 curl -s $BASE/api/pos/v1/carts/GH-Q7-10001/claim -H "Authorization: Bearer $KEY" \

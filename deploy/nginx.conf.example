@@ -1,5 +1,5 @@
 # Nginx đứng trước ứng dụng: HTTPS (bắt buộc để dùng camera), nén, giới hạn tần suất đăng nhập.
-# Thay self.example.com bằng tên miền thật. Chưa được chạy thử trong môi trường dựng tài liệu này: hãy kiểm tra bằng `nginx -t`.
+# Tên miền: scan.hcrc.vn (đổi nếu dùng tên miền khác). Chưa được chạy thử trong môi trường dựng tài liệu này: hãy kiểm tra bằng `nginx -t`.
 limit_req_zone $binary_remote_addr zone=brg_login:10m rate=10r/m;
 
 upstream brg {
@@ -9,7 +9,7 @@ upstream brg {
 
 server {
   listen 80;
-  server_name self.example.com;
+  server_name scan.hcrc.vn;
   location /.well-known/acme-challenge/ { root /var/www/certbot; }
   location / { return 301 https://$host$request_uri; }
 }
@@ -17,10 +17,10 @@ server {
 server {
   listen 443 ssl;
   http2 on;
-  server_name self.example.com;
+  server_name scan.hcrc.vn;
   # certbot tạo hai dòng này
-  ssl_certificate     /etc/letsencrypt/live/self.example.com/fullchain.pem;
-  ssl_certificate_key /etc/letsencrypt/live/self.example.com/privkey.pem;
+  ssl_certificate     /etc/letsencrypt/live/scan.hcrc.vn/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/scan.hcrc.vn/privkey.pem;
 
   add_header Strict-Transport-Security "max-age=31536000" always;
   add_header X-Content-Type-Options "nosniff" always;

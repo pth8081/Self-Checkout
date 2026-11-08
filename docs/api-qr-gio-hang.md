@@ -116,7 +116,7 @@ static string Crc16(string s) {
 
 | Thông tin | Cách có |
 |-----------|---------|
-| Địa chỉ API (ví dụ `https://tên-miền-brg`) | BRG Scan & Checkout cung cấp |
+| Địa chỉ API (ví dụ `https://scan.hcrc.vn`) | BRG Scan & Checkout cung cấp |
 | Khoá API | Quản trị BRG Scan & Checkout tạo ở mục Tích hợp, có thể giới hạn theo chi nhánh. Chỉ hiện **một lần** |
 | Mã điểm của từng chi nhánh | Quản trị BRG Scan & Checkout nhập, hai bên thống nhất với mã điểm trong POS |
 | Môi trường thử và mã QR mẫu | BRG Scan & Checkout cấp môi trường thử, kèm mã QR mẫu ở `docs/mau/` |
@@ -205,7 +205,7 @@ Mạng có thể chập chờn, nên **POS phải thử lại cho đến khi BRG
 Ví dụ gọi thử:
 
 ```bash
-curl -X POST "https://tên-miền-brg/api/pos/v1/baskets/Q7-LM3K2AB/paid" \
+curl -X POST "https://scan.hcrc.vn/api/pos/v1/baskets/Q7-LM3K2AB/paid" \
   -H "Authorization: Bearer brgpos_xxxxxxxx" -H "Content-Type: application/json" \
   -d '{"posOrderRef":"POS-1","pointCode":"SP-0107","amount":60800,"method":"cash","invoiceNo":"C26TAA-123"}'
 ```

@@ -47,7 +47,7 @@ Cấu hình tối thiểu cho một chuỗi vài chục chi nhánh thí điểm:
 
 - Máy chủ Linux (Ubuntu 22.04 trở lên hoặc tương đương), có quyền `sudo`.
 - **Node.js 20.6 trở lên** (đã thử trên 22). Thư viện SQLite dùng bản dựng sẵn cho các nền tảng phổ biến; nếu không có bản dựng sẵn, cài thêm `build-essential` và `python3`.
-- Một **tên miền** trỏ về máy chủ (ví dụ `self.congty.vn`) và cổng 80, 443 mở. **Bắt buộc HTTPS** vì trình duyệt chỉ cho dùng camera trên HTTPS.
+- Một **tên miền** trỏ về máy chủ (ví dụ `scan.hcrc.vn`) và cổng 80, 443 mở. **Bắt buộc HTTPS** vì trình duyệt chỉ cho dùng camera trên HTTPS.
 - Tài khoản ngân hàng nhận tiền, nhà cung cấp POS và hoá đơn (có thể gắn sau, xem [11](11-ung-dung.md)).
 
 ## 4. Cài đặt từng bước
@@ -91,7 +91,7 @@ Bảng biến môi trường:
 | `TRUST_PROXY` | | `1` khi chạy sau Nginx |
 | `DB_FILE` | `data/brg.db` | Đường dẫn file CSDL. Đặt ngoài thư mục mã nguồn, ví dụ `/var/lib/brg/brg.db` |
 | `RECEIPT_TTL_MIN` | `180` | Thời hạn QR biên nhận (phút). Chỉ dùng ở luồng cũ có bảo vệ cổng ra |
-| `PUBLIC_URL` | | Địa chỉ công khai, ví dụ `https://scan.congty.vn`. Dùng làm link xem bill trong email. Không đặt thì email vẫn gửi (kèm PDF) nhưng không có link |
+| `PUBLIC_URL` | | Địa chỉ công khai, ví dụ `https://scan.hcrc.vn`. Dùng làm link xem bill trong email. Không đặt thì email vẫn gửi (kèm PDF) nhưng không có link |
 | `CART_TTL_HOURS` | `12` | Giỏ bị bỏ quên quá số giờ này thì được dọn tự động (giỏ POS đã nhận thì giữ) |
 | `POS_SYNC_SECONDS` | `60` | Chu kỳ đồng bộ POS |
 | `RUN_JOBS` | bật | `0` để tắt công việc nền ở một tiến trình (chỉ khi chạy nhiều tiến trình) |
@@ -127,9 +127,9 @@ Cách thay thế: dùng **systemd** thay PM2 với `deploy/brg.service.example` 
 ```bash
 sudo apt install nginx certbot python3-certbot-nginx
 sudo cp deploy/nginx.conf.example /etc/nginx/sites-available/brg
-sudo nano /etc/nginx/sites-available/brg        # đổi self.example.com thành tên miền thật
+sudo nano /etc/nginx/sites-available/brg        # kiểm tra tên miền là scan.hcrc.vn
 sudo ln -s /etc/nginx/sites-available/brg /etc/nginx/sites-enabled/brg
-sudo certbot --nginx -d self.congty.vn           # cấp chứng chỉ và tự gia hạn
+sudo certbot --nginx -d scan.hcrc.vn           # cấp chứng chỉ và tự gia hạn
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -143,8 +143,8 @@ sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 
 ### 4.7 Kiểm tra sau cài đặt
 
-1. `https://self.congty.vn/api/health` trả `{"ok":true}`.
-2. Mở `https://self.congty.vn/a/`, đăng nhập quản trị, thấy Tổng quan.
+1. `https://scan.hcrc.vn/api/health` trả `{"ok":true}`.
+2. Mở `https://scan.hcrc.vn/a/`, đăng nhập quản trị, thấy Tổng quan.
 3. Trong Chi nhánh và tính năng, bấm **Mã QR dán cổng vào** của một chi nhánh, quét bằng điện thoại: mở được trang khách bằng HTTPS và hỏi quyền camera.
 4. Làm tiếp mục 4.8 (nhập chi nhánh, mã điểm, sản phẩm, khoá POS), rồi thử trọn quy trình: khách quét, bấm Thanh toán, POS quét mã QR và báo thanh toán.
 5. Chạy `npm run backup` và kiểm tra có file mới trong `BACKUP_DIR`.
@@ -204,7 +204,7 @@ Dữ liệu phát sinh giữa bản sao lưu và lúc hỏng sẽ mất (tối �
 
 ## 7. Giám sát và nhật ký
 
-- **Theo dõi sống còn:** cho một dịch vụ giám sát (UptimeRobot, Uptime Kuma...) gọi `https://self.congty.vn/api/health` mỗi phút và báo khi lỗi. Đường dẫn này kiểm tra cả CSDL.
+- **Theo dõi sống còn:** cho một dịch vụ giám sát (UptimeRobot, Uptime Kuma...) gọi `https://scan.hcrc.vn/api/health` mỗi phút và báo khi lỗi. Đường dẫn này kiểm tra cả CSDL.
 - **Nhật ký ứng dụng:** `pm2 logs brg-self-checkout`, mỗi dòng là JSON. Dòng `"level":50` là lỗi.
 - **Cảnh báo nghiệp vụ** nằm sẵn trong web quản trị: POS đồng bộ chậm, hoá đơn treo, ca chờ quản lý (trang Tổng quan).
 - **Ổ đĩa:** theo dõi dung lượng trống của `/var/lib/brg`, `/var/backups/brg` và nhật ký.
@@ -214,7 +214,7 @@ Dữ liệu phát sinh giữa bản sao lưu và lúc hỏng sẽ mất (tối �
 
 ```bash
 # Lấy vài mã vạch có trong chi nhánh đang thử (ví dụ từ mục Tích hợp, Công cụ thử nghiệm ở môi trường thử)
-BASE=https://self.congty.vn STORE=Q7 BARCODES=893...,893... CLIENTS=100 SECONDS=15 npm run loadtest
+BASE=https://scan.hcrc.vn STORE=Q7 BARCODES=893...,893... CLIENTS=100 SECONDS=15 npm run loadtest
 ```
 
 Công cụ tạo nhiều phiên mua sắm thử. **Không** chạy ở máy chủ đang bán hàng thật, hãy chạy ở bản thử có cùng cấu hình. Đo xong, so với mục 1 và theo dõi CPU, độ trễ p95.
