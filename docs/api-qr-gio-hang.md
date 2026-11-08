@@ -154,7 +154,11 @@ Xác thực: header `Authorization: Bearer <khoá API>` (hoặc `X-Api-Key`). Ch
 | `invoiceNo`, `invoiceUrl` | Nên có | Số hoá đơn điện tử và đường dẫn tra cứu (https) |
 | `cashier`, `terminal` | Không | Hiện trên bill và báo cáo |
 
-Mỗi dòng `lines`: `name` (tên), `qty`, `unitPrice`, `discount` (không bắt buộc), `lineTotal` là số nguyên đồng (qty có thể lẻ nếu cần); `barcode` không bắt buộc.
+Mỗi dòng của `lines`:
+- **Bắt buộc:** `barcode` (mã hàng; hoặc `name` nếu không có mã), `qty` (số lượng), `lineTotal` (thành tiền của dòng, số nguyên đồng).
+- **Không bắt buộc:** `name` (bỏ trống thì hệ thống tự điền theo mã hàng), `unitPrice` (bỏ trống thì hệ thống tính bằng (`lineTotal` + `discount`) chia `qty`), `discount` (số tiền giảm của dòng).
+
+Vì vậy POS chỉ cần gửi **mã hàng, số lượng, thành tiền** từng dòng là đủ để khách thấy bill.
 
 **Phản hồi thành công `200`:**
 

@@ -643,3 +643,26 @@ test('link khai báo hoá đơn điện tử: quản trị cấu hình, thay ký
   assert.equal((await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill.invoicePortalUrl, null);
   await app.close();
 });
+
+test('bill: POS chỉ gửi mã hàng, số lượng, thành tiền thì hệ thống tự điền tên và đơn giá; thiếu cả mã hàng lẫn tên thì từ chối', async () => {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  const bcSua = barcodeOf(app, 'Q7', 'SUA01');
+  await call(app, 'POST', `/api/c/sessions/${s.body.session.id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: bcSua }, { id: 'b', type: 'scan', barcode: bcSua }] } });
+  const tx = (await call(app, 'POST', `/api/c/sessions/${s.body.session.id}/basket`, { body: { ref: 'Q7-LINES234' } })).body.transaction;
+  const base = { pointCode: 'SP-Q7', posOrderRef: 'P-L', amount: 50000, method: 'cash' };
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-LINES234/paid', { ...base, lines: [{ qty: 2, lineTotal: 50000 }] })).status, 400); // không có mã hàng, không có tên
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-LINES234/paid', { ...base, lines: [{ barcode: bcSua, qty: 2 }] })).status, 400); // thiếu thành tiền
+  const ok = await pos(app, key, 'POST', '/baskets/Q7-LINES234/paid', { ...base, lines: [{ barcode: bcSua, qty: 2, lineTotal: 50000 }, { barcode: '8930000000000', qty: 1, lineTotal: 1000, discount: 500 }] });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  const bill = (await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill;
+  assert.equal(bill.provisional, false);
+  assert.equal(bill.lines[0].name.length > 3, true);       // tên lấy từ giỏ của khách
+  assert.notEqual(bill.lines[0].name, bcSua);
+  assert.equal(bill.lines[0].unitPrice, 25000);            // 50000 / 2
+  assert.equal(bill.lines[1].name, '8930000000000');       // mã lạ: dùng mã hàng làm tên
+  assert.equal(bill.lines[1].unitPrice, 1500);             // (1000 + 500) / 1
+  await app.close();
+});

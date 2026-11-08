@@ -73,18 +73,25 @@ export function orderStatus(ctx, scope, ref) {
 }
 
 /** Bill thật của POS: danh sách dòng đã tính giá và khuyến mãi, kèm đường dẫn hoá đơn điện tử (không bắt buộc). */
-function cleanBill(body) {
+function cleanBill(body, db, tx) {
   let lines = null;
   if (body.lines !== undefined && body.lines !== null) {
     if (!Array.isArray(body.lines) || !body.lines.length || body.lines.length > 300) throw bad('BAD_LINES', 'lines là danh sách 1 đến 300 dòng');
+    // Mỗi dòng bắt buộc: mã hàng (barcode) hoặc tên, số lượng, thành tiền. Tên và đơn giá bỏ trống thì hệ thống tự điền.
+    const names = new Map(JSON.parse(tx.items_json).map((it) => [String(it.barcode), it.name]));
+    const cached = db.prepare('SELECT name FROM product_cache WHERE store_id = ? AND barcode = ?');
     lines = body.lines.map((l, i) => {
-      const name = String(l?.name || '').trim().slice(0, 200);
+      const barcode = l?.barcode ? String(l.barcode).trim().slice(0, 32) : null;
+      let name = String(l?.name || '').trim().slice(0, 200);
       const qty = Number(l?.qty);
-      const unitPrice = Number(l?.unitPrice), lineTotal = Number(l?.lineTotal), discount = Number(l?.discount ?? 0);
-      if (!name || !(qty > 0 && qty < 100000) || ![unitPrice, lineTotal, discount].every((x) => Number.isInteger(x) && x >= 0)) {
-        throw bad('BAD_LINES', `Dòng ${i + 1} không hợp lệ: cần name, qty > 0, unitPrice, lineTotal (số nguyên đồng), discount (nếu có)`);
+      const lineTotal = Number(l?.lineTotal), discount = Number(l?.discount ?? 0);
+      if ((!barcode && !name) || !(qty > 0 && qty < 100000) || ![lineTotal, discount].every((x) => Number.isInteger(x) && x >= 0)
+        || (l?.unitPrice !== undefined && l?.unitPrice !== null && !(Number.isInteger(Number(l.unitPrice)) && Number(l.unitPrice) >= 0))) {
+        throw bad('BAD_LINES', `Dòng ${i + 1} không hợp lệ: cần barcode (mã hàng) hoặc name, qty > 0, lineTotal (số nguyên đồng); unitPrice và discount nếu có phải là số nguyên đồng`);
       }
-      return { barcode: l.barcode ? String(l.barcode).slice(0, 32) : null, name, qty, unitPrice, discount, lineTotal };
+      if (!name) name = names.get(barcode) || cached.get(tx.store_id, barcode)?.name || barcode;
+      const unitPrice = l?.unitPrice !== undefined && l?.unitPrice !== null ? Number(l.unitPrice) : Math.round((lineTotal + discount) / qty);
+      return { barcode, name, qty, unitPrice, discount, lineTotal };
     });
   }
   let invoiceUrl = null;
@@ -104,7 +111,7 @@ export function orderPaid(ctx, scope, ref, body = {}) {
     exitStatus: db.prepare('SELECT exit_status FROM transactions WHERE id = ?').get(tx.id).exit_status, amountMatches: money(tx.pos_amount) === tx.total });
   if (tx.status === 'paid') {
     // Báo lại: không tạo thêm khoản thu, nhưng nhận bill nếu lần trước chưa gửi.
-    const { lines, invoiceUrl } = cleanBill(body);
+    const { lines, invoiceUrl } = cleanBill(body, db, tx);
     if (lines && !tx.pos_bill_json) db.prepare('UPDATE transactions SET pos_bill_json = ?, pos_invoice_url = COALESCE(?, pos_invoice_url) WHERE id = ?').run(JSON.stringify(lines), invoiceUrl, tx.id);
     else if (invoiceUrl && !tx.pos_invoice_url) db.prepare('UPDATE transactions SET pos_invoice_url = ? WHERE id = ?').run(invoiceUrl, tx.id);
     return result(true);
@@ -115,7 +122,7 @@ export function orderPaid(ctx, scope, ref, body = {}) {
   if (!Number.isInteger(amount) || amount <= 0) throw bad('BAD_AMOUNT', 'amount là số nguyên dương, đơn vị đồng');
   if (!POS_METHODS.includes(body.method)) throw bad('BAD_METHOD', `method phải là một trong: ${POS_METHODS.join(', ')}`);
   const invoiceNo = body.invoiceNo ? String(body.invoiceNo).slice(0, 64) : null;
-  const { lines, invoiceUrl } = cleanBill(body);
+  const { lines, invoiceUrl } = cleanBill(body, db, tx);
   const cashier = body.cashier ? String(body.cashier).slice(0, 40) : tx.pos_cashier;
   const ts = nowIso();
   const differs = amount !== tx.total;
