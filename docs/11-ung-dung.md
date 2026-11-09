@@ -41,7 +41,7 @@ Dsmart POS báo thanh toán theo mã giỏ (`POST /api/pos/v1/baskets/{mã}/paid
 - **Tắt trình duyệt:** mở lại link cửa hàng, giỏ đang dở (kể cả giỏ đã khoá chờ thu ngân hoặc đã thanh toán chưa ra) hiện lại theo mã thiết bị.
 - **Bị xoá dữ liệu trang** (iOS xoá localStorage sau 7 ngày không dùng): máy chủ đặt thêm cookie `brgd` làm bản sao mã thiết bị; còn cookie thì giỏ vẫn tìm lại được (`GET /api/c/sessions/current`).
 - **Không còn gì** (đổi trình duyệt, ứng dụng ra màn hình chính tách riêng với Safari, chế độ riêng tư): giỏ cũ không tự khôi phục. Thu ngân vẫn xử lý được nếu khách còn mã giỏ (màn chờ nhắc chụp màn hình).
-- Giỏ bị bỏ quên quá 12 giờ (`CART_TTL_HOURS`) được dọn mỗi giờ; giỏ Dsmart POS đã nhận thì giữ.
+- Máy chủ dọn giỏ bỏ quên mỗi phút: giỏ đã bấm Thanh toán quá 30 phút (`LOCKED_TTL_MINUTES`) chưa thanh toán thì huỷ đơn nhưng giữ giỏ hàng; giỏ đang quét quá 3 giờ (`CART_TTL_HOURS`) không thao tác thì đóng.
 
 ## 3. Gắn Dsmart POS thật (đọc giá và tồn kho)
 

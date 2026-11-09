@@ -20,9 +20,10 @@ if (process.env.RUN_JOBS !== '0') {
   timers.push(setInterval(() => retryPendingInvoices(db, app.ctx.invoicer).catch((e) => app.log.error(e)), 120_000));
   // Thử lại gửi bill qua email khi lần đầu lỗi.
   timers.push(setInterval(() => retryBillEmails(app.ctx).catch((e) => app.log.error(e)), 120_000));
-  // Dọn giỏ bị bỏ quên mỗi giờ.
-  const sweep = () => { try { const n = sweepStaleCarts(app.ctx, Number(process.env.CART_TTL_HOURS || 12)); if (n) app.log.info({ n }, 'Đã dọn giỏ bỏ quên'); } catch (e) { app.log.error(e); } };
-  timers.push(setInterval(sweep, 3600_000));
+  // Dọn giỏ bỏ quên mỗi phút: giỏ đã bấm Thanh toán quá LOCKED_TTL_MINUTES (mặc định 30) thì huỷ đơn;
+  // giỏ đang quét quá CART_TTL_HOURS (mặc định 3) không thao tác thì đóng.
+  const sweep = () => { try { const n = sweepStaleCarts(app.ctx, { activeHours: Number(process.env.CART_TTL_HOURS || 3), lockedMinutes: Number(process.env.LOCKED_TTL_MINUTES || 30) }); if (n) app.log.info({ n }, 'Đã dọn giỏ bỏ quên'); } catch (e) { app.log.error(e); } };
+  timers.push(setInterval(sweep, 60_000));
 } else app.log.info('RUN_JOBS=0: tiến trình này không chạy công việc nền');
 
 if (!db.prepare('SELECT COUNT(*) n FROM stores').get().n) {

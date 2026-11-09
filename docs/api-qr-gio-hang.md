@@ -393,6 +393,22 @@ Gọi lệnh `cancelled` như 6.2 (hoặc `refund` đủ số tiền đã thu). 
 - Sau khi Dsmart POS đã huỷ một đơn mà còn báo thanh toán cho chính đơn đó thì BRG từ chối (`ORDER_CANCELLED`). Muốn thu lại, khách khoá giỏ với mã giỏ mới.
 - Mọi lệnh huỷ và hoàn trả đều bắt buộc có `pointCode` đúng, và dùng quy tắc thử lại ở mục 5.
 
+### 6.6 Giỏ bị bỏ quên: khi nào tự hết hạn
+
+Khách có thể quét rồi bỏ đi, hoặc bấm Thanh toán nhưng không ra quầy. BRG tự dọn, máy chủ kiểm tra **mỗi phút**:
+
+| Tình trạng giỏ | Hạn | Điều xảy ra |
+|----------------|-----|-------------|
+| Khách đang quét, **chưa bấm Thanh toán** | **3 giờ** không có thao tác (`CART_TTL_HOURS`) | Giỏ được đóng ("bỏ quên"). Chưa có đơn nên không ảnh hưởng doanh thu và Dsmart POS |
+| Khách **đã bấm Thanh toán** (đã có mã QR) nhưng chưa thanh toán | **30 phút** (`LOCKED_TTL_MINUTES`) | **Đơn bị huỷ**, mã QR hết hạn (trạng thái `cancelled`, lý do `expired`). **Giỏ hàng vẫn được giữ**, điện thoại khách báo "Mã QR đã hết hạn, bấm Thanh toán để tạo mã mới" |
+
+- Mốc 30 phút tính từ lần cuối có động thái: lúc khách bấm Thanh toán, lúc Dsmart POS nhận giỏ, hoặc lúc Dsmart POS gửi lệnh cập nhật đơn (mục 6.1b). Thu ngân đang xử lý thì giỏ chưa bị coi là bỏ quên.
+- Giỏ vừa hết hạn 30 phút được trả về trạng thái "đang quét", rồi theo hạn 3 giờ. Nếu khách không quay lại, giỏ đóng sau đó.
+- **Dsmart POS không cần làm gì** khi giỏ hết hạn. Lệnh `GET /api/pos/v1/baskets/{mã giỏ}` trả `status: "cancelled"` kèm `reason: "expired"`.
+- **Nếu Dsmart POS vẫn báo `paid` cho mã đã hết hạn** (ví dụ khách trả tiền ở phút thứ 40): BRG **vẫn nhận** và ghi doanh thu, vì tiền đã thu thật. Trường hợp này được ghi riêng trong nhật ký để đối soát.
+- Trong mã QR có **giờ tạo** (mục 2). Dsmart POS có thể cảnh báo thu ngân khi mã quá 30 phút, nhưng không bắt buộc.
+- Hai hạn đổi được bằng biến môi trường, xem hướng dẫn triển khai.
+
 ## 7. Bill khách xem
 
 - Khách xem bill ngay trong ứng dụng web và tải bản **PDF**. Bill lưu trên điện thoại để xem lại khi mất mạng; tải PDF cần mạng.

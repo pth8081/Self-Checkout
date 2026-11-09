@@ -93,7 +93,8 @@ Bảng biến môi trường:
 | `RECEIPT_TTL_MIN` | `180` | Thời hạn QR biên nhận (phút). Chỉ dùng ở luồng cũ có bảo vệ cổng ra |
 | `PUBLIC_URL` | | Địa chỉ công khai, ví dụ `https://scan.hcrc.vn`. Dùng làm link xem bill trong email. Không đặt thì email vẫn gửi (kèm PDF) nhưng không có link |
 | `MAX_CART_ITEMS` | `60` | Số mặt hàng khác nhau tối đa mỗi giỏ. Mã QR chứa cả giỏ nên giỏ quá lớn khó quét |
-| `CART_TTL_HOURS` | `12` | Giỏ bị bỏ quên quá số giờ này thì được dọn tự động (giỏ Dsmart POS đã nhận thì giữ) |
+| `CART_TTL_HOURS` | `3` | Giỏ đang quét (chưa bấm Thanh toán) quá số giờ này không thao tác thì đóng |
+| `LOCKED_TTL_MINUTES` | `30` | Giỏ đã bấm Thanh toán quá số phút này chưa thanh toán thì huỷ đơn, mã QR hết hạn (giỏ hàng vẫn giữ để tạo mã mới) |
 | `POS_SYNC_SECONDS` | `60` | Chu kỳ đồng bộ Dsmart POS |
 | `RUN_JOBS` | bật | `0` để tắt công việc nền ở một tiến trình (chỉ khi chạy nhiều tiến trình) |
 | `LOG_LEVEL` | `info` | `warn` để giảm nhật ký |

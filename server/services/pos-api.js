@@ -249,7 +249,7 @@ export function basketStatus(ctx, scope, code) {
   const tx = ctx.db.prepare('SELECT * FROM transactions WHERE cart_code = ?').get(String(code).toUpperCase());
   if (!tx) throw notFound('BASKET_NOT_FOUND', 'Chưa thấy giỏ này');
   inScope(scope, tx);
-  return { code: tx.cart_code, transactionId: tx.id, status: tx.status, posOrderRef: tx.pos_order_ref, total: tx.total, paidAmount: tx.pos_amount, billStored: !!tx.pos_bill_json };
+  return { code: tx.cart_code, transactionId: tx.id, status: tx.status, reason: tx.cancel_reason || undefined, posOrderRef: tx.pos_order_ref, total: tx.total, paidAmount: tx.pos_amount, billStored: !!tx.pos_bill_json };
 }
 
 /**
@@ -320,6 +320,7 @@ export function basketUpdate(ctx, scope, code, body = {}) {
   const draft = { lines, amount, at: nowIso() };
   db.prepare(`UPDATE transactions SET pos_draft_json = ?, pos_order_ref = COALESCE(pos_order_ref, ?), pos_cashier = COALESCE(?, pos_cashier), pos_terminal = COALESCE(?, pos_terminal) WHERE id = ?`)
     .run(JSON.stringify(draft), ref, body.cashier ? String(body.cashier).slice(0, 40) : null, body.terminal ? String(body.terminal).slice(0, 40) : null, tx.id);
+  db.prepare('UPDATE scan_sessions SET last_activity = ? WHERE id = ?').run(nowIso(), tx.session_id); // thu ngân đang làm việc với giỏ này: chưa coi là bỏ quên
   const view = txView(ctx, db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.id));
   return { ok: true, itemCount: view.posDraft.itemCount, total: amount, differsFromPhone: !view.posDraft.diff.same };
 }

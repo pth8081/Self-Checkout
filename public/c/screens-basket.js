@@ -46,7 +46,10 @@ export function Basket({ s, store }) {
   }, [!!s.session]);
   // Thu ngân huỷ đơn trên Dsmart POS trước khi thu tiền: máy chủ trả giỏ về trạng thái đang quét. Báo khách và cho sửa giỏ.
   useEffect(() => {
-    if (b?.synced && s.session?.status === 'active' && !tx) { toast('Thu ngân đã huỷ đơn. Bạn có thể sửa giỏ rồi thanh toán lại'); setBasket(null); go('/cart', true); }
+    if (b?.synced && s.session?.status === 'active' && !tx) {
+      toast(s.session.releasedReason === 'expired' ? 'Mã QR đã hết hạn vì quá 30 phút chưa thanh toán. Giỏ của bạn vẫn còn, bấm Thanh toán để tạo mã mới' : 'Thu ngân đã huỷ đơn. Bạn có thể sửa giỏ rồi thanh toán lại');
+      setBasket(null); go('/cart', true);
+    }
   }, [b?.synced, s.session?.status, !!tx]);
   if (!b) return null;
   const voided = tx?.status === 'voided';

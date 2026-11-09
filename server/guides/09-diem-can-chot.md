@@ -14,7 +14,7 @@ Danh sách này gom các chỗ **quy trình chưa có quy định chính thức*
 
 | # | Chủ đề | Ứng dụng hiện làm | Đề xuất | Mức |
 |---|--------|-------------------|---------|-----|
-| 1 | **Giỏ chờ thu bị bỏ quên** | Giỏ đã khoá nằm trong hàng đợi **mãi** cho đến khi thu ngân huỷ | Tự huỷ sau một thời gian (ví dụ 30 phút) và mở lại giỏ cho khách | Cao |
+| 1 | **Giỏ chờ thu bị bỏ quên** | Chế độ Giỏ QR cho Dsmart POS đã tự xử lý: huỷ đơn sau 30 phút, đóng giỏ đang quét sau 3 giờ. Chế độ cũ: giỏ đã khoá nằm trong hàng đợi đến khi thu ngân huỷ hoặc quá hạn chung | Tự huỷ sau một thời gian (ví dụ 30 phút) và mở lại giỏ cho khách | Cao |
 | 2 | **Hạn QR biên nhận** | 180 phút kể từ lúc thu tiền. Hết hạn thì cổng báo đỏ, không có cách cấp lại | Chốt thời hạn hợp lý và quy trình cấp lại có quản lý duyệt | Cao |
 | 3 | **Khách mất điện thoại hoặc hết pin sau khi trả** | Cổng ra chỉ nhận QR. Quản lý tra giao dịch ở web quản trị | Thêm "cho qua thủ công" cần quản lý duyệt, bắt buộc ghi lý do, ghi nhật ký | Cao |
 | 4 | **Chuyển khoản sai** (thiếu, dư, sai nội dung, quên nội dung) | Thu ngân không tick thì không xác nhận được; không ghi nhận thanh toán gộp nhiều lần | Chốt chính sách cho từng trường hợp; nếu cho chuyển bù thì bổ sung ghi nhận thanh toán gộp | Cao |

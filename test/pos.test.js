@@ -884,3 +884,50 @@ test('khách lấy thêm hàng ở quầy: POS báo đơn đang tính để đi�
   assert.equal((await up({ lines: [{ barcode: sua, qty: 1, lineTotal: 1 }] })).body.error, 'NOT_UPDATABLE');
   await app.close();
 });
+
+test('hết hạn: giỏ đã bấm Thanh toán quá 30 phút bị huỷ đơn nhưng giữ giỏ; giỏ đang quét quá 3 giờ mới đóng; Dsmart POS báo muộn vẫn nhận', async () => {
+  const { sweepStaleCarts } = await import('../server/services/core.js');
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const db = app.ctx.db;
+  const ago = (min) => new Date(Date.now() - min * 60_000).toISOString();
+  const sua = barcodeOf(app, 'Q7', 'SUA01');
+  const newBasket = async (dev, ref) => {
+    const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' }, device: dev });
+    const id = s.body.session.id;
+    await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: sua }] }, device: dev });
+    const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref }, device: dev })).body.transaction;
+    return { id, tx };
+  };
+  const A = await newBasket('devA-1234567890abcdef', 'Q7-EXPIRE2345');
+  const B = await newBasket('devB-1234567890abcdef', 'Q7-CLAIMED234');
+  const C = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' }, device: 'devC-1234567890abcdef' }); // chỉ quét, chưa thanh toán
+  // 20 phút: chưa hết hạn
+  db.prepare('UPDATE scan_sessions SET last_activity = ?').run(ago(20));
+  assert.equal(sweepStaleCarts(app.ctx), 0);
+  // A quá 30 phút; B cũng cũ nhưng Dsmart POS vừa nhận giỏ
+  db.prepare('UPDATE scan_sessions SET last_activity = ?').run(ago(31));
+  db.prepare(`UPDATE transactions SET pos_order_ref='P-B', pos_status='claimed', pos_claimed_at=? WHERE id=?`).run(ago(5), B.tx.id);
+  assert.equal(sweepStaleCarts(app.ctx), 1);
+  const ta = db.prepare('SELECT status, cancel_reason FROM transactions WHERE id=?').get(A.tx.id);
+  assert.equal(ta.status, 'cancelled'); assert.equal(ta.cancel_reason, 'expired');
+  assert.equal(db.prepare('SELECT status FROM transactions WHERE id=?').get(B.tx.id).status, 'awaiting_counter');
+  // giỏ A được giữ lại để khách tạo mã mới
+  const view = (await call(app, 'GET', `/api/c/sessions/${A.id}`, { device: 'devA-1234567890abcdef' })).body.session;
+  assert.equal(view.status, 'active'); assert.equal(view.items.length, 1); assert.equal(view.transaction, null); assert.equal(view.releasedReason, 'expired');
+  // Dsmart POS hỏi trạng thái thấy huỷ + lý do
+  const st = await pos(app, key, 'GET', '/baskets/Q7-EXPIRE2345');
+  assert.equal(st.body.status, 'cancelled'); assert.equal(st.body.reason, 'expired');
+  // Dsmart POS báo muộn: tiền đã thu thật nên vẫn nhận
+  const late = await pos(app, key, 'POST', '/baskets/Q7-EXPIRE2345/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-LATE', amount: 29000, method: 'cash' });
+  assert.equal(late.status, 200, JSON.stringify(late.body));
+  assert.equal(db.prepare('SELECT status FROM transactions WHERE id=?').get(A.tx.id).status, 'paid');
+  // giỏ chỉ quét: 2h59 còn, 3h01 đóng
+  db.prepare('UPDATE scan_sessions SET last_activity = ? WHERE id = ?').run(ago(179), C.body.session.id);
+  assert.equal(sweepStaleCarts(app.ctx), 0);
+  db.prepare('UPDATE scan_sessions SET last_activity = ? WHERE id = ?').run(ago(181), C.body.session.id);
+  assert.equal(sweepStaleCarts(app.ctx), 1);
+  assert.equal(db.prepare('SELECT status FROM scan_sessions WHERE id=?').get(C.body.session.id).status, 'abandoned');
+  await app.close();
+});

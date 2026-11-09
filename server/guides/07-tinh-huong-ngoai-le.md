@@ -64,6 +64,7 @@ Cột **Ứng dụng** cho biết việc đó có công cụ trong ứng dụng 
 |-----------|-----------|---------|
 | Thu ngân quét mã giỏ trong Dsmart POS mà Dsmart POS báo không nhận được | Kiểm tra mã giỏ còn hiệu lực (khách có thể đã sửa giỏ, mã mới). Mời khách mở lại màn hình mã giỏ. Dsmart POS báo "đã bị đơn khác nhận" thì hỏi quản lý | Có |
 | Dsmart POS nhận giỏ nhưng sập, khách đứng chờ, không sửa được giỏ | Quản lý **Nhả giỏ** trong Đơn Dsmart POS (ghi lý do). Thu ngân tạo đơn lại sau khi Dsmart POS hoạt động | Có |
+| Khách bấm Thanh toán nhưng không ra quầy, hoặc quét giỏ rồi bỏ đi | Không cần xử lý. Đã bấm Thanh toán: sau **30 phút** đơn tự huỷ, mã QR hết hạn, giỏ hàng vẫn giữ để khách tạo mã mới. Chỉ quét, chưa bấm Thanh toán: sau **3 giờ** không thao tác giỏ tự đóng. Nếu Dsmart POS báo thanh toán muộn, hệ thống vẫn ghi nhận | Chi tiết giao dịch hiện thẻ "Mã QR hết hạn" |
 | Dsmart POS ngừng hoạt động nhiều giờ | Quản trị chuỗi chuyển chi nhánh về **Tự thu trong BRG** (cần hết giỏ chờ), thu ngân thu thủ công, chuyển lại khi Dsmart POS sẵn sàng | Có |
 | Dsmart POS thu tiền xong nhưng chưa báo về (mất mạng giữa Dsmart POS và BRG) | Dsmart POS tự thử lại. Nếu không được, quản lý đối chiếu đơn Dsmart POS với giỏ trong BRG và nhờ nhà cung cấp Dsmart POS gửi lại thông báo | Một phần |
 | Khách đã trả trên Dsmart POS nhưng màn hình khách chưa chuyển | Chờ vài giây (màn khách tự làm mới). Quá lâu thì kiểm tra Đơn Dsmart POS xem BRG đã nhận báo chưa | Có |

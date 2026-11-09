@@ -59,7 +59,9 @@ export function sessionView(ctx, sessionId) {
     id: s.id, storeId: s.store_id, status: s.status, startedAt: s.started_at,
     items: items.map(itemView), itemCount: itemCount(items), ...t,
     ageRestricted: items.some((i) => i.age_restricted),
-    transaction: tx ? txView(ctx, tx) : null
+    transaction: tx ? txView(ctx, tx) : null,
+    // Đơn vừa bị huỷ và giỏ được trả lại cho khách: 'expired' (quá hạn không thanh toán) hoặc null
+    releasedReason: tx ? null : (db.prepare(`SELECT cancel_reason r FROM transactions WHERE session_id = ? AND status = 'cancelled' ORDER BY created_at DESC LIMIT 1`).get(sessionId)?.r ?? null)
   };
 }
 
@@ -97,11 +99,35 @@ export function cleanBuyer(b) {
   return Object.keys(out).length ? JSON.stringify(out) : null;
 }
 
-/** Dọn giỏ bỏ quên (khách tắt trình duyệt rồi đi): giỏ đang quét hoặc đã khoá nhưng Dsmart POS chưa nhận, quá `hours` giờ không hoạt động. */
-export function sweepStaleCarts(ctx, hours = 12) {
-  const cutoff = new Date(Date.now() - hours * 3600_000).toISOString();
-  const rows = ctx.db.prepare(`SELECT * FROM scan_sessions WHERE status IN ('active','locked') AND last_activity < ?`).all(cutoff);
+/**
+ * Dọn giỏ bỏ quên. Hai hạn khác nhau:
+ * - Giỏ đang quét (chưa bấm Thanh toán): `activeHours` giờ không có thao tác thì đóng (phiên "bỏ quên").
+ * - Giỏ QR đã bấm Thanh toán mà quá `lockedMinutes` phút chưa được thanh toán: HUỶ ĐƠN (mã QR hết hạn, lý do "expired"),
+ *   nhưng GIỮ giỏ hàng, trả về trạng thái đang quét để khách tạo mã mới; giỏ đó rồi lại theo hạn `activeHours`.
+ *   Mốc tính là lần cuối có động thái: lúc bấm Thanh toán, lúc Dsmart POS nhận giỏ hoặc cập nhật đơn.
+ * Nếu Dsmart POS vẫn báo thanh toán sau khi đơn hết hạn thì hệ thống vẫn nhận (tiền đã thu thật).
+ * Giỏ kiểu cũ (có bước cổng ra) giữ cách xử lý cũ: theo `activeHours`.
+ */
+export function sweepStaleCarts(ctx, { activeHours = 3, lockedMinutes = 30 } = {}) {
+  const { db } = ctx;
   let n = 0;
+  const lockedCut = new Date(Date.now() - lockedMinutes * 60_000).toISOString();
+  const locked = db.prepare(`SELECT t.id txId, t.store_id, t.session_id, t.pos_claimed_at, s.last_activity FROM transactions t JOIN scan_sessions s ON s.id = t.session_id
+    WHERE t.method = 'basket' AND t.status = 'awaiting_counter' AND s.status = 'locked'`).all();
+  for (const r of locked) {
+    const last = [r.last_activity, r.pos_claimed_at].filter(Boolean).sort().pop();
+    if (last >= lockedCut) continue;
+    const ts = nowIso();
+    db.transaction(() => {
+      db.prepare(`UPDATE transactions SET status='cancelled', cancel_reason='expired' WHERE id=? AND status='awaiting_counter'`).run(r.txId);
+      db.prepare(`UPDATE scan_sessions SET status='active', last_activity=? WHERE id=?`).run(ts, r.session_id);
+      db.prepare('INSERT INTO scan_events(session_id,store_id,type,detail,ts) VALUES(?,?,?,?,?)').run(r.session_id, r.store_id, 'basket_expired', `${lockedMinutes} phút`, ts);
+      audit(db, { storeId: r.store_id, actorType: 'system', actorId: 'SYSTEM', action: 'cart.expired', entity: 'transaction', entityId: r.txId, data: { lockedMinutes } });
+    })();
+    n++;
+  }
+  const cutoff = new Date(Date.now() - activeHours * 3600_000).toISOString();
+  const rows = db.prepare(`SELECT * FROM scan_sessions WHERE status IN ('active','locked') AND last_activity < ?`).all(cutoff);
   for (const s of rows) { try { abandonSession(ctx, s); n++; } catch { /* Dsmart POS đang xử lý: để nguyên */ } }
   return n;
 }
@@ -204,7 +230,7 @@ export function txView(ctx, tx, { staff = false } = {}) {
     id: tx.id, code: tx.cart_code, status: tx.status, method: tx.method, storeId: tx.store_id,
     subtotal: tx.subtotal, discount: tx.discount, total: tx.total, itemCount: tx.item_count,
     transferContent: tx.transfer_content, exitStatus: tx.exit_status, extraDue: tx.extra_due,
-    createdAt: tx.created_at, paidAt: tx.paid_at, exitedAt: tx.exited_at,
+    createdAt: tx.created_at, paidAt: tx.paid_at, exitedAt: tx.exited_at, cancelReason: tx.cancel_reason || null,
     checkRequired: !!tx.check_required && !tx.check_done, checkDone: !!tx.check_done,
     ageRestricted: !!tx.age_restricted, rating: tx.rating,
     paymentSource: cfg.payment_source, guardCheck: !tx.guard_skipped,

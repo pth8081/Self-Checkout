@@ -361,10 +361,10 @@ test('giỏ bị bỏ quên quá hạn được dọn, giỏ POS đã nhận th�
   const a = await newCart(app, [['SUA01', 1]], 'devA-1234567890abcdef');
   const b = await newCart(app, [['SUA01', 1]], 'devB-1234567890abcdef');
   await call(app, 'POST', `/api/c/sessions/${b.id}/lock`, { body: { method: 'cash' }, device: 'devB-1234567890abcdef' });
-  assert.equal(sweepStaleCarts(app.ctx, 12), 0); // còn mới
-  const old = new Date(Date.now() - 13 * 3600_000).toISOString();
+  assert.equal(sweepStaleCarts(app.ctx), 0); // còn mới
+  const old = new Date(Date.now() - 4 * 3600_000).toISOString();
   app.ctx.db.prepare('UPDATE scan_sessions SET last_activity = ?').run(old);
-  assert.equal(sweepStaleCarts(app.ctx, 12), 2);
+  assert.equal(sweepStaleCarts(app.ctx), 2);
   assert.equal(app.ctx.db.prepare('SELECT status FROM scan_sessions WHERE id=?').get(a.id).status, 'abandoned');
   assert.equal(app.ctx.db.prepare(`SELECT status FROM transactions WHERE session_id=?`).get(b.id).status, 'cancelled');
   await app.close();
