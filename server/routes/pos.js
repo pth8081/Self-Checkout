@@ -20,7 +20,7 @@ export default async function posRoutes(app) {
   app.get('/v1/carts/:code', async (req) => ({ cart: previewCart(ctx, req.scope, req.params.code) }));
   app.post('/v1/carts/:code/claim', async (req) => claimCart(ctx, req.scope, req.params.code, req.body || {}));
   // Giỏ QR: Dsmart POS báo theo mã giỏ có trong mã QR
-  app.get('/v1/baskets/:code', async (req) => basketStatus(ctx, req.scope, req.params.code));
+  app.get('/v1/baskets/:code', async (req) => basketStatus(ctx, req.scope, req.params.code, req.query || {}));
   app.post('/v1/baskets/:code/paid', async (req) => basketPaid(ctx, req.scope, req.params.code, req.body || {}));
   app.post('/v1/baskets/:code/update', async (req) => basketUpdate(ctx, req.scope, req.params.code, req.body || {}));
   app.post('/v1/baskets/:code/refund', async (req) => basketRefund(ctx, req.scope, req.params.code, req.body || {}));

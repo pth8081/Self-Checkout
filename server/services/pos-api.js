@@ -245,11 +245,23 @@ export function basketCancelled(ctx, scope, code, body = {}) {
   }
   return orderCancelled(ctx, scope, ref, body);
 }
-export function basketStatus(ctx, scope, code) {
-  const tx = ctx.db.prepare('SELECT * FROM transactions WHERE cart_code = ?').get(String(code).toUpperCase());
-  if (!tx) throw notFound('BASKET_NOT_FOUND', 'Chưa thấy giỏ này');
+/**
+ * Lấy giỏ theo mã giỏ trong mã QR: trạng thái và danh sách mặt hàng (mã vạch, số lượng) để Dsmart POS dựng đơn.
+ * `pointCode` (mã điểm đọc từ mã QR) bắt buộc: sai cửa hàng thì từ chối, không trả hàng.
+ * 404 BASKET_NOT_FOUND nghĩa là điện thoại khách chưa gửi giỏ lên (thường do mất mạng): Dsmart POS thử lại sau vài giây.
+ */
+export function basketStatus(ctx, scope, code, query = {}) {
+  const { db } = ctx;
+  const point = String(query.pointCode || '').trim();
+  if (!point) throw bad('POINT_REQUIRED', 'pointCode (mã điểm trong mã QR) là bắt buộc');
+  const tx = db.prepare('SELECT * FROM transactions WHERE cart_code = ? ORDER BY created_at DESC LIMIT 1').get(String(code).toUpperCase());
+  if (!tx) throw notFound('BASKET_NOT_FOUND', 'Chưa thấy giỏ này. Điện thoại khách có thể đang mất mạng, hãy thử lại sau vài giây');
   inScope(scope, tx);
-  return { code: tx.cart_code, transactionId: tx.id, status: tx.status, reason: tx.cancel_reason || undefined, posOrderRef: tx.pos_order_ref, total: tx.total, paidAmount: tx.pos_amount, billStored: !!tx.pos_bill_json };
+  const st = db.prepare('SELECT pos_code FROM stores WHERE id = ?').get(tx.store_id);
+  if (!st?.pos_code || st.pos_code.toLowerCase() !== point.toLowerCase()) throw conflict('POINT_MISMATCH', 'Mã điểm không khớp với cửa hàng của giỏ này. Không thanh toán');
+  const items = JSON.parse(tx.items_json).map((i) => ({ barcode: i.barcode, name: i.name, qty: i.qty, unitPrice: i.price }));
+  return { code: tx.cart_code, pointCode: st.pos_code, transactionId: tx.id, status: tx.status, reason: tx.cancel_reason || undefined, posOrderRef: tx.pos_order_ref,
+    createdAt: tx.created_at, itemCount: tx.item_count, total: tx.total, items, paidAmount: tx.pos_amount, billStored: !!tx.pos_bill_json };
 }
 
 /**

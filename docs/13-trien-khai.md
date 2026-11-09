@@ -92,7 +92,7 @@ Bảng biến môi trường:
 | `DB_FILE` | `data/brg.db` | Đường dẫn file CSDL. Đặt ngoài thư mục mã nguồn, ví dụ `/var/lib/brg/brg.db` |
 | `RECEIPT_TTL_MIN` | `180` | Thời hạn QR biên nhận (phút). Chỉ dùng ở luồng cũ có bảo vệ cổng ra |
 | `PUBLIC_URL` | | Địa chỉ công khai, ví dụ `https://scan.hcrc.vn`. Dùng làm link xem bill trong email. Không đặt thì email vẫn gửi (kèm PDF) nhưng không có link |
-| `MAX_CART_ITEMS` | `60` | Số mặt hàng khác nhau tối đa mỗi giỏ. Mã QR chứa cả giỏ nên giỏ quá lớn khó quét |
+| `MAX_CART_ITEMS` | `60` | Số mặt hàng khác nhau tối đa mỗi giỏ. Chỉ ảnh hưởng mã đầy đủ dự phòng khi mất mạng (mã chuẩn luôn ngắn) |
 | `CART_TTL_HOURS` | `3` | Giỏ đang quét (chưa bấm Thanh toán) quá số giờ này không thao tác thì đóng |
 | `LOCKED_TTL_MINUTES` | `30` | Giỏ đã bấm Thanh toán quá số phút này chưa thanh toán thì huỷ đơn, mã QR hết hạn (giỏ hàng vẫn giữ để tạo mã mới) |
 | `POS_SYNC_SECONDS` | `60` | Chu kỳ đồng bộ Dsmart POS |

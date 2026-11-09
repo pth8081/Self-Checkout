@@ -16,6 +16,7 @@ const smtp=net.createServer(sock=>{let data=false,buf='';sock.write('220 sink ES
  await new Promise(r=>smtp.listen(2525,'127.0.0.1',r));
  const fails=[];const ok=(n,c)=>{console.log(c?'OK  ':'FAIL',n);if(!c)fails.push(n)};
  const adm=(await api('POST','/api/a/login',{account:'QT0001',password:'Admin@123'})).body.token;const AH={authorization:'Bearer '+adm};
+ const POSH={authorization:'Bearer '+(await api('POST','/api/a/pos/keys',{name:'POS e2e 0'},AH)).body.key};
  await api('PUT','/api/a/stores/Q7',{posCode:'SP-0107'},AH);
  const cfgMail=await api('PUT','/api/a/integrations/email',{host:'127.0.0.1',port:2525,secure:'none',from:'no-reply@congty.vn',fromName:'BRG Scan & Checkout'},AH);ok('cấu hình email',cfgMail.status===200);
  const portal=await api('PUT','/api/a/integrations/invoice-portal',{url:'https://hoadon.nhacungcap.vn/khai-bao?ma={code}&so={posOrderRef}'},AH);ok('cấu hình link khai báo hoá đơn',portal.status===200);
@@ -35,8 +36,9 @@ const smtp=net.createServer(sock=>{let data=false,buf='';sock.write('220 sink ES
  const btn=await p.innerText('.bar-bottom .btn.primary');ok('nút Thanh toán có số tiền',/Thanh toán/.test(btn));
  await p.click('.bar-bottom .btn.primary');await p.waitForURL(/#\/basket/);await sleep(800);
  ok('hiện mã giỏ',/^Q7-/.test(await p.innerText('.code')));
- const qrText=async pg=>pg.evaluate(()=>JSON.parse(localStorage.getItem('brg.c.v1')).basket.qr);
- const qr=await qrText(p);ok('QR có mã vạch và số lượng',qr.startsWith('BRG1|SP-0107|Q7-')&&qr.includes(P('Sữa').barcode+'*2')&&qr.includes(P('Mì').barcode+'*1'));
+ const qrText=async pg=>pg.evaluate(()=>JSON.parse(localStorage.getItem('brg.c.v1')).basket.qrShort);
+ const qr=await qrText(p);ok('QR chuẩn chỉ có mã điểm và mã giỏ (ngắn)',qr.startsWith('BRG2|SP-0107|Q7-')&&qr.length<60&&!qr.includes(P('Sữa').barcode));
+ const gi=await api('GET',`/api/pos/v1/baskets/${qr.split('|')[2]}?pointCode=SP-0107`,null,POSH);ok('Dsmart POS lấy danh sách hàng qua API theo mã giỏ',gi.status===200&&gi.body.items.length===2&&gi.body.items.some(i=>i.barcode===P('Sữa').barcode&&i.qty===2));
  ok('không có màn chọn cách thanh toán',!(await p.innerText('body')).includes('Tiền mặt tại quầy'));
  // 1. mất mạng + tải lại
  await ctx.setOffline(true);await p.reload().catch(()=>{});await sleep(1200);
@@ -83,6 +85,22 @@ const smtp=net.createServer(sock=>{let data=false,buf='';sock.write('220 sink ES
  // 6. xong
  await p.click('.bar-bottom >> text=Xong');await sleep(900);
  ok('xong: về trang đầu',!(await p.isVisible('.qrbox')));
+ // 7. mất mạng lúc bấm Thanh toán: hiện mã đầy đủ (có danh sách hàng) làm dự phòng, có mạng lại thì chuyển sang mã ngắn
+ const ctx2=await b.newContext({viewport:{width:390,height:800},permissions:['camera']});const p2=await ctx2.newPage();
+ p2.on('pageerror',e=>errs.push('PAGEERR '+e.message));
+ await p2.goto(BASE+'/c/?s=Q7');await p2.evaluate(()=>navigator.serviceWorker.ready);await p2.reload();await sleep(800);
+ await p2.click('text=Bắt đầu mua sắm');await p2.click('text=Bỏ qua');await p2.waitForURL(/#\/scan/);
+ const dev2=await p2.evaluate(()=>JSON.parse(localStorage.getItem('brg.device')));const h2={'x-device-id':dev2};
+ const sid2=(await api('POST','/api/c/sessions',{storeId:'Q7'},h2)).body.session.id;
+ await api('POST',`/api/c/sessions/${sid2}/ops`,{ops:[{id:'1',type:'scan',barcode:P('Mì').barcode}]},h2);
+ await p2.reload();await sleep(900);await p2.evaluate(()=>{location.hash='#/cart'});await sleep(500);
+ await ctx2.setOffline(true);await sleep(300);
+ await p2.click('.bar-bottom .btn.primary');await p2.waitForURL(/#\/basket/);await sleep(1200);
+ const full=await p2.evaluate(()=>JSON.parse(localStorage.getItem('brg.c.v1')).basket.qr);
+ ok('mất mạng lúc thanh toán: mã đầy đủ làm dự phòng',full.startsWith('BRG1|SP-0107|Q7-')&&full.includes(P('Mì').barcode+'*1')&&await p2.isVisible('.qrbox canvas, .qrbox svg, .qrbox img'));
+ await ctx2.setOffline(false);await sleep(8000);
+ const short=await p2.evaluate(()=>JSON.parse(localStorage.getItem('brg.c.v1')).basket.qrShort);
+ ok('có mạng lại: chuyển sang mã ngắn chuẩn',!!short&&short.startsWith('BRG2|SP-0107|Q7-'));
  ok('không lỗi JS',errs.length===0);if(errs.length)console.log(errs);
  await b.close();
  console.log(fails.length?'FAILS: '+JSON.stringify(fails):'FAILS: []');process.exit(fails.length?1:0);

@@ -306,12 +306,22 @@ test('giỏ QR: khoá giỏ không hỏi cách trả, QR chứa mã vạch và s
   assert.equal((await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash' } })).status, 409);
   const r = await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-LM3K2AB' } });
   assert.equal(r.status, 200, JSON.stringify(r.body));
+  // QR chuẩn là dạng ngắn: chỉ mã điểm và mã giỏ
   const q = decodeBasket(r.body.transaction.basketQr);
-  assert.equal(q.ok, true);
-  assert.equal(q.point, 'SP-0107');
-  assert.equal(q.ref, 'Q7-LM3K2AB');
-  assert.deepEqual(q.items, [{ barcode: bc('SUA01'), qty: 2 }, { barcode: bc('MI01'), qty: 1 }]);
-  assert.equal(q.total, r.body.transaction.total);
+  assert.equal(q.ok, true); assert.equal(q.kind, 'short');
+  assert.equal(q.point, 'SP-0107'); assert.equal(q.ref, 'Q7-LM3K2AB'); assert.equal(q.items, null);
+  assert.ok(r.body.transaction.basketQr.length < 60);
+  assert.ok(!r.body.transaction.basketQr.includes(bc('SUA01')));
+  // Dsmart POS lấy danh sách hàng qua API theo mã giỏ, bắt buộc kèm mã điểm
+  const chainKey = (await call(app, 'POST', '/api/a/pos/keys', { token: chain, body: { name: 'POS' } })).body.key;
+  const g = await pos(app, chainKey, 'GET', `/baskets/${q.ref}?pointCode=SP-0107`);
+  assert.equal(g.status, 200, JSON.stringify(g.body));
+  assert.equal(g.body.status, 'awaiting_counter'); assert.equal(g.body.pointCode, 'SP-0107');
+  assert.deepEqual(g.body.items.map((i) => [i.barcode, i.qty]), [[bc('SUA01'), 2], [bc('MI01'), 1]]);
+  assert.equal(g.body.itemCount, 3); assert.equal(g.body.total, r.body.transaction.total);
+  assert.equal((await pos(app, chainKey, 'GET', `/baskets/${q.ref}`)).body.error, 'POINT_REQUIRED');
+  assert.equal((await pos(app, chainKey, 'GET', `/baskets/${q.ref}?pointCode=SP-9999`)).body.error, 'POINT_MISMATCH');
+  assert.equal((await pos(app, chainKey, 'GET', `/baskets/Q7-KHONGCO23?pointCode=SP-0107`)).body.error, 'BASKET_NOT_FOUND');
   const again = await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-LM3K2AB' } });
   assert.equal(again.body.transaction.id, r.body.transaction.id);
   // người khác không dùng lại được mã giỏ
@@ -331,6 +341,13 @@ test('mã QR giỏ: sai chữ ký hoặc sai định dạng thì từ chối', a
   assert.deepEqual(decodeBasket(t).items, [{ barcode: '8936036123456', qty: 3 }]);
   assert.equal(decodeBasket(t.replace('*3', '*9')).error, 'CRC');
   assert.equal(decodeBasket('hello').error, 'FORMAT');
+  assert.equal(decodeBasket(t).kind, 'full');
+  // dạng ngắn
+  const { encodeBasketShort } = await import('../public/shared/basket.js');
+  const sh = encodeBasketShort({ point: 'SP-0107', ref: 'Q7-ABCDEFGH', at: 1700000000000 });
+  assert.match(sh, /^BRG2\|SP-0107\|Q7-ABCDEFGH\|1700000000\|[0-9A-F]{4}$/);
+  assert.deepEqual({ ...decodeBasket(sh) }, { ok: true, kind: 'short', point: 'SP-0107', ref: 'Q7-ABCDEFGH', at: 1700000000000, items: null, total: null });
+  assert.equal(decodeBasket(sh.replace('Q7-', 'Q8-')).error, 'CRC');
 });
 
 test('giỏ QR: POS báo thanh toán theo mã giỏ kèm bill thật; báo lại nhiều lần an toàn; khách xem bill và tải PDF', async () => {
@@ -361,7 +378,7 @@ test('giỏ QR: POS báo thanh toán theo mã giỏ kèm bill thật; báo lại
   assert.equal(app.ctx.db.prepare('SELECT COUNT(*) n FROM payments').get().n, 1);
   // đơn POS khác cho cùng giỏ: từ chối
   assert.equal((await pos(app, key, 'POST', `/baskets/${code}/paid`, { ...body, posOrderRef: 'POS-2' })).status, 409);
-  const st = await pos(app, key, 'GET', `/baskets/${code}`);
+  const st = await pos(app, key, 'GET', `/baskets/${code}?pointCode=SP-Q7`);
   assert.equal(st.body.status, 'paid'); assert.equal(st.body.billStored, true);
   // khách thấy hoàn tất, xem bill thật
   const sv = await call(app, 'GET', `/api/c/sessions/${id}`);
@@ -917,7 +934,7 @@ test('hết hạn: giỏ đã bấm Thanh toán quá 30 phút bị huỷ đơn n
   const view = (await call(app, 'GET', `/api/c/sessions/${A.id}`, { device: 'devA-1234567890abcdef' })).body.session;
   assert.equal(view.status, 'active'); assert.equal(view.items.length, 1); assert.equal(view.transaction, null); assert.equal(view.releasedReason, 'expired');
   // Dsmart POS hỏi trạng thái thấy huỷ + lý do
-  const st = await pos(app, key, 'GET', '/baskets/Q7-EXPIRE2345');
+  const st = await pos(app, key, 'GET', '/baskets/Q7-EXPIRE2345?pointCode=SP-Q7');
   assert.equal(st.body.status, 'cancelled'); assert.equal(st.body.reason, 'expired');
   // Dsmart POS báo muộn: tiền đã thu thật nên vẫn nhận
   const late = await pos(app, key, 'POST', '/baskets/Q7-EXPIRE2345/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-LATE', amount: 29000, method: 'cash' });

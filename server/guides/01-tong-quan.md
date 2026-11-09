@@ -10,7 +10,7 @@ access: all
 
 > **Cách vận hành hiện nay (Giỏ QR cho Dsmart POS):**
 > 1. Khách mở link QR ở cổng vào, quét mã vạch từng mặt hàng bằng điện thoại và thấy **tạm tính** theo giá của đúng chi nhánh.
-> 2. Khách bấm **Thanh toán**: điện thoại hiện **mã QR** chứa mã vạch và số lượng từng mặt hàng. Mã được lưu trên điện thoại nên không mất khi mất mạng, tắt máy hoặc tắt trình duyệt.
+> 2. Khách bấm **Thanh toán**: điện thoại gửi giỏ lên máy chủ rồi hiện **mã QR ngắn** chỉ chứa mã điểm và mã giỏ; Dsmart POS lấy danh sách mặt hàng bằng API. Nếu lúc đó điện thoại mất mạng, nó hiện mã đầy đủ dự phòng để thu ngân vẫn quét được.
 > 3. Thu ngân **quét mã QR vào phần mềm Dsmart POS**. Dsmart POS tạo đơn, tính giá và khuyến mãi, thu tiền, xuất hoá đơn. Thu ngân không quét từng mặt hàng, khách không đứng chờ.
 > 4. Dsmart POS **tự báo thanh toán về BRG** (thử lại khi mạng lỗi). Màn hình khách chuyển sang "Đã hoàn thành thanh toán", khách xem bill và tải PDF.
 >

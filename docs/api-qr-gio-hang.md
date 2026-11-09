@@ -20,7 +20,9 @@ sequenceDiagram
     participant P as Phần mềm POS
     K->>K: Quét mã vạch từng mặt hàng, thấy tạm tính
     K->>K: Bấm Thanh toán, điện thoại hiện mã QR
-    K->>P: Thu ngân quét mã QR (mã vạch, số lượng, mã điểm, mã giỏ)
+    K->>P: Thu ngân quét mã QR ngắn (chỉ mã điểm và mã giỏ)
+    P->>B: GET /api/pos/v1/baskets/{mã giỏ}?pointCode=... (lấy danh sách mặt hàng)
+    B-->>P: Mã vạch và số lượng từng mặt hàng
     P->>P: Tạo đơn, tính giá và khuyến mãi, thu tiền
     P->>B: POST /api/pos/v1/baskets/{mã giỏ}/paid (mã đơn POS, số tiền, bill)
     B-->>P: 200 OK (kể cả khi gửi trùng)
@@ -30,8 +32,8 @@ sequenceDiagram
 | Bước | Ai làm | Nội dung |
 |------|--------|----------|
 | 1 | Khách và BRG Scan & Checkout | Khách quét mặt hàng bằng điện thoại. Điện thoại hiện **tạm tính**, chỉ để tham khảo |
-| 2 | BRG Scan & Checkout | Khi khách bấm Thanh toán, tạo **mã giỏ** và mã QR. Mã QR lưu trên điện thoại nên còn khi mất mạng |
-| 3 | Dsmart POS | Thu ngân quét mã QR. Dsmart POS đọc, kiểm tra, **tạo đơn** với đúng mặt hàng và số lượng |
+| 2 | BRG Scan & Checkout | Khi khách bấm Thanh toán, điện thoại gửi giỏ lên máy chủ rồi hiện mã QR **ngắn**, chỉ chứa **mã điểm và mã giỏ** |
+| 3 | Dsmart POS | Thu ngân quét mã QR. Dsmart POS đọc mã điểm, mã giỏ, kiểm tra mã điểm, rồi **gọi API lấy danh sách mặt hàng** (mã vạch, số lượng) và **tạo đơn** |
 | 4 | Dsmart POS | Tính giá và khuyến mãi **theo hệ thống của Dsmart POS**, thu tiền (tiền mặt, QR, thẻ). Chưa có hoá đơn điện tử lúc này |
 | 5 | Dsmart POS | **Báo thanh toán về BRG Scan & Checkout** bằng API ở mục 4. Số tiền trong báo cáo này là số tiền thật |
 | 6 | BRG Scan & Checkout | Ghi nhận, màn hình khách hiện hoàn thành, khách xem và tải bill |
@@ -40,7 +42,7 @@ sequenceDiagram
 
 | Tên | Do ai sinh | Có trong mã QR | Dùng để |
 |-----|-----------|----------------|---------|
-| **Mã giỏ** (ví dụ `Q7-LM3K2AB`) | BRG Scan & Checkout (điện thoại khách) | Có | BRG Scan & Checkout nhận ra giỏ. Dsmart POS gửi lại trong đường dẫn khi báo thanh toán |
+| **Mã giỏ** (ví dụ `Q7-LM3K2AB`) | BRG Scan & Checkout (điện thoại khách) | Có | Dsmart POS dùng mã giỏ để lấy danh sách mặt hàng, và gửi lại trong đường dẫn khi báo thanh toán |
 | **Mã đơn Dsmart POS** (`posOrderRef`, mã giao dịch hoặc mã bill của Dsmart POS) | Dsmart POS | Không | Dsmart POS gửi lại trong báo thanh toán. BRG Scan & Checkout dùng để **chống ghi trùng** và đối soát |
 
 ## Quy tắc then chốt: kiểm tra mã điểm
@@ -53,35 +55,75 @@ Mã điểm đi từ đâu đến đâu:
 2. Khách quét mã QR dán ở cổng vào của cửa hàng. BRG Scan & Checkout biết khách ở chi nhánh nào và lấy mã điểm của chi nhánh đó.
 3. Giá của từng mặt hàng được tra theo mã điểm này, và mã điểm được ghi vào mã QR giỏ hàng.
 4. Dsmart POS quét mã QR giỏ, **so mã điểm trong mã QR với mã điểm của mình**. Khác thì từ chối.
-5. Khi Dsmart POS báo thanh toán về BRG Scan & Checkout, Dsmart POS phải gửi lại `pointCode` (mã điểm của mình). BRG Scan & Checkout so với mã điểm của giỏ; **khác thì từ chối** (lỗi `POINT_MISMATCH`), không ghi thanh toán.
+5. Khi gọi API lấy danh sách mặt hàng và khi báo thanh toán, Dsmart POS phải gửi `pointCode` (mã điểm của mình). Với lệnh lấy hàng, khác mã điểm thì BRG Scan & Checkout **không trả hàng** (lỗi `POINT_MISMATCH`). Với lệnh báo thanh toán, Dsmart POS phải gửi lại `pointCode` (mã điểm của mình). BRG Scan & Checkout so với mã điểm của giỏ; **khác thì từ chối** (lỗi `POINT_MISMATCH`), không ghi thanh toán.
 
 Cửa hàng **chưa có mã điểm** thì không bật được và khách không tạo được mã QR giỏ.
 
-## 2. Định dạng mã QR
+## 2. Định dạng mã QR và lấy danh sách mặt hàng
+
+Mã QR **chuẩn** rất ngắn, chỉ chứa mã điểm và mã giỏ. Danh sách mặt hàng (mã vạch, số lượng) **không nằm trong mã QR** mà Dsmart POS lấy bằng API ngay sau khi quét, nên mã QR luôn nhỏ, quét nhanh dù giỏ có nhiều mặt hàng.
 
 Một chuỗi văn bản ASCII, các phần ngăn bằng ký tự `|`:
 
 ```
-BRG1|<mã điểm>|<mã giỏ>|<giờ>|<mã vạch>*<số lượng>,<mã vạch>*<số lượng>,...|T<tạm tính>|<CRC16>
+BRG2|<mã điểm>|<mã giỏ>|<giờ>|<CRC16>
 ```
 
 Ví dụ (có sẵn trong `docs/mau/qr-gio-hang-mau.txt` và ảnh `docs/mau/qr-gio-hang-mau.svg`):
 
 ```
-BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T60800|1E1A
+BRG2|SP-0107|Q7-LM3K2AB|1793845800|28C3
 ```
 
 | Phần | Ý nghĩa |
 |------|---------|
-| `BRG1` | Nhận dạng và phiên bản. Chuỗi không bắt đầu bằng `BRG1|` thì không phải mã của BRG Scan & Checkout |
-| mã điểm | Mã siêu thị trong hệ thống giá và Dsmart POS, do quản trị BRG Scan & Checkout nhập cho từng chi nhánh. Dsmart POS **nên so với điểm bán của máy đang dùng**, khác thì báo thu ngân |
-| mã giỏ | Duy nhất. Dsmart POS **lưu mã này** để không tạo đơn hai lần nếu mã bị quét lại |
+| `BRG2` | Nhận dạng và phiên bản (mã chuẩn, ngắn) |
+| mã điểm | Mã siêu thị trong hệ thống giá và Dsmart POS, do quản trị BRG Scan & Checkout nhập cho từng chi nhánh. Dsmart POS **bắt buộc so với điểm bán của máy đang dùng**, khác thì từ chối |
+| mã giỏ | Duy nhất. Dsmart POS dùng để lấy danh sách mặt hàng và **lưu mã này** để không tạo đơn hai lần nếu mã bị quét lại |
 | giờ | Giờ tạo giỏ, giây Unix |
-| mặt hàng | `mã vạch*số lượng`, cách nhau dấu phẩy. Cùng mã vạch đã gộp thành một dòng. Mã vạch là mã **in trên tem** hàng hoá. Số lượng từ 1 đến 999 |
-| `T` | **Tạm tính** của BRG Scan & Checkout (VND). Chỉ để đối chiếu, **không dùng làm số tiền thu** |
 | CRC16 | CRC16-CCITT (đa thức `0x1021`, khởi tạo `0xFFFF`), 4 ký tự hex viết hoa, tính trên toàn bộ chuỗi đứng **trước dấu `|` cuối cùng** |
 
-**Mã QR chứa được bao nhiêu mặt hàng?** Mỗi mặt hàng chiếm khoảng 16 ký tự. Giới hạn kỹ thuật của mã QR là khoảng 180 mặt hàng khác nhau, nhưng mã càng lớn càng khó quét từ màn hình điện thoại. Vì vậy ứng dụng giới hạn **tối đa 60 mặt hàng khác nhau mỗi giỏ** (đổi được bằng biến `MAX_CART_ITEMS` trong `.env` của máy chủ). Mỗi mặt hàng có số lượng từ 1 đến 99. Giỏ 60 mặt hàng cho mã QR dài khoảng 1.000 ký tự, cỡ 109 × 109 ô, máy quét 2D thông thường đọc tốt. Khách vượt mức được báo "Giỏ đã đầy", thanh toán giỏ này rồi quét giỏ mới cho phần còn lại.
+### Lấy danh sách mặt hàng: API
+
+`GET /api/pos/v1/baskets/{mã giỏ}?pointCode={mã điểm}`
+
+Gọi ngay sau khi quét và kiểm tra mã điểm. `pointCode` là mã điểm **đọc từ mã QR**, bắt buộc. Kết quả:
+
+```json
+{
+  "code": "Q7-LM3K2AB",
+  "pointCode": "SP-0107",
+  "status": "awaiting_counter",
+  "createdAt": "2026-11-05T08:30:00.000Z",
+  "itemCount": 3,
+  "total": 60800,
+  "items": [
+    { "barcode": "8936036123456", "name": "Sữa tươi 1L", "qty": 2, "unitPrice": 29000 },
+    { "barcode": "8934567890123", "name": "Mì ly hải sản", "qty": 1, "unitPrice": 12500 }
+  ],
+  "posOrderRef": null
+}
+```
+
+- `items`: dựng đơn từ `barcode` và `qty`. `name` và `unitPrice` chỉ để hiển thị tham khảo, **Dsmart POS tự tính giá** theo hệ thống của mình. `total` là tạm tính của BRG Scan & Checkout, chỉ để đối chiếu, **không dùng làm số tiền thu**.
+- `status`: chỉ khi là `awaiting_counter` mới tạo đơn. `cancelled` (kèm `reason: "expired"` nếu mã quá hạn, mục 6.6) hoặc `paid` thì báo thu ngân và **không tạo đơn**.
+- Lỗi: `409 POINT_MISMATCH` (mã điểm khác cửa hàng của giỏ, **không trả hàng**), `400 POINT_REQUIRED` (thiếu `pointCode`), `403 STORE_FORBIDDEN` (khoá API không dùng cho chi nhánh này).
+- **`404 BASKET_NOT_FOUND`**: máy chủ chưa nhận được giỏ, thường do điện thoại khách đang **mất mạng**. Dsmart POS thử lại sau 1 đến 2 giây, vài lần. Vẫn không được thì báo thu ngân: "Khách cần có mạng để gửi giỏ, hoặc bấm Thanh toán lại".
+- Có thể gọi lại nhiều lần an toàn, lệnh này **không thay đổi dữ liệu**.
+
+### Mã dự phòng khi điện thoại khách mất mạng (BRG1)
+
+Nếu lúc khách bấm Thanh toán mà điện thoại chưa gửi được giỏ lên máy chủ (mất mạng, mạng quá chậm), điện thoại hiện mã QR **đầy đủ** có kèm sẵn danh sách mặt hàng, để thu ngân vẫn quét được. Khi có mạng lại, điện thoại tự chuyển sang mã ngắn. Dsmart POS **nên đọc được cả hai**, phân biệt bằng tiền tố `BRG2|` (ngắn) và `BRG1|` (đầy đủ):
+
+```
+BRG1|<mã điểm>|<mã giỏ>|<giờ>|<mã vạch>*<số lượng>,<mã vạch>*<số lượng>,...|T<tạm tính>|<CRC16>
+```
+
+Ví dụ: `BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T60800|1E1A` (file mẫu `docs/mau/qr-gio-hang-mau-du-phong-brg1.txt` và ảnh `.svg`)
+
+- Mỗi mặt hàng chiếm khoảng 16 ký tự; ứng dụng giới hạn **tối đa 60 mặt hàng khác nhau mỗi giỏ** (biến `MAX_CART_ITEMS`), mã dài khoảng 1.000 ký tự. Vì vậy mã này chỉ dùng làm dự phòng.
+- Với mã `BRG1`, Dsmart POS dựng đơn từ danh sách trong mã, không cần gọi lệnh lấy hàng. Các lệnh báo thanh toán, huỷ, hoàn trả dùng như bình thường (nếu máy chủ chưa nhận giỏ thì trả `404`, Dsmart POS thử lại theo mục 5).
+- `T` là tạm tính, chỉ để đối chiếu.
 
 Máy quét nên là loại đọc được mã 2D (không phải máy laser đọc vạch).
 
@@ -96,7 +138,7 @@ def crc16(s: str) -> str:
             crc = ((crc << 1) ^ 0x1021) & 0xFFFF if crc & 0x8000 else (crc << 1) & 0xFFFF
     return f"{crc:04X}"
 
-text = "BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T60800|1E1A"
+text = "BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T60800|1E1A"   # áp dụng cho cả BRG1 và BRG2
 body, _, check = text.rpartition("|")
 assert crc16(body) == check   # đúng thì mã chưa bị sửa hoặc đọc sai
 ```
@@ -114,11 +156,12 @@ static string Crc16(string s) {
 
 ### Dsmart POS xử lý khi quét
 
-1. Kiểm tra tiền tố `BRG1|` và CRC16. Sai thì báo "Mã không hợp lệ, nhờ khách tạo lại".
+1. Kiểm tra tiền tố (`BRG2|` hoặc `BRG1|`) và CRC16. Sai thì báo "Mã không hợp lệ, nhờ khách tạo lại".
 2. **Kiểm tra mã điểm (bắt buộc):** phải bằng mã điểm của cửa hàng máy Dsmart POS đang bán. Không khớp thì **từ chối, không tạo đơn, không thanh toán**, báo thu ngân "Mã này của cửa hàng khác".
 3. Kiểm tra mã giỏ chưa dùng. Đã dùng thì mở lại đơn cũ, không tạo đơn mới.
-4. Với mỗi dòng, tìm sản phẩm theo mã vạch (mã nhà cung cấp hoặc mã nội bộ đều được, tuỳ Dsmart POS) và thêm đúng số lượng. Mã không có trong Dsmart POS thì báo thu ngân xử lý tại chỗ.
-5. Dsmart POS tự tính giá, khuyến mãi, trừ kho. **BRG Scan & Checkout không quản lý tồn kho và không tính tiền thay Dsmart POS.**
+4. Mã `BRG2` (chuẩn): gọi `GET /api/pos/v1/baskets/{mã giỏ}?pointCode=...` để lấy danh sách mặt hàng. Mã `BRG1` (dự phòng): lấy danh sách có sẵn trong mã.
+5. Với mỗi dòng, tìm sản phẩm theo mã vạch (mã nhà cung cấp hoặc mã nội bộ đều được, tuỳ Dsmart POS) và thêm đúng số lượng. Mã không có trong Dsmart POS thì báo thu ngân xử lý tại chỗ.
+6. Dsmart POS tự tính giá, khuyến mãi, trừ kho. **BRG Scan & Checkout không quản lý tồn kho và không tính tiền thay Dsmart POS.**
 
 ## 3. Thông tin BRG Scan & Checkout cung cấp cho Dsmart POS để chạy được
 
@@ -404,9 +447,9 @@ Khách có thể quét rồi bỏ đi, hoặc bấm Thanh toán nhưng không ra
 
 - Mốc 30 phút tính từ lần cuối có động thái: lúc khách bấm Thanh toán, lúc Dsmart POS nhận giỏ, hoặc lúc Dsmart POS gửi lệnh cập nhật đơn (mục 6.1b). Thu ngân đang xử lý thì giỏ chưa bị coi là bỏ quên.
 - Giỏ vừa hết hạn 30 phút được trả về trạng thái "đang quét", rồi theo hạn 3 giờ. Nếu khách không quay lại, giỏ đóng sau đó.
-- **Dsmart POS không cần làm gì** khi giỏ hết hạn. Lệnh `GET /api/pos/v1/baskets/{mã giỏ}` trả `status: "cancelled"` kèm `reason: "expired"`.
+- **Dsmart POS không cần làm gì** khi giỏ hết hạn. Lệnh lấy giỏ `GET /api/pos/v1/baskets/{mã giỏ}?pointCode=...` trả `status: "cancelled"` kèm `reason: "expired"`, và khi đó **không tạo đơn**.
 - **Nếu Dsmart POS vẫn báo `paid` cho mã đã hết hạn** (ví dụ khách trả tiền ở phút thứ 40): BRG **vẫn nhận** và ghi doanh thu, vì tiền đã thu thật. Trường hợp này được ghi riêng trong nhật ký để đối soát.
-- Trong mã QR có **giờ tạo** (mục 2). Dsmart POS có thể cảnh báo thu ngân khi mã quá 30 phút, nhưng không bắt buộc.
+- Trong mã QR có **giờ tạo** (mục 2). Dsmart POS có thể cảnh báo thu ngân khi mã quá 30 phút, nhưng không bắt buộc, vì lệnh lấy giỏ đã báo `status`.
 - Hai hạn đổi được bằng biến môi trường, xem hướng dẫn triển khai.
 
 ## 7. Bill khách xem

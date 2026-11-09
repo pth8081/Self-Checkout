@@ -10,7 +10,7 @@ import { audit } from './audit.js';
 import { issueInvoice } from './invoice.js';
 import { portalUrl, cartDiffOf, diffLines } from './bill.js';
 import { canCash, canGate, isManager } from '../auth.js';
-import { encodeBasket, makeBasketRef } from '../../public/shared/basket.js';
+import { encodeBasketShort, makeBasketRef } from '../../public/shared/basket.js';
 
 const maskEmail = (e) => (e ? e.replace(/^(.).*(@.*)$/, '$1***$2') : null);
 
@@ -251,8 +251,7 @@ export function txView(ctx, tx, { staff = false } = {}) {
   };
   if (tx.method === 'basket') {
     const st = db.prepare('SELECT pos_code FROM stores WHERE id = ?').get(tx.store_id);
-    v.basketQr = encodeBasket({ point: st?.pos_code || '', ref: tx.cart_code, at: Date.parse(tx.created_at), total: tx.total,
-      items: JSON.parse(tx.items_json).map((i) => ({ barcode: i.barcode, qty: i.qty })) });
+    v.basketQr = encodeBasketShort({ point: st?.pos_code || '', ref: tx.cart_code, at: Date.parse(tx.created_at) }); // dạng ngắn: Dsmart POS lấy danh sách hàng qua API
   }
   if (tx.status === 'awaiting_counter' && tx.method === 'qr_transfer' && cfg.bank_bin && cfg.bank_account) {
     const b = bankInfo(cfg);

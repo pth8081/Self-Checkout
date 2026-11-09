@@ -8,7 +8,7 @@ access: all
 
 # Vai trò và trách nhiệm
 
-> **Luồng hiện hành là "Giỏ QR cho Dsmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào Dsmart POS, Dsmart POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho Dsmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối Dsmart POS".
+> **Luồng hiện hành là "Giỏ QR cho Dsmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR ngắn (mã điểm và mã giỏ); thu ngân quét mã vào Dsmart POS, Dsmart POS lấy danh sách mặt hàng bằng API, tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho Dsmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối Dsmart POS".
 
 ## Ai làm được gì
 

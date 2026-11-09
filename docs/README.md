@@ -19,7 +19,7 @@ Cách đọc: đi từ trên xuống. Mỗi tài liệu có **trạng thái** (`
 | 13 | [Hướng dẫn triển khai](13-trien-khai.md) | Fork hay cluster, cài đặt, Nginx, PM2, sao lưu, cập nhật, giám sát, sự cố | Mới |
 | 14 | [Phương án tích hợp Dsmart POS](14-phuong-an-tich-hop-pos.md) | Phân tích 3 phương án và hướng đã chọn (Dsmart POS gọi API của BRG) | Đã chọn hướng |
 | 15 | [API cho Dsmart POS gọi vào BRG](api-pos.md) | Tài liệu cho nhà cung cấp Dsmart POS: nhận giỏ, báo thanh toán, báo huỷ, mã lỗi, ví dụ | Mới |
-| 17 | [Mã QR giỏ hàng cho Dsmart POS](api-qr-gio-hang.md) | Định dạng mã QR chứa mặt hàng để Dsmart POS quét, việc Dsmart POS cần làm | Mới |
+| 17 | [Mã QR giỏ hàng cho Dsmart POS](api-qr-gio-hang.md) | Định dạng mã QR ngắn (mã điểm, mã giỏ), API lấy danh sách mặt hàng, việc Dsmart POS cần làm | Mới |
 | 16 | [API giá theo chi nhánh (BRG đọc)](api-gia-chi-nhanh.md) | Đặc tả để làm API trả giá, khuyến mãi theo chi nhánh và mã vạch | Mới |
 | — | [Bản thiết kế giao diện](thiet-ke/man-hinh.html) | Mở bằng trình duyệt để xem 52 màn hình | Nháp |
 | — | [Thuật ngữ](thuat-ngu.md) | | |

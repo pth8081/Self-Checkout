@@ -8,7 +8,7 @@ access: all
 
 # Quy trình thanh toán tại quầy
 
-> **Luồng hiện hành là "Giỏ QR cho Dsmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào Dsmart POS, Dsmart POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho Dsmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối Dsmart POS".
+> **Luồng hiện hành là "Giỏ QR cho Dsmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR ngắn (mã điểm và mã giỏ); thu ngân quét mã vào Dsmart POS, Dsmart POS lấy danh sách mặt hàng bằng API, tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho Dsmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối Dsmart POS".
 
 Ở giai đoạn 1, khách **không tự thanh toán trên điện thoại**. Khách chọn cách trả, nhận mã giỏ hàng, đến **quầy Scan & Checkout**, và **thu ngân xác nhận** đã thu. Chỉ sau xác nhận đó khách mới có QR để ra cổng.
 

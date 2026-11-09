@@ -1,4 +1,4 @@
-// Chế độ giỏ QR: khách bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng từng mặt hàng để thu ngân quét vào Dsmart POS.
+// Chế độ giỏ QR: khách bấm Thanh toán, điện thoại hiện mã QR ngắn (mã điểm và mã giỏ), Dsmart POS lấy danh sách mặt hàng bằng API, để thu ngân quét vào Dsmart POS.
 // Mã QR được tạo và lưu ngay trên máy nên vẫn hiện khi mất mạng, tắt điện thoại hoặc tắt trình duyệt.
 import { html, useState, useEffect, Header, Icon, QR, Banner, Pill, Spinner, ErrorBox, Loading, go, fmt, toast, useAsync } from '/shared/lib.js';
 import { setBasket, editBasket, finishBasket, syncBasket, refreshSession, loadBill, cachedBill, downloadBillPdf, setBillEmail, loadPublicBill, downloadPublicBillPdf, local, EMAIL_RE } from './store.js';
@@ -39,6 +39,10 @@ export function Basket({ s, store }) {
   const b = s.basket;
   const tx = s.session?.transaction;
   const [busy, setBusy] = useState('');
+  // Mã QR chuẩn là dạng ngắn (mã điểm + mã giỏ), dùng được khi máy chủ đã nhận giỏ. Chưa gửi được (mất mạng, mạng quá chậm) thì
+  // hiện dạng đầy đủ có sẵn danh sách hàng để thu ngân vẫn quét được.
+  const [late, setLate] = useState(false);
+  useEffect(() => { setLate(false); if (!b || b.synced) return undefined; const t = setTimeout(() => setLate(true), 4000); return () => clearTimeout(t); }, [b?.ref, !!b?.synced]);
   // Tự hỏi máy chủ vài giây một lần (nếu Dsmart POS báo đã thanh toán thì hiện), và gửi lại khi có mạng.
   useEffect(() => {
     const t = setInterval(() => { if (navigator.onLine && s.session) { syncBasket().then(() => refreshSession()).catch(() => {}); } }, 6000);
@@ -54,7 +58,8 @@ export function Basket({ s, store }) {
   if (!b) return null;
   const voided = tx?.status === 'voided';
   const paid = tx?.status === 'paid';
-  const long = b.qr.length > 900;
+  const qrText = b.synced && b.qrShort ? b.qrShort : (b.qr && (late || s.online === false || b.error) ? b.qr : '');
+  const long = qrText.length > 900;
   const act = (name, fn) => async () => { setBusy(name); try { await fn(); } catch (e) { toast(e.message, 'err'); } finally { setBusy(''); } };
   return html`<div style="display:flex;flex-direction:column;flex:1">
     <${Header} title="Thanh toán"/>
@@ -68,7 +73,7 @@ export function Basket({ s, store }) {
         ${tx.invoicePortalUrl && html`<a class="btn" href=${tx.invoicePortalUrl} target="_blank" rel="noopener"><${Icon} name="mail"/>Khai báo hoá đơn điện tử</a>`}
         <button class="btn line" disabled=${!!busy} onClick=${act('pdf', () => downloadBillPdf(tx.id, tx.code))}>${busy === 'pdf' ? html`<${Spinner} sm/>` : html`<${Icon} name="download"/>Tải bill PDF`}</button></div>`}
       ${!paid && !voided && tx?.posDraft && html`<${DiffNotice} diff=${tx.posDraft.diff} title="Thu ngân đã cập nhật đơn tại quầy" footer=${html`Đơn tại quầy: ${tx.posDraft.itemCount} mặt hàng, tạm tính <span style="font-weight:700">${fmt.money(tx.posDraft.total)}</span>. Số tiền cuối cùng theo máy tính tiền.`}/>`}
-      ${!paid && !voided && html`<div class="qrbox"><${QR} text=${b.qr} ecc=${long ? 'L' : 'M'} label="Mã QR giỏ hàng"/><div class="code">${b.ref}</div></div>`}
+      ${!paid && !voided && html`<div class="qrbox">${qrText ? html`<${QR} text=${qrText} ecc=${long ? 'L' : 'M'} label="Mã QR giỏ hàng"/>` : html`<div class="row" style="justify-content:center;min-height:200px;gap:8px"><${Spinner}/><span class="muted">Đang tạo mã…</span></div>`}<div class="code">${b.ref}</div></div>`}
       <div class="card flat tight"><div class="row"><div class="grow"><div class="small muted">${paid && tx?.posItemCount != null ? 'Thực mua' : 'Tạm tính'} · ${paid && tx?.posItemCount != null ? tx.posItemCount : b.count} mặt hàng</div>
         <b class="num" style="font-size:22px">${fmt.money(tx?.posAmount ?? b.total)}</b></div></div>
         <div class="xs muted">${paid && tx?.refundTotal > 0 ? `Đã hoàn trả ${fmt.money(tx.refundTotal)}. Thực thanh toán ${fmt.money((tx.posAmount ?? b.total) - tx.refundTotal)}` : paid ? 'Số tiền đã thanh toán theo máy tính tiền' : 'Thu ngân đối chiếu số mặt hàng này với hàng trong túi. Số tiền cuối cùng do máy tính tiền tính theo giá và khuyến mãi'}</div></div>

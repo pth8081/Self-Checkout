@@ -160,8 +160,8 @@ function adoptBasket(session) {
   const tx = session?.transaction;
   if (tx?.method === 'basket' && tx.basketQr && (tx.status === 'awaiting_counter' || tx.status === 'paid')) {
     const b = state.basket;
-    if (!b || b.ref !== tx.code) setState({ basket: { ref: tx.code, qr: tx.basketQr, total: tx.total, count: tx.itemCount, pending: 0, synced: true, at: Date.parse(tx.createdAt) } });
-    else if (!b.synced || b.total !== tx.total) setState({ basket: { ...b, qr: tx.basketQr, total: tx.total, count: tx.itemCount, pending: 0, synced: true } });
+    if (!b || b.ref !== tx.code) setState({ basket: { ref: tx.code, qr: '', qrShort: tx.basketQr, total: tx.total, count: tx.itemCount, pending: 0, synced: true, at: Date.parse(tx.createdAt) } });
+    else if (!b.synced || b.total !== tx.total) setState({ basket: { ...b, qrShort: tx.basketQr, total: tx.total, count: tx.itemCount, pending: 0, synced: true } });
   }
 }
 
@@ -176,7 +176,8 @@ export function makeBasket() {
   const point = state.store?.pointCode;
   if (!point) throw new Error('Cửa hàng chưa có Mã điểm nên chưa thanh toán được. Hãy báo nhân viên');
   const ref = makeBasketRef(state.storeCode);
-  const qr = encodeBasket({ point, ref, items, total: v.total });
+  const qr = encodeBasket({ point, ref, items, total: v.total }); // dạng đầy đủ: chỉ hiện khi chưa gửi được giỏ lên máy chủ (mất mạng)
+  // Dạng chuẩn (ngắn) do máy chủ cấp sau khi nhận giỏ: qrShort
   setState({ basket: { ref, qr, total: v.total, count: v.itemCount + v.pendingCount, pending: v.pendingCount, synced: false, at: Date.now(), error: null, email: state.store?.emailEnabled && EMAIL_RE.test(rememberedMail) ? rememberedMail : '' } });
   syncBasket();
 }
@@ -192,7 +193,7 @@ export async function syncBasket() {
       if (!state.basket || state.basket.ref !== b.ref) return;
       const r = await api.post(`/sessions/${state.session.id}/basket`, { ref: b.ref, email: state.basket.email || undefined });
       const tx = r.transaction;
-      setState({ session: r.session, online: true, basket: { ...state.basket, synced: true, total: tx.total, count: tx.itemCount, qr: tx.basketQr || state.basket.qr, pending: 0, error: null } });
+      setState({ session: r.session, online: true, basket: { ...state.basket, synced: true, total: tx.total, count: tx.itemCount, qrShort: tx.basketQr || null, pending: 0, error: null } });
     } catch (e) {
       if (e.status === 0) { setState({ online: false }); return; }
       if (state.basket?.ref === b.ref) setState({ basket: { ...state.basket, error: e.message } });
