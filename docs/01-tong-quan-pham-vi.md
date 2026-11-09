@@ -27,7 +27,7 @@ Ghi chú: ở giai đoạn 1 quầy vẫn có người (thu tiền và kiểm tr
 2. PWA nhân viên: thu tiền tại quầy và kiểm tra cổng ra.
 3. Web quản trị cho chi nhánh và toàn chuỗi.
 4. Multi-tenant cho toàn chuỗi ngay từ đầu; bật/tắt theo cờ tính năng từng chi nhánh, và từng cách thanh toán.
-5. Tích hợp DSmart POS/ERP: đọc giá, tồn kho (đã có API cập nhật gần real-time).
+5. Tích hợp Dsmart POS/ERP: đọc giá, tồn kho (đã có API cập nhật gần real-time).
 6. Thanh toán **tiền mặt** và **chuyển khoản QR** do nhân viên xác nhận.
 7. Hoá đơn điện tử tự động.
 8. Kiểm soát cổng ra bằng QR biên nhận + kiểm tra ngẫu nhiên thủ công.
@@ -41,7 +41,7 @@ Ghi chú: ở giai đoạn 1 quầy vẫn có người (thu tiền và kiểm tr
 1. Cân thông minh, camera AI.
 2. App native iOS/Android.
 3. Khách hàng thân thiết (cần xác nhận riêng, Q-10).
-4. Đồng bộ ngược dữ liệu về DSmart POS. DSmart POS vẫn là nguồn chân lý. Xem G-05: giao dịch Scan & Checkout vào kế toán và tồn kho bằng cách nào vẫn cần chốt.
+4. Đồng bộ ngược dữ liệu về Dsmart POS. Dsmart POS vẫn là nguồn chân lý. Xem G-05: giao dịch Scan & Checkout vào kế toán và tồn kho bằng cách nào vẫn cần chốt.
 
 ## 4. Vai trò
 
@@ -58,6 +58,6 @@ Cấu trúc ứng dụng: PWA khách, PWA nhân viên và web quản trị tách
 
 - A1: Khách có điện thoại có camera và trình duyệt hiện đại (Safari iOS ≥ TODO, Chrome Android ≥ TODO).
 - A2: Có mạng trong cửa hàng; mất mạng của khách chỉ tạm thời. Quầy và cổng ra có mạng (xem G-09).
-- A3: Mã vạch sản phẩm có trong dữ liệu DSmart POS.
-- A4: DSmart POS là nguồn giá và tồn kho, API cập nhật gần real-time đã có.
+- A3: Mã vạch sản phẩm có trong dữ liệu Dsmart POS.
+- A4: Dsmart POS là nguồn giá và tồn kho, API cập nhật gần real-time đã có.
 - A5: Nhân viên xác nhận thanh toán thủ công là chấp nhận được về mặt vận hành và kiểm soát tiền (xem rủi ro R11).

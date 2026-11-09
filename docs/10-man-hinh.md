@@ -60,7 +60,7 @@ Tổng cộng **52 màn hình**: 26 khách (M), 14 nhân viên (N), 12 quản tr
 |----|----------|---------|---------|
 | A01 | Tổng quan chuỗi | Chuỗi | FR-ADM-02 |
 | A02 | Bật/tắt chi nhánh & cách thanh toán | Chuỗi | FR-ADM-01, FR-PAY-08 |
-| A03 | Cấu hình tích hợp (DSmart POS, chuyển khoản QR, hoá đơn) | Chuỗi | FR-ADM-03, FR-ADM-11 |
+| A03 | Cấu hình tích hợp (Dsmart POS, chuyển khoản QR, hoá đơn) | Chuỗi | FR-ADM-03, FR-ADM-11 |
 | A04 | Báo cáo tổng hợp | Chuỗi | FR-ADM-02 |
 | A05 | Tài khoản & phân quyền | Chuỗi | FR-ADM-07 |
 | A06 | Trong ngày của chi nhánh | Chi nhánh | FR-ADM-04 |

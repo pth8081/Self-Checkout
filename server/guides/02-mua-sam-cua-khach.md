@@ -8,7 +8,7 @@ access: all
 
 # Quy trình mua sắm của khách
 
-> **Bước thanh toán hiện nay:** khách bấm **Thanh toán** là thấy ngay mã QR để đưa thu ngân (không chọn cách trả, không nhập thông tin). Có thể **Sửa giỏ hàng** để quét thêm, mã QR cũ sẽ không còn dùng. Sau khi DSmart POS báo xong, màn hình hiện "Đã hoàn thành thanh toán" kèm **Xem bill** và **Tải bill PDF**; bill xem lại được ở Lịch sử. Nếu DSmart POS chậm báo, khách bấm "Đã thanh toán xong" để kết thúc.
+> **Bước thanh toán hiện nay:** khách bấm **Thanh toán** là thấy ngay mã QR để đưa thu ngân (không chọn cách trả, không nhập thông tin). Có thể **Sửa giỏ hàng** để quét thêm, mã QR cũ sẽ không còn dùng. Sau khi Dsmart POS báo xong, màn hình hiện "Đã hoàn thành thanh toán" kèm **Xem bill** và **Tải bill PDF**; bill xem lại được ở Lịch sử. Nếu Dsmart POS chậm báo, khách bấm "Đã thanh toán xong" để kết thúc.
 
 ## Các bước
 
@@ -45,13 +45,13 @@ h --> a
 ```
 
 - **Không đọc được:** mã sai chữ số kiểm tra. Khách quét lại hoặc nhập tay.
-- **Chưa có trong hệ thống:** sản phẩm không có ở DSmart POS của chi nhánh. Mã được ghi vào mục **Mã không tìm thấy** của quản trị để bộ phận hàng hoá xử lý. Khách được hướng dẫn gọi nhân viên.
-- **Ngừng bán:** không thêm vào giỏ. Tồn kho không bị kiểm tra, DSmart POS xử lý khi thu ngân quét giỏ.
+- **Chưa có trong hệ thống:** sản phẩm không có ở Dsmart POS của chi nhánh. Mã được ghi vào mục **Mã không tìm thấy** của quản trị để bộ phận hàng hoá xử lý. Khách được hướng dẫn gọi nhân viên.
+- **Ngừng bán:** không thêm vào giỏ. Tồn kho không bị kiểm tra, Dsmart POS xử lý khi thu ngân quét giỏ.
 - **Vượt tồn kho:** không cho tăng số lượng quá tồn kho hiện có.
 
 ## Giá thay đổi trước khi khoá giỏ
 
-Lúc bấm thanh toán, hệ thống hỏi lại DSmart POS giá, khuyến mãi và tồn kho của từng mặt hàng. Nếu có khác biệt, khách thấy màn **"Có thay đổi trong giỏ hàng"** liệt kê mặt hàng nào đổi giá, còn bao nhiêu, hoặc bị bỏ vì ngừng bán. Khách phải **đồng ý** mới khoá được giỏ, hoặc quay lại giỏ để xem.
+Lúc bấm thanh toán, hệ thống hỏi lại Dsmart POS giá, khuyến mãi và tồn kho của từng mặt hàng. Nếu có khác biệt, khách thấy màn **"Có thay đổi trong giỏ hàng"** liệt kê mặt hàng nào đổi giá, còn bao nhiêu, hoặc bị bỏ vì ngừng bán. Khách phải **đồng ý** mới khoá được giỏ, hoặc quay lại giỏ để xem.
 
 > **Quan trọng:** Đây là cách tránh tranh chấp "giá trên điện thoại khác giá ở quầy". Tổng tiền cuối cùng luôn là tổng đã khách đồng ý.
 
@@ -83,7 +83,7 @@ Nếu khách tải lại trang hoặc quay lại sau một lúc, ứng dụng nh
 
 ## Hàng giới hạn độ tuổi
 
-Rượu, bia, thuốc lá được đánh dấu giới hạn độ tuổi theo dữ liệu DSmart POS. Khách vẫn quét được; giỏ hiện lưu ý, và **thu ngân phải kiểm tra giấy tờ** trước khi thu tiền (ứng dụng thu ngân hiện cảnh báo).
+Rượu, bia, thuốc lá được đánh dấu giới hạn độ tuổi theo dữ liệu Dsmart POS. Khách vẫn quét được; giỏ hiện lưu ý, và **thu ngân phải kiểm tra giấy tờ** trước khi thu tiền (ứng dụng thu ngân hiện cảnh báo).
 
 > **Cần xác nhận:** Hiện ứng dụng chỉ cảnh báo, chưa ghi lại việc thu ngân đã kiểm tra giấy tờ. Xem mục "Điểm cần chốt".
 

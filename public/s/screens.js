@@ -57,8 +57,8 @@ export function Home({ c }) {
   const last = flash.lastShift;
   return html`<${Top} c=${c}/><${Page}>
     <div class="stack" style="gap:4px"><h1>${hi}, ${user.name}</h1><div class="muted">${store.name} · ${roleName(user)}</div></div>
-    ${f.pos && !f.guard ? html`<${Banner} tone="info" icon="info" title="Không cần dùng ứng dụng này cho thu tiền hay cổng ra">Chi nhánh dùng DSmart POS và không có bảo vệ: bạn không cần dùng ứng dụng này cho việc thu tiền hay cổng ra. Thu ngân quét mã giỏ hàng của khách trong phần mềm DSmart POS, hệ thống tự xác nhận khi DSmart POS báo đã thanh toán.<//>`
-        : f.pos ? html`<${Banner} tone="info" icon="info" title="Thu tiền trên máy tính tiền (DSmart POS)">Thu ngân quét mã giỏ hàng của khách trong phần mềm DSmart POS. Hệ thống tự xác nhận khi DSmart POS báo đã thanh toán.<//>`
+    ${f.pos && !f.guard ? html`<${Banner} tone="info" icon="info" title="Không cần dùng ứng dụng này cho thu tiền hay cổng ra">Chi nhánh dùng Dsmart POS và không có bảo vệ: bạn không cần dùng ứng dụng này cho việc thu tiền hay cổng ra. Thu ngân quét mã giỏ hàng của khách trong phần mềm Dsmart POS, hệ thống tự xác nhận khi Dsmart POS báo đã thanh toán.<//>`
+        : f.pos ? html`<${Banner} tone="info" icon="info" title="Thu tiền trên máy tính tiền (Dsmart POS)">Thu ngân quét mã giỏ hàng của khách trong phần mềm Dsmart POS. Hệ thống tự xác nhận khi Dsmart POS báo đã thanh toán.<//>`
         : !f.guard ? html`<${Banner} tone="info" icon="info" title="Không có bước kiểm tra của bảo vệ">Khách thanh toán xong là ra luôn, không có mã QR ra cổng.<//>` : null}
     ${!shift ? html`
       ${last && html`<div class="card"><div class="row"><div class="ico-tile green"><${Icon} name="docok"/></div><div class="grow"><h2>Ca vừa kết thúc</h2><div class="small muted">Bàn giao lúc ${fmt.time(last.ended_at)}</div></div></div>
@@ -283,14 +283,14 @@ export function Done({ c }) {
 }
 
 // ============================== Giao dịch gần đây ==============================
-const POS_ST = { claimed: 'DSmart POS đang xử lý', paid: 'DSmart POS đã thu', cancelled: 'DSmart POS đã huỷ' };
+const POS_ST = { claimed: 'Dsmart POS đang xử lý', paid: 'Dsmart POS đã thu', cancelled: 'Dsmart POS đã huỷ' };
 export function Transactions({ c }) {
   const st = useAsync(async () => (await api.get('/transactions')).transactions, []);
   return html`<${Top} c=${c} title="Giao dịch gần đây" sub="12 giờ qua" right=${html`<button class="iconbtn" onClick=${st.reload} aria-label="Làm mới"><${Icon} name="refresh"/></button>`}/><${Page}>
     <${Fetching} st=${st}/>
     ${st.data && (st.data.length ? html`<div class="card tight"><div class="list">${st.data.map((t) => { const s = txStatus(t); return html`<button key=${t.id} class="item" style="background:none;border:0;border-bottom:1px solid var(--line);text-align:left;width:100%" onClick=${() => go(`/giao-dich/${enc(t.id)}`)}>
       <div class="grow"><div class="b">${t.code}</div><div class="small muted">${fmt.time(t.paidAt || t.createdAt)} · ${t.itemCount} sản phẩm · ${fmt.method(t.method)}</div>
-        ${t.posOrderRef && html`<div class="small muted">DSmart POS: ${t.posOrderRef}${t.posInvoiceNo ? ` · HĐ ${t.posInvoiceNo}` : ''}${t.posStatus ? ` · ${POS_ST[t.posStatus] || t.posStatus}` : ''}</div>`}</div>
+        ${t.posOrderRef && html`<div class="small muted">Dsmart POS: ${t.posOrderRef}${t.posInvoiceNo ? ` · HĐ ${t.posInvoiceNo}` : ''}${t.posStatus ? ` · ${POS_ST[t.posStatus] || t.posStatus}` : ''}</div>`}</div>
       <div style="text-align:right"><div class="b num">${fmt.money(t.status === 'paid' ? (t.posAmount ?? t.total) : t.total)}</div><${Pill} tone=${s.tone}>${s.text}<//></div><${Icon} name="chev"/></button>`; })}</div></div>`
       : html`<${Empty} icon="receipt" title="Chưa có giao dịch" text="Giao dịch đã thu hoặc đang chờ thu trong 12 giờ qua sẽ hiện ở đây."/>`)}
   <//>`;
@@ -310,10 +310,10 @@ export function TxDetail({ c, id }) {
       <div class="grow"><div class="name">${i.name}</div><div class="small muted">${fmt.money(i.price)} × ${i.qty}</div></div><div class="b num">${fmt.money(i.price * i.qty - (i.discount || 0))}</div></div>`)}</div>
       <div class="sum"><div><span>Tạm tính</span><span class="num">${fmt.money(tx.subtotal)}</span></div>${tx.discount > 0 && html`<div><span>Khuyến mãi</span><span class="num">−${fmt.money(tx.discount)}</span></div>`}
         <div class="tot"><span>Tổng</span><span class="num">${fmt.money(tx.total)}</span></div>
-        ${tx.posAmount != null && html`<div><span>Đã trả (theo DSmart POS)</span><b class="num">${fmt.money(tx.posAmount)}</b></div>`}</div></div>
-    ${(tx.posOrderRef || tx.posInvoiceNo) && html`<div class="card tight"><div class="label">Nguồn thu: máy tính tiền (DSmart POS)</div><div class="sum">
-      ${tx.posOrderRef && html`<div><span>Đơn DSmart POS</span><b>${tx.posOrderRef}</b></div>`}${tx.posInvoiceNo && html`<div><span>Số hoá đơn</span><b>${tx.posInvoiceNo}</b></div>`}
-      ${tx.posStatus && html`<div><span>Trạng thái DSmart POS</span><span>${POS_ST[tx.posStatus] || tx.posStatus}</span></div>`}</div></div>`}
+        ${tx.posAmount != null && html`<div><span>Đã trả (theo Dsmart POS)</span><b class="num">${fmt.money(tx.posAmount)}</b></div>`}</div></div>
+    ${(tx.posOrderRef || tx.posInvoiceNo) && html`<div class="card tight"><div class="label">Nguồn thu: máy tính tiền (Dsmart POS)</div><div class="sum">
+      ${tx.posOrderRef && html`<div><span>Đơn Dsmart POS</span><b>${tx.posOrderRef}</b></div>`}${tx.posInvoiceNo && html`<div><span>Số hoá đơn</span><b>${tx.posInvoiceNo}</b></div>`}
+      ${tx.posStatus && html`<div><span>Trạng thái Dsmart POS</span><span>${POS_ST[tx.posStatus] || tx.posStatus}</span></div>`}</div></div>`}
     <div class="card tight"><div class="sum"><div><span>Mã giao dịch</span><b>${tx.id}</b></div><div><span>Tạo lúc</span><span>${fmt.dateTime(tx.createdAt)}</span></div>
       ${tx.paidAt && html`<div><span>Thu tiền lúc</span><span>${fmt.dateTime(tx.paidAt)}</span></div>`}${tx.guardCheck !== false && tx.exitedAt && html`<div><span>Ra cổng lúc</span><span>${fmt.dateTime(tx.exitedAt)}</span></div>`}</div></div>
   <//>
@@ -347,7 +347,7 @@ export function EndShift({ c }) {
   return html`<${Top} c=${c} title="Đối soát cuối ca" sub=${`${shift.kind === 'sang' ? 'Ca sáng' : 'Ca chiều'} từ ${fmt.time(shift.started_at)}`} back="/"/><${Page} bottom>
     <div class="tiles"><div class="tilebox"><span class="k">Giao dịch</span><span class="v">${shift.stats.transactions}</span></div>
       ${!pos && html`<div class="tilebox"><span class="k">Chuyển khoản</span><span class="v">${fmt.money(shift.stats.transfer)}</span></div>`}</div>
-    ${pos ? html`<${Banner} tone="info" icon="info" title="Tiền do DSmart POS thu">Chi nhánh thu tiền trên máy tính tiền nên không cần đếm tiền mặt khi kết thúc ca.<//>` : html`<div class="amountbox"><span class="label">Tiền mặt theo hệ thống</span><span class="bigamt">${fmt.money(sys)}</span></div>
+    ${pos ? html`<${Banner} tone="info" icon="info" title="Tiền do Dsmart POS thu">Chi nhánh thu tiền trên máy tính tiền nên không cần đếm tiền mặt khi kết thúc ca.<//>` : html`<div class="amountbox"><span class="label">Tiền mặt theo hệ thống</span><span class="bigamt">${fmt.money(sys)}</span></div>
     <div class="amountbox in"><span class="label">Tiền mặt đếm thực tế</span><span class="bigamt">${has ? fmt.money(cnt) : html`<span class="muted">Nhập số tiền đã đếm</span>`}</span></div>
     ${!pos && has && html`<div class=${`change ${diff === 0 ? '' : 'short'}`} style=${diff !== 0 ? 'background:var(--err-soft);color:var(--err)' : ''}><div class="label" style="color:inherit">${diff === 0 ? 'Khớp với hệ thống' : diff > 0 ? 'Thừa so với hệ thống' : 'Thiếu so với hệ thống'}</div><div class="bigamt">${diff > 0 ? '+' : ''}${fmt.money(diff)}</div></div>`}
     <${MoneyPad} value=${counted} onChange=${(v) => { setCounted(v); setNoteErr(''); }} max=${10}/>`}

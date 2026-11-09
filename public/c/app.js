@@ -72,7 +72,7 @@ function App() {
     if (tx?.status === 'paid' && inFlow) go(noGate(tx) ? '/done' : '/receipt', true);
     else if (tx?.status === 'awaiting_counter' && inFlow && !['/wait', '/transfer'].includes(path)) go(tx.method === 'qr_transfer' && path === '/pay' ? '/transfer' : '/wait', true);
     else if ((!tx || tx.status === 'voided') && ['/wait', '/transfer'].includes(path)) {
-      // Thu ngân huỷ đơn trên DSmart POS (khách không tự mở khoá): giỏ được nhả về cho khách sửa.
+      // Thu ngân huỷ đơn trên Dsmart POS (khách không tự mở khoá): giỏ được nhả về cho khách sửa.
       if (s.session && Date.now() - lastUnlockAt > 8000 && prevTx.current?.status === 'awaiting_counter' && prevTx.current.paymentSource === 'pos') toast('Thu ngân đã huỷ đơn. Bạn có thể sửa giỏ rồi thanh toán lại');
       go(s.session ? '/cart' : '/', true);
     }

@@ -1,12 +1,12 @@
-# API cho phần mềm DSmart POS gọi vào BRG Scan & Checkout
+# API cho phần mềm Dsmart POS gọi vào BRG Scan & Checkout
 
-> **Tài liệu cho luồng cũ (DSmart POS gọi vào BRG Scan & Checkout để nhận giỏ).** Cách vận hành hiện nay là **giỏ QR cho DSmart POS**, xem [api-qr-gio-hang.md](api-qr-gio-hang.md). Ở cách hiện nay lúc thanh toán **không có số hoá đơn điện tử**: khách tự khai báo hoá đơn qua link nhà cung cấp. Các trường `invoiceNo` trong tài liệu này chỉ dành cho luồng cũ.
+> **Tài liệu cho luồng cũ (Dsmart POS gọi vào BRG Scan & Checkout để nhận giỏ).** Cách vận hành hiện nay là **giỏ QR cho Dsmart POS**, xem [api-qr-gio-hang.md](api-qr-gio-hang.md). Ở cách hiện nay lúc thanh toán **không có số hoá đơn điện tử**: khách tự khai báo hoá đơn qua link nhà cung cấp. Các trường `invoiceNo` trong tài liệu này chỉ dành cho luồng cũ.
 
-Tài liệu cho **nhà cung cấp DSmart POS**. Phiên bản API: `v1`.
+Tài liệu cho **nhà cung cấp Dsmart POS**. Phiên bản API: `v1`.
 
 ## 1. Bối cảnh và luồng
 
-Khách tự quét hàng bằng điện thoại và khoá giỏ. Điện thoại khách hiện **mã QR chứa mã giỏ hàng** dạng `GH-Q7-10001` (QR chỉ chứa đúng chuỗi này, văn bản thuần). Thu ngân quét mã đó **ngay trong DSmart POS**. Với mỗi lần quét, DSmart POS gọi API của BRG Scan & Checkout để lấy danh sách mặt hàng, tự nhập vào đơn, thu tiền trên DSmart POS (QR, tiền mặt, thẻ...), rồi báo kết quả về BRG Scan & Checkout. **BRG Scan & Checkout tự xác nhận khi DSmart POS báo đã thanh toán**, khách nhận mã ra cổng hoặc ra luôn; thu ngân không phải thao tác thêm trên BRG Scan & Checkout.
+Khách tự quét hàng bằng điện thoại và khoá giỏ. Điện thoại khách hiện **mã QR chứa mã giỏ hàng** dạng `GH-Q7-10001` (QR chỉ chứa đúng chuỗi này, văn bản thuần). Thu ngân quét mã đó **ngay trong Dsmart POS**. Với mỗi lần quét, Dsmart POS gọi API của BRG Scan & Checkout để lấy danh sách mặt hàng, tự nhập vào đơn, thu tiền trên Dsmart POS (QR, tiền mặt, thẻ...), rồi báo kết quả về BRG Scan & Checkout. **BRG Scan & Checkout tự xác nhận khi Dsmart POS báo đã thanh toán**, khách nhận mã ra cổng hoặc ra luôn; thu ngân không phải thao tác thêm trên BRG Scan & Checkout.
 
 ```
 Khách          POS (thu ngân)                 BRG Scan & Checkout
@@ -20,9 +20,9 @@ Khách          POS (thu ngân)                 BRG Scan & Checkout
   │◄───────── (màn hình khách tự chuyển sang "đã thanh toán")
 ```
 
-Nếu thu ngân huỷ đơn trên DSmart POS, DSmart POS gọi `POST /orders/{mã đơn}/cancelled`.
+Nếu thu ngân huỷ đơn trên Dsmart POS, Dsmart POS gọi `POST /orders/{mã đơn}/cancelled`.
 
-Điều kiện: chi nhánh đã bật **chế độ thu tiền qua DSmart POS** trong web quản trị của BRG Scan & Checkout, và DSmart POS có **khoá API**.
+Điều kiện: chi nhánh đã bật **chế độ thu tiền qua Dsmart POS** trong web quản trị của BRG Scan & Checkout, và Dsmart POS có **khoá API**.
 
 ## 2. Quy ước chung
 
@@ -36,9 +36,9 @@ Nếu thu ngân huỷ đơn trên DSmart POS, DSmart POS gọi `POST /orders/{m�
 | Khoá API | Do quản trị chuỗi của khách hàng tạo ở web quản trị (mục Tích hợp), chỉ hiện **một lần**, có thể giới hạn theo chi nhánh, thu hồi được. Khoá bắt đầu bằng `brgpos_` |
 | Lỗi | HTTP 4xx kèm JSON `{ "error": "MÃ_LỖI", "message": "Mô tả tiếng Việt", ... }` |
 
-**Idempotent:** mọi lời gọi ghi (`claim`, `paid`, `cancelled`) đều an toàn khi **gọi lại cùng `posOrderRef`** (ví dụ do mất mạng, hết thời gian chờ). Gọi lại không tạo trùng, trả về kết quả như lần đầu kèm `"duplicate": true`. DSmart POS nên **thử lại** khi gặp lỗi mạng hoặc 5xx.
+**Idempotent:** mọi lời gọi ghi (`claim`, `paid`, `cancelled`) đều an toàn khi **gọi lại cùng `posOrderRef`** (ví dụ do mất mạng, hết thời gian chờ). Gọi lại không tạo trùng, trả về kết quả như lần đầu kèm `"duplicate": true`. Dsmart POS nên **thử lại** khi gặp lỗi mạng hoặc 5xx.
 
-`posOrderRef` là **mã đơn của DSmart POS**, do DSmart POS đặt, duy nhất, tối đa 64 ký tự gồm chữ, số và `. _ : / -`. BRG Scan & Checkout dùng mã này để nhận ra các lời gọi sau của cùng một đơn.
+`posOrderRef` là **mã đơn của Dsmart POS**, do Dsmart POS đặt, duy nhất, tối đa 64 ký tự gồm chữ, số và `. _ : / -`. BRG Scan & Checkout dùng mã này để nhận ra các lời gọi sau của cùng một đơn.
 
 ## 3. Các lời gọi
 
@@ -56,7 +56,7 @@ Nếu thu ngân huỷ đơn trên DSmart POS, DSmart POS gọi `POST /orders/{m�
 
 `GET /carts/{mã giỏ}`
 
-Trả giỏ như ở 3.3 nhưng **không** gắn vào đơn DSmart POS. Dùng để hiển thị trước khi nhận, hoặc kiểm tra trạng thái.
+Trả giỏ như ở 3.3 nhưng **không** gắn vào đơn Dsmart POS. Dùng để hiển thị trước khi nhận, hoặc kiểm tra trạng thái.
 
 ### 3.3 Nhận giỏ hàng
 
@@ -100,12 +100,12 @@ Thành công (HTTP 200):
 
 Cách dùng dữ liệu:
 
-- **`items`**: mỗi dòng có `barcode` và `sku` của DSmart POS (BRG Scan & Checkout lấy giá từ chính DSmart POS, nên mã khớp), `qty` và giá đã chốt lúc khách khoá giỏ. Nếu BRG Scan & Checkout và DSmart POS dùng chung một nguồn giá theo chi nhánh (xem [api-gia-chi-nhanh](api-gia-chi-nhanh.md)) thì DSmart POS dùng đúng giá trong `items`; nếu không, DSmart POS tính lại theo quy tắc của DSmart POS. Dù cách nào, số tiền DSmart POS thu mới là số tiền thật (xem 3.5).
+- **`items`**: mỗi dòng có `barcode` và `sku` của Dsmart POS (BRG Scan & Checkout lấy giá từ chính Dsmart POS, nên mã khớp), `qty` và giá đã chốt lúc khách khoá giỏ. Nếu BRG Scan & Checkout và Dsmart POS dùng chung một nguồn giá theo chi nhánh (xem [api-gia-chi-nhanh](api-gia-chi-nhanh.md)) thì Dsmart POS dùng đúng giá trong `items`; nếu không, Dsmart POS tính lại theo quy tắc của Dsmart POS. Dù cách nào, số tiền Dsmart POS thu mới là số tiền thật (xem 3.5).
 - **`total`** chỉ là **tạm tính** của BRG Scan & Checkout, để đối chiếu.
-- **`buyer`**: thông tin người mua nếu khách nhập trước khi khoá giỏ. Có `email` thì gửi hoá đơn về đó. Có thêm `taxCode`, `companyName`, `address` thì khách muốn **hoá đơn công ty**: DSmart POS xuất hoá đơn với các thông tin này. `null` nếu khách không nhập (xuất hoá đơn bán lẻ).
+- **`buyer`**: thông tin người mua nếu khách nhập trước khi khoá giỏ. Có `email` thì gửi hoá đơn về đó. Có thêm `taxCode`, `companyName`, `address` thì khách muốn **hoá đơn công ty**: Dsmart POS xuất hoá đơn với các thông tin này. `null` nếu khách không nhập (xuất hoá đơn bán lẻ).
 - **`ageRestricted`**: giỏ có hàng giới hạn độ tuổi (rượu, bia, thuốc lá); thu ngân cần kiểm tra giấy tờ.
 
-Sau khi nhận, **khách không sửa được giỏ** nữa. Giỏ giữ đến khi DSmart POS báo thanh toán hoặc huỷ.
+Sau khi nhận, **khách không sửa được giỏ** nữa. Giỏ giữ đến khi Dsmart POS báo thanh toán hoặc huỷ.
 
 ### 3.4 Hỏi trạng thái đơn
 
@@ -136,9 +136,9 @@ Sau khi nhận, **khách không sửa được giỏ** nữa. Giỏ giữ đến
 
 | Trường | Bắt buộc | Ý nghĩa |
 |--------|:--------:|---------|
-| `amount` | có | Số tiền DSmart POS **thực thu**, số nguyên dương. Có thể khác `total` tạm tính (khuyến mãi theo hoá đơn, làm tròn). BRG Scan & Checkout **chấp nhận** và ghi nhận số tiền này, đánh dấu để báo cáo nếu lệch |
+| `amount` | có | Số tiền Dsmart POS **thực thu**, số nguyên dương. Có thể khác `total` tạm tính (khuyến mãi theo hoá đơn, làm tròn). BRG Scan & Checkout **chấp nhận** và ghi nhận số tiền này, đánh dấu để báo cáo nếu lệch |
 | `method` | có | `cash`, `qr_transfer`, `card`, `ewallet` hoặc `other` |
-| `invoiceNo` | nên có | Số hoá đơn điện tử DSmart POS đã phát hành, để hiện cho khách và đối soát |
+| `invoiceNo` | nên có | Số hoá đơn điện tử Dsmart POS đã phát hành, để hiện cho khách và đối soát |
 | `cashier`, `terminal`, `paidAt` | không | Ghi nhật ký |
 
 Thành công (HTTP 200):
@@ -150,7 +150,7 @@ Thành công (HTTP 200):
 
 Khi nhận lời gọi này BRG Scan & Checkout **tự xác nhận**: ghi khoản thu, lưu số hoá đơn, và (nếu chi nhánh có bảo vệ) cấp mã QR ra cổng cho khách; (nếu chi nhánh không có bảo vệ) cho khách ra luôn (`exitStatus: "exited"`). Gọi lại với cùng `posOrderRef` là an toàn.
 
-**Chỉ gọi khi tiền thật sự đã thu xong** (DSmart POS đã xác nhận thanh toán, ví dụ tiền QR đã về). Đây là bước quyết định khách được ra.
+**Chỉ gọi khi tiền thật sự đã thu xong** (Dsmart POS đã xác nhận thanh toán, ví dụ tiền QR đã về). Đây là bước quyết định khách được ra.
 
 ### 3.6 Báo huỷ đơn
 
@@ -163,8 +163,8 @@ Khi nhận lời gọi này BRG Scan & Checkout **tự xác nhận**: ghi khoả
 | Tình huống | Kết quả |
 |-----------|---------|
 | Đơn **chưa thanh toán** | Giỏ được **nhả về cho khách** (khách sửa giỏ rồi khoá lại sẽ ra mã giỏ mới). `{ "ok": true, "status": "cancelled", "cartReleased": true }` |
-| Đơn **đã thanh toán**, khách chưa ra cổng | Giao dịch bị huỷ theo DSmart POS: QR ra cổng mất hiệu lực, khoản thu không tính vào doanh thu của BRG Scan & Checkout, hoá đơn chuyển "yêu cầu huỷ". `{ "ok": true, "status": "voided", "alreadyExited": false }` |
-| Đơn **đã thanh toán**, khách đã ra | Ghi nhận huỷ theo DSmart POS (không tính doanh thu), `alreadyExited: true`. BRG Scan & Checkout không thể thu hồi hàng; việc xử lý do cửa hàng |
+| Đơn **đã thanh toán**, khách chưa ra cổng | Giao dịch bị huỷ theo Dsmart POS: QR ra cổng mất hiệu lực, khoản thu không tính vào doanh thu của BRG Scan & Checkout, hoá đơn chuyển "yêu cầu huỷ". `{ "ok": true, "status": "voided", "alreadyExited": false }` |
+| Đơn **đã thanh toán**, khách đã ra | Ghi nhận huỷ theo Dsmart POS (không tính doanh thu), `alreadyExited: true`. BRG Scan & Checkout không thể thu hồi hàng; việc xử lý do cửa hàng |
 | Đã huỷ từ trước | `{ "ok": true, "duplicate": true, ... }` |
 
 ## 4. Trạng thái
@@ -172,11 +172,11 @@ Khi nhận lời gọi này BRG Scan & Checkout **tự xác nhận**: ghi khoả
 | `status` của giỏ | Ý nghĩa |
 |------------------|---------|
 | `awaiting_counter` | Khách đã khoá giỏ, chờ thanh toán |
-| `paid` | DSmart POS đã báo thanh toán |
+| `paid` | Dsmart POS đã báo thanh toán |
 | `cancelled` | Đã huỷ trước khi thanh toán |
 | `voided` | Đã huỷ sau khi thanh toán |
 
-`posStatus`: `null` (chưa nhận), `claimed` (DSmart POS đã nhận), `paid`, `cancelled`.
+`posStatus`: `null` (chưa nhận), `claimed` (Dsmart POS đã nhận), `paid`, `cancelled`.
 
 ## 5. Mã lỗi
 
@@ -188,10 +188,10 @@ Khi nhận lời gọi này BRG Scan & Checkout **tự xác nhận**: ghi khoả
 | 401 | `NO_API_KEY`, `BAD_API_KEY` | Thiếu, sai hoặc đã thu hồi khoá API |
 | 403 | `STORE_FORBIDDEN` | Khoá không dùng được cho chi nhánh của giỏ này |
 | 404 | `CART_NOT_FOUND` | Không có giỏ với mã này (quét nhầm mã, hoặc giỏ cũ) |
-| 404 | `ORDER_NOT_FOUND` | Chưa nhận đơn DSmart POS này, hãy gọi `claim` trước |
-| 409 | `POS_MODE_OFF` | Chi nhánh chưa bật chế độ thu tiền qua DSmart POS |
+| 404 | `ORDER_NOT_FOUND` | Chưa nhận đơn Dsmart POS này, hãy gọi `claim` trước |
+| 409 | `POS_MODE_OFF` | Chi nhánh chưa bật chế độ thu tiền qua Dsmart POS |
 | 409 | `NOT_PAYABLE` | Giỏ không còn chờ thanh toán (đã thanh toán, đã huỷ, khách đã sửa giỏ); `status` hiện kèm theo |
-| 409 | `ALREADY_CLAIMED` | Giỏ đã được đơn DSmart POS khác nhận (`posOrderRef` kèm theo) |
+| 409 | `ALREADY_CLAIMED` | Giỏ đã được đơn Dsmart POS khác nhận (`posOrderRef` kèm theo) |
 | 409 | `REF_IN_USE` | `posOrderRef` này đã gắn với giỏ khác |
 | 409 | `ORDER_CANCELLED` | Đơn đã bị huỷ, không báo thanh toán được |
 
@@ -199,12 +199,12 @@ Với 409 `NOT_PAYABLE` khi nhận giỏ: báo thu ngân giỏ này không còn 
 
 ## 6. Quy tắc quan trọng
 
-1. **DSmart POS là nguồn đúng về giá, khuyến mãi và tiền thu.** BRG Scan & Checkout chỉ cung cấp danh sách mặt hàng; số tiền cuối là `amount` DSmart POS báo.
+1. **Dsmart POS là nguồn đúng về giá, khuyến mãi và tiền thu.** BRG Scan & Checkout chỉ cung cấp danh sách mặt hàng; số tiền cuối là `amount` Dsmart POS báo.
 2. **Báo `paid` đúng một lần cho mỗi đơn**, sau khi tiền thực sự đã thu. Gọi lại an toàn.
-3. **Hoá đơn điện tử do DSmart POS phát hành.** BRG Scan & Checkout không xuất hoá đơn ở chi nhánh dùng DSmart POS; BRG Scan & Checkout chỉ lưu số hoá đơn DSmart POS gửi để hiện cho khách.
-4. **Hoàn tiền, trả hàng làm trên DSmart POS**, rồi DSmart POS báo `cancelled` để BRG Scan & Checkout đồng bộ.
-5. Khi DSmart POS mất kết nối với BRG Scan & Checkout, thu ngân có thể vẫn bán bình thường trên DSmart POS; khi kết nối lại DSmart POS gọi `claim` rồi `paid` (hoặc chỉ `paid` nếu đã nhận). Quản lý có thể chuyển chi nhánh về chế độ thu thủ công trong thời gian sự cố (xem hướng dẫn của BRG Scan & Checkout).
-6. Gọi API từ **máy chủ hoặc dịch vụ trung gian của DSmart POS**, không để khoá API trong ứng dụng chạy ở thiết bị người dùng cuối nếu tránh được.
+3. **Hoá đơn điện tử do Dsmart POS phát hành.** BRG Scan & Checkout không xuất hoá đơn ở chi nhánh dùng Dsmart POS; BRG Scan & Checkout chỉ lưu số hoá đơn Dsmart POS gửi để hiện cho khách.
+4. **Hoàn tiền, trả hàng làm trên Dsmart POS**, rồi Dsmart POS báo `cancelled` để BRG Scan & Checkout đồng bộ.
+5. Khi Dsmart POS mất kết nối với BRG Scan & Checkout, thu ngân có thể vẫn bán bình thường trên Dsmart POS; khi kết nối lại Dsmart POS gọi `claim` rồi `paid` (hoặc chỉ `paid` nếu đã nhận). Quản lý có thể chuyển chi nhánh về chế độ thu thủ công trong thời gian sự cố (xem hướng dẫn của BRG Scan & Checkout).
+6. Gọi API từ **máy chủ hoặc dịch vụ trung gian của Dsmart POS**, không để khoá API trong ứng dụng chạy ở thiết bị người dùng cuối nếu tránh được.
 
 ## 7. Thử nhanh bằng dòng lệnh
 
@@ -219,15 +219,15 @@ curl -s $BASE/api/pos/v1/orders/A-20481/paid -H "Authorization: Bearer $KEY" \
   -H 'Content-Type: application/json' -d '{"amount":60800,"method":"qr_transfer","invoiceNo":"HD0001234"}'
 ```
 
-Có sẵn công cụ giả lập DSmart POS: `node scripts/pos-simulator.js --base $BASE --key $KEY claim GH-Q7-10001 --ref A-20481` (xem phần đầu file để biết các lệnh `preview`, `paid`, `cancelled`, `status`).
+Có sẵn công cụ giả lập Dsmart POS: `node scripts/pos-simulator.js --base $BASE --key $KEY claim GH-Q7-10001 --ref A-20481` (xem phần đầu file để biết các lệnh `preview`, `paid`, `cancelled`, `status`).
 
 ## 8. Môi trường thử
 
-Khách hàng sẽ cấp một bản BRG Scan & Checkout riêng để thử, kèm khoá API và chi nhánh đã bật chế độ DSmart POS. Trong bản thử, quản trị viên có thể tạo giỏ hàng mẫu bằng điện thoại và dùng khung "Giả lập DSmart POS" để so sánh kết quả với hệ thống của bạn.
+Khách hàng sẽ cấp một bản BRG Scan & Checkout riêng để thử, kèm khoá API và chi nhánh đã bật chế độ Dsmart POS. Trong bản thử, quản trị viên có thể tạo giỏ hàng mẫu bằng điện thoại và dùng khung "Giả lập Dsmart POS" để so sánh kết quả với hệ thống của bạn.
 
-## 9. Điều cần thống nhất với nhà cung cấp DSmart POS
+## 9. Điều cần thống nhất với nhà cung cấp Dsmart POS
 
-- DSmart POS đọc mã giỏ từ QR bằng cách nào (máy quét mã cắm vào máy tính tiền, camera), và thu ngân thao tác ở đâu để gọi `claim`.
+- Dsmart POS đọc mã giỏ từ QR bằng cách nào (máy quét mã cắm vào máy tính tiền, camera), và thu ngân thao tác ở đâu để gọi `claim`.
 - Thời gian chờ và cơ chế thử lại khi gọi API (đề nghị hết thời gian 5 đến 10 giây, thử lại tối đa vài lần cách quãng).
-- DSmart POS có gửi `paid` ngay khi thanh toán xong hay sau khi xuất hoá đơn (nên gửi sau khi có số hoá đơn để BRG Scan & Checkout lưu cùng lúc).
-- Cách DSmart POS xử lý đơn treo không được thanh toán (huỷ tự động sau bao lâu và gọi `cancelled`).
+- Dsmart POS có gửi `paid` ngay khi thanh toán xong hay sau khi xuất hoá đơn (nên gửi sau khi có số hoá đơn để BRG Scan & Checkout lưu cùng lúc).
+- Cách Dsmart POS xử lý đơn treo không được thanh toán (huỷ tự động sau bao lâu và gọi `cancelled`).

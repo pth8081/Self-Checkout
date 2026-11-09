@@ -8,7 +8,7 @@ access: all
 
 # Quản lý, đối soát và huỷ giao dịch
 
-> **Luồng hiện hành là "Giỏ QR cho DSmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào DSmart POS, DSmart POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho DSmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối DSmart POS".
+> **Luồng hiện hành là "Giỏ QR cho Dsmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào Dsmart POS, Dsmart POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho Dsmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối Dsmart POS".
 
 Vì ở giai đoạn 1 **người** xác nhận thu tiền, các bước kiểm soát của quản lý là phần quan trọng nhất để không thất thoát. Web quản trị cung cấp công cụ cho từng việc dưới đây.
 
@@ -16,7 +16,7 @@ Vì ở giai đoạn 1 **người** xác nhận thu tiền, các bước kiểm 
 
 | Thời điểm | Việc | Mục trong web quản trị |
 |-----------|------|------------------------|
-| Đầu ngày | Kiểm tra dữ liệu sản phẩm đã đồng bộ, không có cảnh báo DSmart POS chậm | Hôm nay, Tổng quan |
+| Đầu ngày | Kiểm tra dữ liệu sản phẩm đã đồng bộ, không có cảnh báo Dsmart POS chậm | Hôm nay, Tổng quan |
 | Đầu ngày | Ca có đủ **thu ngân** và **cổng ra**, không có cảnh báo thiếu người | Nhân viên và ca |
 | Trong ngày | Theo dõi số giỏ chờ thu, ca bị giữ, giao dịch có chênh lệch | Hôm nay |
 | Trong ngày | Xử lý các ca **chờ quản lý** | Hôm nay, Giao dịch |
@@ -84,20 +84,20 @@ Dùng khi thu ngân bấm nhầm xác nhận, hoặc khách rút lại giỏ sau
 
 > **Cần xác nhận:** Ứng dụng chưa có chức năng **hoàn tiền**. Hoàn tiền cho khách (tiền mặt hoặc chuyển khoản lại) làm ngoài hệ thống, quản lý ghi nhận bằng ghi chú huỷ. Khi khách đã ra cổng thì không huỷ được. Xem "Điểm cần chốt".
 
-## Đơn DSmart POS và đối soát với DSmart POS
+## Đơn Dsmart POS và đối soát với Dsmart POS
 
-Ở chi nhánh **thu tiền qua DSmart POS**, trang **Đơn DSmart POS** (web quản trị) liệt kê mọi giỏ DSmart POS đã nhận: mã giỏ, mã đơn DSmart POS, trạng thái (đã nhận, đã thanh toán, đã huỷ), **tổng BRG so với số tiền DSmart POS**, số hoá đơn, thu ngân và quầy. Trang tự làm mới.
+Ở chi nhánh **thu tiền qua Dsmart POS**, trang **Đơn Dsmart POS** (web quản trị) liệt kê mọi giỏ Dsmart POS đã nhận: mã giỏ, mã đơn Dsmart POS, trạng thái (đã nhận, đã thanh toán, đã huỷ), **tổng BRG so với số tiền Dsmart POS**, số hoá đơn, thu ngân và quầy. Trang tự làm mới.
 
 Việc quản lý cần làm:
 
 | Việc | Cách làm |
 |------|----------|
-| **Đơn lệch tiền** (số DSmart POS khác tạm tính của BRG) | Xem nguyên nhân: khuyến mãi theo hoá đơn, làm tròn, hay sai sót. Lệch lớn hoặc lặp lại thì báo bộ phận DSmart POS |
-| **Đơn chờ lâu** (DSmart POS đã nhận giỏ nhưng quá 10 phút chưa báo thanh toán) | Hỏi thu ngân. Nếu DSmart POS sập giữa chừng, bấm **Nhả giỏ** kèm lý do để khách không bị kẹt. Nhả rồi mà DSmart POS vẫn báo đã thanh toán thì BRG từ chối, phải đối soát tay |
-| **Đơn đã huỷ sau khi khách ra** | Xem nhật ký và xác minh với DSmart POS, xử lý hàng hoá theo quy định của cửa hàng |
-| **Đối soát cuối ngày** | So số giao dịch và số tiền BRG đã thu trong ngày với báo cáo bán hàng của DSmart POS (đơn có nguồn Scan & Checkout). Chênh lệch phải giải thích được |
+| **Đơn lệch tiền** (số Dsmart POS khác tạm tính của BRG) | Xem nguyên nhân: khuyến mãi theo hoá đơn, làm tròn, hay sai sót. Lệch lớn hoặc lặp lại thì báo bộ phận Dsmart POS |
+| **Đơn chờ lâu** (Dsmart POS đã nhận giỏ nhưng quá 10 phút chưa báo thanh toán) | Hỏi thu ngân. Nếu Dsmart POS sập giữa chừng, bấm **Nhả giỏ** kèm lý do để khách không bị kẹt. Nhả rồi mà Dsmart POS vẫn báo đã thanh toán thì BRG từ chối, phải đối soát tay |
+| **Đơn đã huỷ sau khi khách ra** | Xem nhật ký và xác minh với Dsmart POS, xử lý hàng hoá theo quy định của cửa hàng |
+| **Đối soát cuối ngày** | So số giao dịch và số tiền BRG đã thu trong ngày với báo cáo bán hàng của Dsmart POS (đơn có nguồn Scan & Checkout). Chênh lệch phải giải thích được |
 
-Tiền mặt và chuyển khoản ở chế độ DSmart POS **do DSmart POS đối soát** (két theo ca của DSmart POS, sao kê theo DSmart POS). Các màn đối soát tiền mặt và sao kê trong BRG chỉ còn ý nghĩa cho chi nhánh tự thu.
+Tiền mặt và chuyển khoản ở chế độ Dsmart POS **do Dsmart POS đối soát** (két theo ca của Dsmart POS, sao kê theo Dsmart POS). Các màn đối soát tiền mặt và sao kê trong BRG chỉ còn ý nghĩa cho chi nhánh tự thu.
 
 ## Truy vết một giao dịch
 
@@ -113,10 +113,10 @@ Mở **Giao dịch**, tìm theo mã giỏ (`GH-...`) hoặc mã giao dịch (`SG
 
 ## Mã vạch không tìm thấy
 
-Mỗi lần khách quét một mã **không có trong dữ liệu DSmart POS** của chi nhánh, mã được ghi vào danh sách này (kèm số lần quét và lần cuối). Quản lý chuyển cho bộ phận hàng hoá bổ sung vào DSmart POS, rồi đổi trạng thái: **Mới** → **Đã báo DSmart POS** → **Đã xử lý**. Danh sách cũng giúp phát hiện hàng thiếu dữ liệu.
+Mỗi lần khách quét một mã **không có trong dữ liệu Dsmart POS** của chi nhánh, mã được ghi vào danh sách này (kèm số lần quét và lần cuối). Quản lý chuyển cho bộ phận hàng hoá bổ sung vào Dsmart POS, rồi đổi trạng thái: **Mới** → **Đã báo Dsmart POS** → **Đã xử lý**. Danh sách cũng giúp phát hiện hàng thiếu dữ liệu.
 
 ## Báo cáo
 
 Báo cáo theo ngày: số giao dịch, doanh thu, tiền mặt, chuyển khoản, lượt kiểm tra, chênh lệch. Xuất được **CSV** để mở bằng Excel. Quản trị chuỗi xem toàn chuỗi hoặc lọc từng chi nhánh; quản lý chi nhánh chỉ thấy chi nhánh mình.
 
-> **Lưu ý:** Báo cáo lấy từ dữ liệu của BRG Scan & Checkout. Doanh thu bán ở quầy thường nằm trong DSmart POS và chưa được gộp.
+> **Lưu ý:** Báo cáo lấy từ dữ liệu của BRG Scan & Checkout. Doanh thu bán ở quầy thường nằm trong Dsmart POS và chưa được gộp.

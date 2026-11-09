@@ -173,8 +173,8 @@ export default async function adminRoutes(app) {
       if (b.enabled === true) {
         const c = db.prepare('SELECT * FROM store_config WHERE store_id = ?').get(id);
         if (c.checkout_mode !== 'basket' && c.payment_source !== 'pos' && !c.pay_cash && !(c.pay_qr && c.bank_bin && c.bank_account)) throw conflict('NO_PAYMENT', 'Hãy bật ít nhất một cách thanh toán dùng được trước khi bật chi nhánh');
-        if (!db.prepare('SELECT 1 FROM product_cache WHERE store_id = ? LIMIT 1').get(id)) throw conflict('NO_PRODUCTS', 'Chi nhánh chưa có dữ liệu sản phẩm, hãy đồng bộ DSmart POS trước');
-        if (c.checkout_mode === 'basket' && !posCode) throw conflict('NO_POS_CODE', 'Hãy nhập Mã điểm của chi nhánh (mã trong hệ thống giá và DSmart POS) trước khi bật');
+        if (!db.prepare('SELECT 1 FROM product_cache WHERE store_id = ? LIMIT 1').get(id)) throw conflict('NO_PRODUCTS', 'Chi nhánh chưa có dữ liệu sản phẩm, hãy đồng bộ Dsmart POS trước');
+        if (c.checkout_mode === 'basket' && !posCode) throw conflict('NO_POS_CODE', 'Hãy nhập Mã điểm của chi nhánh (mã trong hệ thống giá và Dsmart POS) trước khi bật');
       }
       db.prepare('UPDATE stores SET name = ?, address = ?, enabled = ?, pos_code = ? WHERE id = ?')
         .run(b.name?.trim() || st.name, b.address ?? st.address, b.enabled === undefined ? st.enabled : (b.enabled ? 1 : 0), posCode, id);
@@ -215,7 +215,7 @@ export default async function adminRoutes(app) {
       if (b.paymentSource !== undefined) {
         if (!['manual', 'pos'].includes(b.paymentSource)) throw bad('BAD_SOURCE', 'Nguồn thu tiền chỉ có manual hoặc pos');
         if (b.paymentSource === 'pos' && !db.prepare('SELECT 1 FROM integration_keys WHERE active = 1 AND (store_id IS NULL OR store_id = ?)').get(id)) {
-          throw conflict('NO_POS_KEY', 'Chưa có khoá API cho DSmart POS dùng được ở chi nhánh này. Hãy tạo khoá ở mục Tích hợp trước');
+          throw conflict('NO_POS_KEY', 'Chưa có khoá API cho Dsmart POS dùng được ở chi nhánh này. Hãy tạo khoá ở mục Tích hợp trước');
         }
         if (b.paymentSource !== cur.payment_source) {
           const pend = db.prepare(`SELECT COUNT(*) n FROM transactions WHERE store_id = ? AND status = 'awaiting_counter'`).get(id).n;
@@ -320,7 +320,7 @@ export default async function adminRoutes(app) {
         priceSource: ctx.pos.name === 'mock' ? 'csv' : ctx.pos.name,
         note: ctx.pos.name !== 'mock' ? null
           : config.isProd ? 'Giá và khuyến mãi đang lấy từ bảng giá nhập bằng file CSV (npm run import-products). Chưa nối API giá theo chi nhánh nên giá không tự cập nhật.'
-          : 'DSmart POS và hoá đơn điện tử đang chạy bản giả lập. Gắn hệ thống thật bằng cách viết adapter tương ứng (xem docs/07).'
+          : 'Dsmart POS và hoá đơn điện tử đang chạy bản giả lập. Gắn hệ thống thật bằng cách viết adapter tương ứng (xem docs/07).'
       };
     });
     s.post('/integrations/pos/sync', async (req) => {
@@ -332,7 +332,7 @@ export default async function adminRoutes(app) {
     });
     s.post('/integrations/invoices/retry', async (req) => { chainOnly(req); return retryPendingInvoices(db, ctx.invoicer); });
 
-    // ---------------- Khoá API cho DSmart POS gọi vào ----------------
+    // ---------------- Khoá API cho Dsmart POS gọi vào ----------------
     s.get('/pos/keys', async (req) => {
       chainOnly(req);
       return { keys: db.prepare('SELECT id, name, prefix, store_id, active, created_by, created_at, last_used_at FROM integration_keys ORDER BY id DESC').all()
@@ -341,13 +341,13 @@ export default async function adminRoutes(app) {
     s.post('/pos/keys', async (req) => {
       chainOnly(req);
       const name = String(req.body?.name || '').trim();
-      if (!name) throw bad('NAME_REQUIRED', 'Đặt tên cho khoá (ví dụ tên phần mềm DSmart POS)');
+      if (!name) throw bad('NAME_REQUIRED', 'Đặt tên cho khoá (ví dụ tên phần mềm Dsmart POS)');
       const storeId = req.body?.storeId ? String(req.body.storeId).toUpperCase() : null;
       if (storeId) getStoreConfig(db, storeId);
       const k = newKey();
       const r = db.prepare('INSERT INTO integration_keys(name,key_hash,prefix,store_id,created_by,created_at) VALUES(?,?,?,?,?,?)').run(name.slice(0, 60), k.hash, k.prefix, storeId, req.user.id, nowIso());
       audit(db, { storeId, actorType: 'admin', actorId: req.user.id, action: 'pos.key_created', entity: 'integration_key', entityId: String(r.lastInsertRowid), data: { name } });
-      return { id: r.lastInsertRowid, key: k.raw, prefix: k.prefix, note: 'Khoá chỉ hiện một lần, hãy chép và gửi cho nhà cung cấp DSmart POS' };
+      return { id: r.lastInsertRowid, key: k.raw, prefix: k.prefix, note: 'Khoá chỉ hiện một lần, hãy chép và gửi cho nhà cung cấp Dsmart POS' };
     });
     s.delete('/pos/keys/:id', async (req) => {
       chainOnly(req);
@@ -365,11 +365,11 @@ export default async function adminRoutes(app) {
         differs: t.pos_amount != null && t.pos_amount !== t.total, invoiceNo: t.pos_invoice_no, cashier: t.pos_cashier, terminal: t.pos_terminal, claimedAt: t.pos_claimed_at, paidAt: t.paid_at, exitStatus: t.exit_status })) };
     });
 
-    // Giải cứu khách khi DSmart POS đã nhận giỏ nhưng không báo kết quả (DSmart POS sập giữa chừng): quản lý nhả giỏ về cho khách.
-    // Nếu sau đó DSmart POS vẫn báo "đã thanh toán" cho đơn này thì BRG từ chối (ORDER_CANCELLED) và cần đối soát tay.
+    // Giải cứu khách khi Dsmart POS đã nhận giỏ nhưng không báo kết quả (Dsmart POS sập giữa chừng): quản lý nhả giỏ về cho khách.
+    // Nếu sau đó Dsmart POS vẫn báo "đã thanh toán" cho đơn này thì BRG từ chối (ORDER_CANCELLED) và cần đối soát tay.
     s.post('/pos/orders/:id/release', async (req) => {
       const tx = txScoped(req);
-      if (tx.status !== 'awaiting_counter' || tx.pos_status !== 'claimed') throw conflict('NOT_CLAIMED', 'Chỉ nhả được giỏ đã được DSmart POS nhận mà chưa thanh toán');
+      if (tx.status !== 'awaiting_counter' || tx.pos_status !== 'claimed') throw conflict('NOT_CLAIMED', 'Chỉ nhả được giỏ đã được Dsmart POS nhận mà chưa thanh toán');
       const reason = String(req.body?.reason || '').trim();
       if (!reason) throw bad('REASON_REQUIRED', 'Hãy nhập lý do nhả giỏ');
       db.transaction(() => {
@@ -380,25 +380,25 @@ export default async function adminRoutes(app) {
       return { ok: true };
     });
 
-    // Công cụ thử nghiệm: giả lập DSmart POS đổi giá/tồn kho (không có khi chạy production).
+    // Công cụ thử nghiệm: giả lập Dsmart POS đổi giá/tồn kho (không có khi chạy production).
     s.post('/dev/pos-product', async (req) => {
       chainOnly(req);
       if (config.isProd) throw forbidden('DEV_ONLY', 'Chỉ dùng ở môi trường thử');
       const b = req.body || {};
       const id = String(b.storeId || '').toUpperCase();
       const row = db.prepare('SELECT * FROM pos_products WHERE store_id = ? AND sku = ?').get(id, String(b.sku || ''));
-      if (!row) throw notFound('PRODUCT_NOT_FOUND', 'Không tìm thấy sản phẩm trong DSmart POS giả lập');
+      if (!row) throw notFound('PRODUCT_NOT_FOUND', 'Không tìm thấy sản phẩm trong Dsmart POS giả lập');
       db.prepare('UPDATE pos_products SET price=?, stock=?, active=?, updated_at=? WHERE store_id=? AND sku=?')
         .run(b.price ?? row.price, b.stock ?? row.stock, b.active === undefined ? row.active : (b.active ? 1 : 0), nowIso(), id, row.sku);
       if (b.sync) ctx.pos.sync(id);
       return { ok: true };
     });
-    // Công cụ thử nghiệm: đóng vai DSmart POS gọi API (nhận giỏ, báo thanh toán, báo huỷ) mà không cần khoá API.
+    // Công cụ thử nghiệm: đóng vai Dsmart POS gọi API (nhận giỏ, báo thanh toán, báo huỷ) mà không cần khoá API.
     s.post('/dev/pos-simulate', async (req) => {
       chainOnly(req);
       if (config.isProd) throw forbidden('DEV_ONLY', 'Chỉ dùng ở môi trường thử');
       const b = req.body || {};
-      const scope = { keyId: 0, name: 'Giả lập DSmart POS', storeId: null };
+      const scope = { keyId: 0, name: 'Giả lập Dsmart POS', storeId: null };
       const ref = String(b.ref || '');
       switch (b.action) {
         case 'preview': return { result: previewCart(ctx, scope, b.code) };
@@ -573,7 +573,7 @@ export default async function adminRoutes(app) {
       if (sc) events.push({ ts: sc.last, tone: 'info', text: `Quét ${sc.n} lần, giữ ${tx.item_count} mặt hàng${rm ? `, xoá ${rm.n} lần` : ''}${qy ? `, sửa số lượng ${qy.n} lần` : ''}${fl ? `, ${fl.n} lần quét lỗi` : ''}` });
       for (const a of db.prepare(`SELECT * FROM audit_events WHERE entity='transaction' AND entity_id = ? ORDER BY id`).all(tx.id)) {
         const d = a.data ? JSON.parse(a.data) : {};
-        const who = a.actor_id?.startsWith('DSmart POS:') ? `DSmart POS (${a.actor_id.slice(4)})` : a.actor_type === 'staff' ? `NV ${a.actor_id}` : a.actor_type === 'admin' ? `Quản trị ${a.actor_id}` : a.actor_type === 'customer' ? 'Khách' : 'Hệ thống';
+        const who = a.actor_id?.startsWith('Dsmart POS:') ? `Dsmart POS (${a.actor_id.slice(4)})` : a.actor_type === 'staff' ? `NV ${a.actor_id}` : a.actor_type === 'admin' ? `Quản trị ${a.actor_id}` : a.actor_type === 'customer' ? 'Khách' : 'Hệ thống';
         const map = {
           'cart.locked': ['info', `Khoá giỏ, chọn ${d.method === 'cash' ? 'tiền mặt' : 'chuyển khoản'}, ${d.total?.toLocaleString('vi-VN')}₫`],
           'cart.unlocked': ['info', 'Khách quay lại sửa giỏ hàng'],
@@ -582,11 +582,11 @@ export default async function adminRoutes(app) {
             ? `${who} báo đã thanh toán ${d.amount?.toLocaleString('vi-VN')}₫ (${({ cash: 'tiền mặt', qr_transfer: 'chuyển khoản', card: 'thẻ', ewallet: 'ví điện tử' })[d.method] || 'cách khác'})${d.invoiceNo ? `, hoá đơn ${d.invoiceNo}` : ''}`
             : `${who} thu ${d.method === 'cash' ? `tiền mặt${d.cashReceived ? `, khách đưa ${d.cashReceived.toLocaleString('vi-VN')}₫, thối ${d.change?.toLocaleString('vi-VN')}₫` : ''}` : 'chuyển khoản (đã đối chiếu)'}`],
           'payment.refunded': ['warn', `${who} hoàn trả ${d.amount?.toLocaleString('vi-VN')}₫${d.reason ? `: ${d.reason}` : ''}`],
-          'pos.paid_after_cancel': ['warn', `DSmart POS báo đã thu ${d.amount?.toLocaleString('vi-VN')}₫ sau khi khách sửa giỏ (giỏ cũ đã bị khách huỷ trên điện thoại)`],
-          'pos.claimed': ['info', `${who} nhận giỏ vào đơn DSmart POS ${d.posOrderRef}${d.cashier ? `, thu ngân ${d.cashier}` : ''}`],
-          'pos.amount_differs': ['warn', `Số tiền DSmart POS ${d.posAmount?.toLocaleString('vi-VN')}₫ khác tạm tính ${d.brgTotal?.toLocaleString('vi-VN')}₫`],
-          'pos.released': ['warn', `${who} nhả giỏ vì DSmart POS không báo kết quả: ${d.reason}`],
-          'pos.cancel_after_exit': ['warn', `DSmart POS huỷ đơn sau khi khách đã ra: ${d.reason}`],
+          'pos.paid_after_cancel': ['warn', `Dsmart POS báo đã thu ${d.amount?.toLocaleString('vi-VN')}₫ sau khi khách sửa giỏ (giỏ cũ đã bị khách huỷ trên điện thoại)`],
+          'pos.claimed': ['info', `${who} nhận giỏ vào đơn Dsmart POS ${d.posOrderRef}${d.cashier ? `, thu ngân ${d.cashier}` : ''}`],
+          'pos.amount_differs': ['warn', `Số tiền Dsmart POS ${d.posAmount?.toLocaleString('vi-VN')}₫ khác tạm tính ${d.brgTotal?.toLocaleString('vi-VN')}₫`],
+          'pos.released': ['warn', `${who} nhả giỏ vì Dsmart POS không báo kết quả: ${d.reason}`],
+          'pos.cancel_after_exit': ['warn', `Dsmart POS huỷ đơn sau khi khách đã ra: ${d.reason}`],
           'payment.extra_collected': ['ok', `${who} thu bổ sung ${d.amount?.toLocaleString('vi-VN')}₫`],
           'invoice.issued': ['ok', `Hoá đơn điện tử ${d.number} (${d.type === 'company' ? 'công ty' : 'bán lẻ'})`],
           'invoice.failed': ['warn', `Xuất hoá đơn lỗi: ${d.error}`],
@@ -624,7 +624,7 @@ export default async function adminRoutes(app) {
       const plans = db.prepare('SELECT * FROM shift_plans WHERE store_id = ? AND date BETWEEN ? AND ?').all(storeId, days[0], days[6]);
       const today = localDate();
       const cfgPlan = getStoreConfig(db, storeId).cfg;
-      const posMode = cfgPlan.payment_source === 'pos', guardOn = !!cfgPlan.guard_check; // DSmart POS: thu ngân làm trên DSmart POS; không bảo vệ: không cần người ở cổng
+      const posMode = cfgPlan.payment_source === 'pos', guardOn = !!cfgPlan.guard_check; // Dsmart POS: thu ngân làm trên Dsmart POS; không bảo vệ: không cần người ở cổng
       const warnings = [];
       for (const date of days) {
         if (date < today) continue;

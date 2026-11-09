@@ -21,7 +21,7 @@
 
    Một khách đang mua sắm chỉ gửi vài yêu cầu mỗi chục giây, nên một tiến trình phục vụ được **hàng nghìn khách cùng lúc**. Chạy `npm run loadtest` (xem mục 8) trên máy chủ thật để có số của riêng bạn, trước khi mở rộng.
 2. **Cluster hầu như không tăng thêm sức chịu tải.** Dữ liệu nằm trong một file SQLite, mọi lần ghi phải xếp hàng, nên thêm tiến trình chỉ tăng khoảng 25% trong phép đo trên (điểm nghẽn là việc ghi, không phải CPU Node).
-3. **Cluster thêm rủi ro:** công việc nền (đồng bộ DSmart POS mỗi phút, thử lại hoá đơn) sẽ chạy ở **mọi** tiến trình. Ứng dụng đã được làm an toàn khi chạy trùng (hoá đơn được "nhận việc" nguyên tử nên không xuất trùng; giao dịch CSDL dùng khoá ghi ngay từ đầu), nhưng vẫn là việc thừa và khó theo dõi.
+3. **Cluster thêm rủi ro:** công việc nền (đồng bộ Dsmart POS mỗi phút, thử lại hoá đơn) sẽ chạy ở **mọi** tiến trình. Ứng dụng đã được làm an toàn khi chạy trùng (hoá đơn được "nhận việc" nguyên tử nên không xuất trùng; giao dịch CSDL dùng khoá ghi ngay từ đầu), nhưng vẫn là việc thừa và khó theo dõi.
 4. **Đơn giản hơn để vận hành:** một tiến trình, một nhật ký, một nơi để khởi động lại.
 
 Khi nào cân nhắc nhiều tiến trình hoặc nhiều máy: xem mục 9.
@@ -48,7 +48,7 @@ Cấu hình tối thiểu cho một chuỗi vài chục chi nhánh thí điểm:
 - Máy chủ Linux (Ubuntu 22.04 trở lên hoặc tương đương), có quyền `sudo`.
 - **Node.js 20.6 trở lên** (đã thử trên 22). Thư viện SQLite dùng bản dựng sẵn cho các nền tảng phổ biến; nếu không có bản dựng sẵn, cài thêm `build-essential` và `python3`.
 - Một **tên miền** trỏ về máy chủ (ví dụ `scan.hcrc.vn`) và cổng 80, 443 mở. **Bắt buộc HTTPS** vì trình duyệt chỉ cho dùng camera trên HTTPS.
-- Tài khoản ngân hàng nhận tiền, nhà cung cấp DSmart POS và hoá đơn (có thể gắn sau, xem [11](11-ung-dung.md)).
+- Tài khoản ngân hàng nhận tiền, nhà cung cấp Dsmart POS và hoá đơn (có thể gắn sau, xem [11](11-ung-dung.md)).
 
 ## 4. Cài đặt từng bước
 
@@ -93,8 +93,8 @@ Bảng biến môi trường:
 | `RECEIPT_TTL_MIN` | `180` | Thời hạn QR biên nhận (phút). Chỉ dùng ở luồng cũ có bảo vệ cổng ra |
 | `PUBLIC_URL` | | Địa chỉ công khai, ví dụ `https://scan.hcrc.vn`. Dùng làm link xem bill trong email. Không đặt thì email vẫn gửi (kèm PDF) nhưng không có link |
 | `MAX_CART_ITEMS` | `60` | Số mặt hàng khác nhau tối đa mỗi giỏ. Mã QR chứa cả giỏ nên giỏ quá lớn khó quét |
-| `CART_TTL_HOURS` | `12` | Giỏ bị bỏ quên quá số giờ này thì được dọn tự động (giỏ DSmart POS đã nhận thì giữ) |
-| `POS_SYNC_SECONDS` | `60` | Chu kỳ đồng bộ DSmart POS |
+| `CART_TTL_HOURS` | `12` | Giỏ bị bỏ quên quá số giờ này thì được dọn tự động (giỏ Dsmart POS đã nhận thì giữ) |
+| `POS_SYNC_SECONDS` | `60` | Chu kỳ đồng bộ Dsmart POS |
 | `RUN_JOBS` | bật | `0` để tắt công việc nền ở một tiến trình (chỉ khi chạy nhiều tiến trình) |
 | `LOG_LEVEL` | `info` | `warn` để giảm nhật ký |
 | `BACKUP_DIR`, `BACKUP_KEEP` | `data/backups`, `14` | Nơi lưu và số bản sao lưu giữ lại |
@@ -147,20 +147,20 @@ sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 1. `https://scan.hcrc.vn/api/health` trả `{"ok":true}`.
 2. Mở `https://scan.hcrc.vn/a/`, đăng nhập quản trị, thấy Tổng quan.
 3. Trong Chi nhánh và tính năng, bấm **Mã QR dán cổng vào** của một chi nhánh, quét bằng điện thoại: mở được trang khách bằng HTTPS và hỏi quyền camera.
-4. Làm tiếp mục 4.8 (nhập chi nhánh, mã điểm, sản phẩm, khoá DSmart POS), rồi thử trọn quy trình: khách quét, bấm Thanh toán, DSmart POS quét mã QR và báo thanh toán.
+4. Làm tiếp mục 4.8 (nhập chi nhánh, mã điểm, sản phẩm, khoá Dsmart POS), rồi thử trọn quy trình: khách quét, bấm Thanh toán, Dsmart POS quét mã QR và báo thanh toán.
 5. Chạy `npm run backup` và kiểm tra có file mới trong `BACKUP_DIR`.
 
-### 4.8 Nhập chi nhánh, sản phẩm và khoá cho DSmart POS (lần đầu)
+### 4.8 Nhập chi nhánh, sản phẩm và khoá cho Dsmart POS (lần đầu)
 
 1. Đăng nhập `/a/` bằng tài khoản vừa tạo, bật xác thực 2 bước.
-2. **Chi nhánh:** thêm từng chi nhánh, nhập **Mã điểm** (mã siêu thị trong hệ thống giá và DSmart POS).
+2. **Chi nhánh:** thêm từng chi nhánh, nhập **Mã điểm** (mã siêu thị trong hệ thống giá và Dsmart POS).
 3. **Sản phẩm và giá:** khi chưa có API giá thật, nhập từ file CSV:
    `npm run import-products -- docs/mau/san-pham-mau.csv` (xem file mẫu để biết các cột; thêm `--replace` để thay toàn bộ sản phẩm của chi nhánh). Khi API giá thật có, bước này không còn dùng.
 3a. **Link khai báo hoá đơn điện tử:** ở mục **Tích hợp**, thẻ "Link khai báo hoá đơn điện tử", nhập link của nhà cung cấp hoá đơn (có thể chèn `{code}`, `{posOrderRef}`, `{amount}`, `{storeCode}`, `{posCode}`). Nút "Khai báo hoá đơn điện tử" của khách sẽ mở đúng link này.
 3b. **Email:** ở mục **Tích hợp**, thẻ "Email gửi cho khách", nhập máy chủ SMTP của công ty (máy chủ, cổng, kiểu bảo mật, tài khoản, mật khẩu, địa chỉ người gửi), bấm Lưu rồi "Gửi thử". Dùng để gửi mã xác nhận xem lịch sử trên máy khác và gửi bill về email khách. Máy chủ email dùng chứng chỉ tự ký hoặc CA nội bộ: chọn "Chứng chỉ tự ký hoặc CA nội bộ" ở mục kiểm tra chứng chỉ và nạp tệp chứng chỉ (kiểu bảo mật SSL/TLS cổng 465 vẫn giữ nguyên, không bị đổi). Mật khẩu được mã hoá khi lưu, không hiện lại.
-4. Mục **Tích hợp:** bấm "Đồng bộ ngay" cho từng chi nhánh, tạo **khoá API cho DSmart POS** (chỉ hiện một lần, lưu lại), gửi cho đơn vị DSmart POS cùng `docs/api-qr-gio-hang.md`.
-5. Trang **Chi nhánh:** bật Scan & Checkout cho chi nhánh. Mặc định chi nhánh dùng chế độ **Giỏ QR cho DSmart POS**.
-6. Dùng điện thoại quét mã QR cổng vào (nút "Mã QR dán cổng vào"), quét thử vài mặt hàng, bấm Thanh toán và để DSmart POS quét thử.
+4. Mục **Tích hợp:** bấm "Đồng bộ ngay" cho từng chi nhánh, tạo **khoá API cho Dsmart POS** (chỉ hiện một lần, lưu lại), gửi cho đơn vị Dsmart POS cùng `docs/api-qr-gio-hang.md`.
+5. Trang **Chi nhánh:** bật Scan & Checkout cho chi nhánh. Mặc định chi nhánh dùng chế độ **Giỏ QR cho Dsmart POS**.
+6. Dùng điện thoại quét mã QR cổng vào (nút "Mã QR dán cổng vào"), quét thử vài mặt hàng, bấm Thanh toán và để Dsmart POS quét thử.
 
 Các tệp phông cho bill PDF nằm sẵn trong `server/assets/fonts`; `npm ci --omit=dev` đã cài thư viện tạo PDF.
 
@@ -207,7 +207,7 @@ Dữ liệu phát sinh giữa bản sao lưu và lúc hỏng sẽ mất (tối �
 
 - **Theo dõi sống còn:** cho một dịch vụ giám sát (UptimeRobot, Uptime Kuma...) gọi `https://scan.hcrc.vn/api/health` mỗi phút và báo khi lỗi. Đường dẫn này kiểm tra cả CSDL.
 - **Nhật ký ứng dụng:** `pm2 logs brg-self-checkout`, mỗi dòng là JSON. Dòng `"level":50` là lỗi.
-- **Cảnh báo nghiệp vụ** nằm sẵn trong web quản trị: DSmart POS đồng bộ chậm, hoá đơn treo, ca chờ quản lý (trang Tổng quan).
+- **Cảnh báo nghiệp vụ** nằm sẵn trong web quản trị: Dsmart POS đồng bộ chậm, hoá đơn treo, ca chờ quản lý (trang Tổng quan).
 - **Ổ đĩa:** theo dõi dung lượng trống của `/var/lib/brg`, `/var/backups/brg` và nhật ký.
 - Ghi nhớ thay đổi cấu hình và tài khoản đã có sẵn trong **Nhật ký** của web quản trị.
 
@@ -242,9 +242,9 @@ Các mức, từ nhẹ đến nặng:
 - [ ] Không dùng dữ liệu và tài khoản mẫu; quản trị chuỗi đã bật xác thực 2 bước
 - [ ] Sao lưu chạy theo lịch, **đã thử khôi phục** một lần, có bản sao ngoài máy chủ
 - [ ] Giám sát `/api/health` và có người nhận cảnh báo
-- [ ] Mỗi chi nhánh đã có **Mã điểm** đúng với mã trong hệ thống giá và DSmart POS
-- [ ] Đã thử trọn quy trình với giao dịch thật nhỏ: khách quét, bấm Thanh toán, DSmart POS quét mã QR, DSmart POS báo thanh toán, khách thấy bill
-- [ ] DSmart POS đã thử: từ chối mã QR của cửa hàng khác (sai mã điểm), báo thanh toán trùng không thu hai lần, thử lại khi mất mạng
+- [ ] Mỗi chi nhánh đã có **Mã điểm** đúng với mã trong hệ thống giá và Dsmart POS
+- [ ] Đã thử trọn quy trình với giao dịch thật nhỏ: khách quét, bấm Thanh toán, Dsmart POS quét mã QR, Dsmart POS báo thanh toán, khách thấy bill
+- [ ] Dsmart POS đã thử: từ chối mã QR của cửa hàng khác (sai mã điểm), báo thanh toán trùng không thu hai lần, thử lại khi mất mạng
 - [ ] Các mục "Điểm cần chốt" mức cao đã có quyết định
 - [ ] Đã thử quét mã vạch trên nhiều điện thoại thật (iPhone và Android đời thấp)
 - [ ] Giá: nếu còn nhập bằng file CSV (chưa có API giá thật) thì **chỉ chạy thử**, không bán hàng thật cho đến khi nối API giá (xem [api-gia-chi-nhanh](api-gia-chi-nhanh.md))

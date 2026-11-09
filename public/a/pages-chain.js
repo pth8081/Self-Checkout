@@ -10,7 +10,7 @@ export function Overview({ stores, setStoreId }) {
       <button class="btn sm line" onClick=${st.reload} disabled=${st.loading}><${Icon} name="refresh" size=${18}/>Làm mới</button><//>
     <${Async} state=${st}>${(d) => {
       const al = d.alerts, warns = [];
-      for (const s of al.stalePos) warns.push(html`<${Banner} key=${s.id} title=${`Dữ liệu DSmart POS của ${s.name} đang chậm`}>Lần đồng bộ cuối cách đây ${s.lag} phút (ngưỡng cảnh báo ${s.limit} phút).<//>`);
+      for (const s of al.stalePos) warns.push(html`<${Banner} key=${s.id} title=${`Dữ liệu Dsmart POS của ${s.name} đang chậm`}>Lần đồng bộ cuối cách đây ${s.lag} phút (ngưỡng cảnh báo ${s.limit} phút).<//>`);
       if (al.pendingInvoices > 0) warns.push(html`<${Banner} key="inv" icon="receipt" title=${`${al.pendingInvoices} hoá đơn điện tử đang treo`}>Vào mục Tích hợp để thử xuất lại.<//>`);
       if (al.held > 0) warns.push(html`<${Banner} key="held" tone="err" title=${`${al.held} ca đang chờ quản lý xử lý`}>Khách đang chờ ở cổng. Mở chi nhánh để cho qua hoặc từ chối.<//>`);
       return html`
@@ -24,9 +24,9 @@ export function Overview({ stores, setStoreId }) {
       <div class="card"><h2>Doanh thu 7 ngày</h2>
         <${BarChart} data=${d.revenue7.map((x) => ({ label: dm(x.date), value: x.revenue, hl: x.date === d.date }))} title="Doanh thu 7 ngày gần nhất"/></div>
       <div class="card"><h2>Chi nhánh</h2>
-        <div class="tblwrap"><table class="tbl"><thead><tr><th>Chi nhánh</th><th>Trạng thái</th><th class="r">Giao dịch</th><th class="r">Doanh thu</th><th class="r">Tỷ lệ lệch</th><th>Độ trễ DSmart POS</th></tr></thead>
+        <div class="tblwrap"><table class="tbl"><thead><tr><th>Chi nhánh</th><th>Trạng thái</th><th class="r">Giao dịch</th><th class="r">Doanh thu</th><th class="r">Tỷ lệ lệch</th><th>Độ trễ Dsmart POS</th></tr></thead>
           <tbody>${d.stores.map((s) => html`<tr class="click" key=${s.id} tabindex="0" onClick=${() => { setStoreId(s.id); go('/today'); }} onKeyDown=${(e) => e.key === 'Enter' && (setStoreId(s.id), go('/today'))}>
-            <td><b>${s.name}</b><div class="sub">${s.id}</div>${(isPos(cfgOf(stores, s.id)) || noGuard(cfgOf(stores, s.id))) && html`<div class="tags">${isPos(cfgOf(stores, s.id)) && html`<span class="tag">DSmart POS</span>`}${noGuard(cfgOf(stores, s.id)) && html`<span class="tag warn">Không bảo vệ</span>`}</div>`}</td>
+            <td><b>${s.name}</b><div class="sub">${s.id}</div>${(isPos(cfgOf(stores, s.id)) || noGuard(cfgOf(stores, s.id))) && html`<div class="tags">${isPos(cfgOf(stores, s.id)) && html`<span class="tag">Dsmart POS</span>`}${noGuard(cfgOf(stores, s.id)) && html`<span class="tag warn">Không bảo vệ</span>`}</div>`}</td>
             <td>${s.enabled ? html`<${Pill} tone="ok">Đang bật<//>` : html`<${Pill}>Đang tắt<//>`}</td>
             <td class="r">${fmt.num(s.tx)}</td><td class="r">${fmt.money(s.revenue)}</td>
             <td class="r">${s.mismatchRate == null ? '–' : fmt.pct(s.mismatchRate)}</td>
@@ -68,7 +68,7 @@ function AddStore({ onClose, onDone }) {
     <${Field} label="Địa chỉ"><input class="input" value=${f.address} onInput=${set('address')} aria-label="Địa chỉ"/><//>
     <${Field} label="Mã điểm (hệ thống giá/POS)" hint="Mã của siêu thị này trong hệ thống giá, để gọi đúng cửa hàng. Bắt buộc phải có trước khi bật chi nhánh. Có thể nhập sau ở mục Tích hợp"><input class="input" maxlength="40" value=${f.posCode} onInput=${set('posCode')} aria-label="Mã điểm"/><//>
     ${err && html`<div class="errtext" role="alert">${err}</div>`}
-    <p class="hint">Chi nhánh mới ở trạng thái tắt. Hãy nhập thông tin thanh toán, đồng bộ DSmart POS rồi mới bật.</p>
+    <p class="hint">Chi nhánh mới ở trạng thái tắt. Hãy nhập thông tin thanh toán, đồng bộ Dsmart POS rồi mới bật.</p>
     <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : 'Thêm chi nhánh'}</button>
     <button class="btn txt" type="button" onClick=${onClose}>Huỷ</button></form><//>`;
 }
@@ -92,7 +92,7 @@ export function Stores({ me, reloadStores, setStoreId }) {
   const confirmAsk = async () => {
     const a = ask;
     const path = `/stores/${a.s.id}/config`;
-    const ok = a.kind === 'source' ? await toggle(`${a.s.id}src`, path, { paymentSource: a.value }, a.value === 'pos' ? 'Đã chuyển sang thu tiền qua DSmart POS' : 'Đã chuyển về tự thu trong BRG')
+    const ok = a.kind === 'source' ? await toggle(`${a.s.id}src`, path, { paymentSource: a.value }, a.value === 'pos' ? 'Đã chuyển sang thu tiền qua Dsmart POS' : 'Đã chuyển về tự thu trong BRG')
       : await toggle(`${a.s.id}guard`, path, { guardCheck: a.value }, a.value ? 'Đã bật bảo vệ cổng ra' : 'Đã tắt bảo vệ cổng ra');
     setAsk(null);
     return ok;
@@ -109,16 +109,16 @@ export function Stores({ me, reloadStores, setStoreId }) {
       ${msg.code === 'NO_POS_KEY' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => go('/integrations')}><${Icon} name="link" size=${18}/>Đi tới mục Tích hợp để tạo khoá</button></div>`}
       ${msg.code === 'CARTS_PENDING' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => { if (msg.storeId) setStoreId(msg.storeId); go('/transactions'); }}>Xem giao dịch</button></div>`}<//>`}
     <${Async} state=${st}>${(d) => html`<div class="card"><div class="tblwrap"><table class="tbl">
-      <thead><tr><th>Chi nhánh</th><th class="tc">Scan & Checkout</th><th class="tc">Giỏ QR cho DSmart POS</th><th>Thu tiền</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Bảo vệ cổng ra</th><th class="tc">Online</th><th></th></tr></thead>
+      <thead><tr><th>Chi nhánh</th><th class="tc">Scan & Checkout</th><th class="tc">Giỏ QR cho Dsmart POS</th><th>Thu tiền</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Bảo vệ cổng ra</th><th class="tc">Online</th><th></th></tr></thead>
       <tbody>${d.stores.map((s) => {
-        const basket = s.config.checkoutMode === 'basket'; // giỏ QR: DSmart POS thu tiền, không bảo vệ; các luồng cũ bị khoá
+        const basket = s.config.checkoutMode === 'basket'; // giỏ QR: Dsmart POS thu tiền, không bảo vệ; các luồng cũ bị khoá
         const pos = isPos(s.config) || basket;
         const dis = !chain || !!busyKey;
         const sw = (key, checked, path, body, label, extra = {}) => html`<${Switch} checked=${checked} disabled=${dis || extra.off} label=${`${label} ${s.name}`} onChange=${(v) => toggle(`${s.id}${key}`, path, body(v))}/>`;
-        const mute = (node) => (pos ? html`<span class="soon">${node}Dùng DSmart POS</span>` : node);
+        const mute = (node) => (pos ? html`<span class="soon">${node}Dùng Dsmart POS</span>` : node);
         return html`<tr key=${s.id}><td><b>${s.name}</b><div class="sub">${s.id} · ${s.address || 'Chưa có địa chỉ'}</div></td>
           <td class="tc">${sw('e', s.enabled, `/stores/${s.id}`, (v) => ({ enabled: v }), 'Bật Scan & Checkout')}</td>
-          <td class="tc">${sw('m', basket, `/stores/${s.id}/config`, (v) => ({ checkoutMode: v ? 'basket' : 'classic' }), 'Giỏ QR cho DSmart POS')}</td>
+          <td class="tc">${sw('m', basket, `/stores/${s.id}/config`, (v) => ({ checkoutMode: v ? 'basket' : 'classic' }), 'Giỏ QR cho Dsmart POS')}</td>
           <td><select class="input sm" style="width:auto;min-width:175px" value=${basket ? 'pos' : (s.config.paymentSource || 'manual')} disabled=${dis || basket} aria-label=${`Thu tiền ${s.name}`}
             onChange=${(e) => { const v = e.target.value; e.target.value = s.config.paymentSource || 'manual'; if (v !== (s.config.paymentSource || 'manual')) { setMsg(null); setAsk({ kind: 'source', s, value: v }); } }}>
             ${Object.entries(PAY_SOURCE).map(([k, l]) => html`<option value=${k} key=${k}>${l}</option>`)}</select>
@@ -129,11 +129,11 @@ export function Stores({ me, reloadStores, setStoreId }) {
           <td class="tc"><span class="soon"><${Switch} checked=${false} disabled=${true} label=${`Thanh toán online ${s.name}`} onChange=${() => {}}/>Sắp có</span></td>
           <td><button class="btn sm line" onClick=${() => setQr(s)}><${Icon} name="qr" size=${18}/>Mã QR dán cổng vào</button></td></tr>`;
       })}</tbody></table></div>
-      <div class="hint"><b>Giỏ QR cho DSmart POS</b> (đang dùng): khách bấm thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng từng mặt hàng, thu ngân quét vào DSmart POS. DSmart POS tạo đơn, tính tiền, thu tiền. Các cột bên phải (thu tiền trong BRG, bảo vệ cổng ra) bị khoá và dùng lại được nếu tắt chế độ này.</div>
-      <div class="hint">Chi nhánh chỉ bật được khi có ít nhất một cách thanh toán dùng được và đã có dữ liệu sản phẩm từ DSmart POS. Đổi cách thu tiền cần có khoá API cho DSmart POS (mục Tích hợp) và không còn giỏ chờ thu.</div></div>`}<//>
-    ${ask && ask.kind === 'source' && html`<${Confirm} title=${ask.value === 'pos' ? `Chuyển ${ask.s.name} sang thu tiền qua DSmart POS?` : `Chuyển ${ask.s.name} về tự thu trong BRG?`}
-      text=${ask.value === 'pos' ? 'Khách chọn "Thanh toán tại quầy" và nhận mã giỏ hàng. Thu ngân quét mã trong phần mềm DSmart POS, thu tiền trên DSmart POS (QR, tiền mặt, hoá đơn điện tử do DSmart POS xuất). DSmart POS báo về BRG và BRG tự xác nhận. Tiền mặt và chuyển khoản QR trong BRG tạm dừng.' : 'Khách chọn tiền mặt hoặc chuyển khoản QR, thu ngân xác nhận thu tiền trong ứng dụng thu ngân của BRG. DSmart POS không còn nhận giỏ hàng nữa.'}
-      ok=${ask.value === 'pos' ? 'Chuyển sang DSmart POS' : 'Chuyển về BRG'} cancel="Giữ nguyên" busy=${!!busyKey} onOk=${confirmAsk} onCancel=${() => setAsk(null)}/>`}
+      <div class="hint"><b>Giỏ QR cho Dsmart POS</b> (đang dùng): khách bấm thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng từng mặt hàng, thu ngân quét vào Dsmart POS. Dsmart POS tạo đơn, tính tiền, thu tiền. Các cột bên phải (thu tiền trong BRG, bảo vệ cổng ra) bị khoá và dùng lại được nếu tắt chế độ này.</div>
+      <div class="hint">Chi nhánh chỉ bật được khi có ít nhất một cách thanh toán dùng được và đã có dữ liệu sản phẩm từ Dsmart POS. Đổi cách thu tiền cần có khoá API cho Dsmart POS (mục Tích hợp) và không còn giỏ chờ thu.</div></div>`}<//>
+    ${ask && ask.kind === 'source' && html`<${Confirm} title=${ask.value === 'pos' ? `Chuyển ${ask.s.name} sang thu tiền qua Dsmart POS?` : `Chuyển ${ask.s.name} về tự thu trong BRG?`}
+      text=${ask.value === 'pos' ? 'Khách chọn "Thanh toán tại quầy" và nhận mã giỏ hàng. Thu ngân quét mã trong phần mềm Dsmart POS, thu tiền trên Dsmart POS (QR, tiền mặt, hoá đơn điện tử do Dsmart POS xuất). Dsmart POS báo về BRG và BRG tự xác nhận. Tiền mặt và chuyển khoản QR trong BRG tạm dừng.' : 'Khách chọn tiền mặt hoặc chuyển khoản QR, thu ngân xác nhận thu tiền trong ứng dụng thu ngân của BRG. Dsmart POS không còn nhận giỏ hàng nữa.'}
+      ok=${ask.value === 'pos' ? 'Chuyển sang Dsmart POS' : 'Chuyển về BRG'} cancel="Giữ nguyên" busy=${!!busyKey} onOk=${confirmAsk} onCancel=${() => setAsk(null)}/>`}
     ${ask && ask.kind === 'guard' && html`<${Confirm} title=${`Tắt bảo vệ cổng ra ở ${ask.s.name}?`} danger ok="Tắt bảo vệ" cancel="Giữ bật" busy=${!!busyKey} onOk=${confirmAsk} onCancel=${() => setAsk(null)}>
       <ul class="bullets"><li>Không còn mã QR ra cổng và không kiểm tra ngẫu nhiên.</li><li>Thu tiền xong, khách ra luôn.</li><li>Khách đã thanh toán mà chưa ra cổng được coi như đã ra.</li></ul>
       <p class="small muted">Bật lại sau này sẽ chỉ áp dụng cho các giao dịch mới.</p><//>`}
@@ -147,12 +147,12 @@ function PosCard({ d, reload }) {
   const [busy, run] = useBusy();
   const [vals, setVals] = useState({});
   const [codes, setCodes] = useState({});
-  const sync = (id) => run(async () => { const r = await api.post('/integrations/pos/sync', id ? { storeId: id } : {}); await reload(); return r; }, id ? 'Đã đồng bộ DSmart POS' : 'Đã đồng bộ tất cả chi nhánh');
+  const sync = (id) => run(async () => { const r = await api.post('/integrations/pos/sync', id ? { storeId: id } : {}); await reload(); return r; }, id ? 'Đã đồng bộ Dsmart POS' : 'Đã đồng bộ tất cả chi nhánh');
   const saveCode = (s) => run(async () => { await api.put(`/stores/${s.id}`, { posCode: (codes[s.id] ?? '').trim() }); await reload(); }, 'Đã lưu mã điểm');
   const saveLimit = (s) => run(async () => { await api.put(`/stores/${s.id}/config`, { posStaleMinutes: Number(vals[s.id]) }); await reload(); }, 'Đã lưu ngưỡng cảnh báo');
   return html`<div class="card">
-    <div class="cardhead"><div class="ico-tile"><${Icon} name="barcode"/></div><div class="grow"><h2>DSmart POS (giá & tồn kho)</h2>
-      <div class="small muted">Nguồn giá: ${d.pos.adapter === 'mock' ? (d.isProd ? 'bảng giá nhập bằng file CSV' : 'DSmart POS giả lập') : d.pos.adapter}</div></div>
+    <div class="cardhead"><div class="ico-tile"><${Icon} name="barcode"/></div><div class="grow"><h2>Dsmart POS (giá & tồn kho)</h2>
+      <div class="small muted">Nguồn giá: ${d.pos.adapter === 'mock' ? (d.isProd ? 'bảng giá nhập bằng file CSV' : 'Dsmart POS giả lập') : d.pos.adapter}</div></div>
       <${Pill} tone="ok"><span class="dot"></span>Đã kết nối<//>
       <button class="btn sm primary" disabled=${busy} onClick=${() => sync(null)}><${Icon} name="refresh" size=${18}/>Đồng bộ tất cả</button></div>
     <div class="tblwrap"><table class="tbl"><thead><tr><th>Chi nhánh</th><th>Mã điểm (hệ thống giá)</th><th>Đồng bộ gần nhất</th><th>Độ trễ</th><th>Ngưỡng cảnh báo (phút)</th><th class="r">Mã vạch không khớp (24 giờ)</th><th></th></tr></thead>
@@ -226,18 +226,18 @@ function NewKey({ stores, onClose, onDone }) {
   const [busy, run] = useBusy();
   const submit = async (e) => {
     e.preventDefault(); setErr('');
-    if (!name.trim()) return setErr('Đặt tên cho khoá (ví dụ tên phần mềm DSmart POS)');
+    if (!name.trim()) return setErr('Đặt tên cho khoá (ví dụ tên phần mềm Dsmart POS)');
     const r = await run(async () => { try { return await api.post('/pos/keys', { name: name.trim(), storeId: sid || undefined }); } catch (x) { setErr(x.message); throw x; } }, null);
     if (r) { setMade(r); onDone(); }
   };
   if (made) return html`<${Sheet} center><div class="stack">
     <h2>Khoá API đã tạo</h2>
-    <${Banner} tone="" title="Khoá chỉ hiện một lần">Hãy sao chép và gửi cho nhà cung cấp DSmart POS ngay. Đóng hộp này là không xem lại được; nếu mất, hãy thu hồi và tạo khoá mới.<//>
+    <${Banner} tone="" title="Khoá chỉ hiện một lần">Hãy sao chép và gửi cho nhà cung cấp Dsmart POS ngay. Đóng hộp này là không xem lại được; nếu mất, hãy thu hồi và tạo khoá mới.<//>
     <div class="secret" id="new-key" aria-label="Khoá API đầy đủ">${made.key}</div>
     <button class="btn line" onClick=${() => copyText(made.key)}><${Icon} name="copy"/>Sao chép khoá</button>
     <button class="btn primary" onClick=${onClose}>Tôi đã lưu khoá</button></div><//>`;
   return html`<${Sheet} center onClose=${onClose}><form class="stack" onSubmit=${submit}>
-    <h2>Tạo khoá API cho DSmart POS</h2>
+    <h2>Tạo khoá API cho Dsmart POS</h2>
     <${Field} label="Tên khoá" hint="Ví dụ: KiotViet quầy Q7"><input class="input" value=${name} maxlength="60" onInput=${(e) => setName(e.target.value)} autofocus aria-label="Tên khoá"/><//>
     <${Field} label="Phạm vi" hint="Khoá theo chi nhánh chỉ nhận được giỏ hàng của chi nhánh đó"><select class="input" value=${sid} onChange=${(e) => setSid(e.target.value)} aria-label="Phạm vi khoá"><option value="">Tất cả chi nhánh</option>${stores.map((s) => html`<option value=${s.id} key=${s.id}>${s.name}</option>`)}</select><//>
     ${err && html`<div class="errtext" role="alert">${err}</div>`}
@@ -260,23 +260,23 @@ function PosApiCard({ d, stores, reload }) {
       const res = await fetch(`/api/a/pos/keys/${revoke.id}`, { method: 'DELETE', headers: S.token ? { Authorization: `Bearer ${S.token}` } : {} });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Không thu hồi được khoá'); await keys.reload(); await reload(); }, 'Đã thu hồi khoá'); if (r) setRevoke(null); };
   return html`<div class="card" id="pos-api">
-    <div class="cardhead"><div class="ico-tile green"><${Icon} name="link"/></div><div class="grow"><h2>DSmart POS gọi vào BRG</h2>
-      <div class="small muted">Phần mềm DSmart POS dùng khoá API để nhận giỏ hàng, báo đã thanh toán hoặc báo huỷ. BRG tự xác nhận khi DSmart POS báo.</div></div>
+    <div class="cardhead"><div class="ico-tile green"><${Icon} name="link"/></div><div class="grow"><h2>Dsmart POS gọi vào BRG</h2>
+      <div class="small muted">Phần mềm Dsmart POS dùng khoá API để nhận giỏ hàng, báo đã thanh toán hoặc báo huỷ. BRG tự xác nhận khi Dsmart POS báo.</div></div>
       <button class="btn sm primary" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${18}/>Tạo khoá</button></div>
     <div class="field"><label for="pos-base">Địa chỉ API cơ sở</label><div class="row"><input id="pos-base" class="input grow" readonly value=${base} onFocus=${(e) => e.target.select()}/>
       <button class="btn sm line" onClick=${() => copyText(base)} aria-label="Sao chép địa chỉ API"><${Icon} name="copy" size=${18}/>Sao chép</button></div></div>
     <div class="tiles">
       <${Tile} k="Đã nhận giỏ (24 giờ)" v=${fmt.num(t.claimed)}/><${Tile} k="Đã thanh toán" v=${fmt.num(t.paid)}/><${Tile} k="Đã huỷ" v=${fmt.num(t.cancelled)}/>
       <${Tile} k="Lệch tiền" v=${fmt.num(t.differs)} tone=${t.differs ? 'err' : ''}/><${Tile} k="Đang chờ thanh toán" v=${fmt.num(t.waiting)} tone=${t.waiting ? 'warn' : ''}/></div>
-    <${Async} state=${keys}>${(k) => k.keys.length === 0 ? html`<div class="muted">Chưa có khoá API nào. Bấm "Tạo khoá" để cấp cho nhà cung cấp DSmart POS.</div>` : html`
+    <${Async} state=${keys}>${(k) => k.keys.length === 0 ? html`<div class="muted">Chưa có khoá API nào. Bấm "Tạo khoá" để cấp cho nhà cung cấp Dsmart POS.</div>` : html`
       <div class="tblwrap"><table class="tbl"><thead><tr><th>Tên</th><th>Tiền tố khoá</th><th>Phạm vi</th><th>Dùng gần nhất</th><th>Trạng thái</th><th></th></tr></thead>
         <tbody>${k.keys.map((x) => html`<tr key=${x.id} class=${x.active ? '' : 'dim'}><td><b>${x.name}</b><div class="sub">Tạo ${fmt.when(x.createdAt)}${x.createdBy ? ` · ${x.createdBy}` : ''}</div></td>
           <td><code>${x.prefix}…</code></td><td>${sname(x.storeId)}</td><td>${x.lastUsedAt ? fmt.when(x.lastUsedAt) : 'Chưa dùng'}</td>
           <td>${x.active ? html`<${Pill} tone="ok">Đang dùng<//>` : html`<${Pill}>Đã thu hồi<//>`}</td>
           <td>${x.active && html`<button class="btn sm danger-line" onClick=${() => setRevoke(x)} aria-label=${`Thu hồi khoá ${x.name}`}>Thu hồi</button>`}</td></tr>`)}</tbody></table></div>`}<//>
-    <div class="hint">${hasGuide ? html`Xem hướng dẫn <a href="#/huong-dan/13-ket-noi-pos">Kết nối DSmart POS</a> trong mục Hướng dẫn hệ thống.` : 'Hướng dẫn "Kết nối DSmart POS" sẽ có trong mục Hướng dẫn hệ thống.'} Bật chế độ thu tiền qua DSmart POS cho từng chi nhánh ở mục Chi nhánh.</div>
+    <div class="hint">${hasGuide ? html`Xem hướng dẫn <a href="#/huong-dan/13-ket-noi-pos">Kết nối Dsmart POS</a> trong mục Hướng dẫn hệ thống.` : 'Hướng dẫn "Kết nối Dsmart POS" sẽ có trong mục Hướng dẫn hệ thống.'} Bật chế độ thu tiền qua Dsmart POS cho từng chi nhánh ở mục Chi nhánh.</div>
     ${adding && html`<${NewKey} stores=${stores} onClose=${() => setAdding(false)} onDone=${() => { keys.reload(); reload(); }}/>`}
-    ${revoke && html`<${Confirm} title="Thu hồi khoá này?" text=${`Khoá "${revoke.name}" sẽ ngừng dùng được ngay. DSmart POS đang dùng khoá này sẽ không gọi được vào BRG nữa. Không thể hoàn tác.`} ok="Thu hồi" cancel="Giữ lại" danger busy=${busy} onOk=${doRevoke} onCancel=${() => setRevoke(null)}/>`}
+    ${revoke && html`<${Confirm} title="Thu hồi khoá này?" text=${`Khoá "${revoke.name}" sẽ ngừng dùng được ngay. Dsmart POS đang dùng khoá này sẽ không gọi được vào BRG nữa. Không thể hoàn tác.`} ok="Thu hồi" cancel="Giữ lại" danger busy=${busy} onOk=${doRevoke} onCancel=${() => setRevoke(null)}/>`}
   </div>`;
 }
 
@@ -298,13 +298,13 @@ function PosSimCard() {
     } catch (x) { setRes({ action, ok: false, data: x.data && Object.keys(x.data).length ? x.data : { error: x.code, message: x.message }, message: x.message }); }
   });
   const LABEL = { preview: 'Xem trước', claim: 'Nhận giỏ', paid: 'Báo đã thanh toán', cancelled: 'Báo huỷ', status: 'Hỏi trạng thái' };
-  return html`<div class="card"><div class="cardhead"><div class="ico-tile warn"><${Icon} name="card"/></div><div class="grow"><h2>Giả lập DSmart POS</h2><div class="small muted">Đóng vai phần mềm DSmart POS gọi API của BRG (không cần khoá). Chi nhánh phải ở chế độ thu tiền qua DSmart POS.</div></div></div>
+  return html`<div class="card"><div class="cardhead"><div class="ico-tile warn"><${Icon} name="card"/></div><div class="grow"><h2>Giả lập Dsmart POS</h2><div class="small muted">Đóng vai phần mềm Dsmart POS gọi API của BRG (không cần khoá). Chi nhánh phải ở chế độ thu tiền qua Dsmart POS.</div></div></div>
     <div class="formgrid c2">
       <${Field} label="Mã giỏ hàng" hint="Khách thấy mã này sau khi chọn Thanh toán tại quầy"><input class="input" value=${f.code} onInput=${set('code')} placeholder="Ví dụ SG-Q7-0001" aria-label="Mã giỏ hàng"/><//>
-      <${Field} label="Mã đơn DSmart POS"><div class="row"><input class="input grow" value=${f.ref} onInput=${set('ref')} aria-label="Mã đơn DSmart POS"/><button class="btn sm line" type="button" onClick=${() => setF({ ...f, ref: newRef() })}>Mã mới</button></div><//>
-      <${Field} label="Số tiền DSmart POS (₫)"><input class="input" type="number" min="0" value=${f.amount} onInput=${set('amount')} aria-label="Số tiền DSmart POS"/><//>
+      <${Field} label="Mã đơn Dsmart POS"><div class="row"><input class="input grow" value=${f.ref} onInput=${set('ref')} aria-label="Mã đơn Dsmart POS"/><button class="btn sm line" type="button" onClick=${() => setF({ ...f, ref: newRef() })}>Mã mới</button></div><//>
+      <${Field} label="Số tiền Dsmart POS (₫)"><input class="input" type="number" min="0" value=${f.amount} onInput=${set('amount')} aria-label="Số tiền Dsmart POS"/><//>
       <${Field} label="Cách trả"><select class="input" value=${f.method} onChange=${set('method')} aria-label="Cách trả">${SIM_METHODS.map(([k, l]) => html`<option value=${k} key=${k}>${l}</option>`)}</select><//>
-      <${Field} label="Thu ngân"><input class="input" value=${f.cashier} onInput=${set('cashier')} aria-label="Thu ngân DSmart POS"/><//></div>
+      <${Field} label="Thu ngân"><input class="input" value=${f.cashier} onInput=${set('cashier')} aria-label="Thu ngân Dsmart POS"/><//></div>
     <div class="row wrap">${Object.entries(LABEL).map(([k, l]) => html`<button key=${k} class=${`btn sm ${k === 'claim' || k === 'paid' ? 'primary' : 'line'} auto`} disabled=${busy} onClick=${() => call(k)}>${l}</button>`)}</div>
     ${res && html`<div class="stack" id="sim-result"><${Banner} tone=${res.ok ? 'ok' : 'err'} icon=${res.ok ? 'check' : 'alert'} title=${`${LABEL[res.action]}: ${res.ok ? 'thành công' : 'bị từ chối'}`}>${res.ok ? (res.data.duplicate ? 'Đã nhận trước đó (gọi lại cùng mã đơn).' : 'BRG đã xử lý yêu cầu.') : html`<span role="alert">${res.message}${res.data?.error ? ` (${res.data.error})` : ''}</span>`}<//>
       <pre class="jsonbox">${JSON.stringify(res.data)}</pre></div>`}</div>`;
@@ -321,8 +321,8 @@ function DevTools({ stores }) {
   const cur = list.find((p) => p.sku === sku);
   useEffect(() => { if (cur) setF({ price: String(cur.price), stock: String(cur.stock), active: !!cur.active }); }, [sku, st.data]);
   if (st.error && !st.data && ['DEV_ONLY', 'FORBIDDEN'].includes(st.error.code || '') || st.error?.status === 403) return null;
-  const apply = () => run(async () => { await api.post('/dev/pos-product', { storeId: id, sku, price: Number(f.price), stock: Number(f.stock), active: f.active, sync: true }); await st.reload(); }, 'DSmart POS giả lập đã đổi và đồng bộ xong');
-  return html`<div class="stack-lg"><div class="card"><div class="cardhead"><div class="ico-tile warn"><${Icon} name="settings"/></div><div class="grow"><h2>Công cụ thử nghiệm</h2><div class="small muted">Chỉ có ở môi trường thử: giả lập DSmart POS đổi giá, tồn kho, ngừng bán rồi đồng bộ ngay.</div></div></div>
+  const apply = () => run(async () => { await api.post('/dev/pos-product', { storeId: id, sku, price: Number(f.price), stock: Number(f.stock), active: f.active, sync: true }); await st.reload(); }, 'Dsmart POS giả lập đã đổi và đồng bộ xong');
+  return html`<div class="stack-lg"><div class="card"><div class="cardhead"><div class="ico-tile warn"><${Icon} name="settings"/></div><div class="grow"><h2>Công cụ thử nghiệm</h2><div class="small muted">Chỉ có ở môi trường thử: giả lập Dsmart POS đổi giá, tồn kho, ngừng bán rồi đồng bộ ngay.</div></div></div>
     <div class="formgrid c2">
       <${Field} label="Chi nhánh"><select class="input" value=${id} onChange=${(e) => setId(e.target.value)} aria-label="Chi nhánh thử nghiệm">${stores.map((x) => html`<option value=${x.id} key=${x.id}>${x.name}</option>`)}</select><//>
       <${Field} label="Sản phẩm"><select class="input" value=${sku} onChange=${(e) => setSku(e.target.value)} aria-label="Sản phẩm thử nghiệm">${list.map((p) => html`<option value=${p.sku} key=${p.sku}>${p.name}${p.active ? '' : ' (ngừng bán)'}</option>`)}</select><//>
@@ -415,7 +415,7 @@ function EmailCard() {
 
 export function Integrations({ stores }) {
   const st = useAsync(() => api.get('/integrations'), []);
-  return html`<div class="stack-lg"><${PageHead} title="Tích hợp" sub="Giám sát và cấu hình DSmart POS, chuyển khoản QR và hoá đơn điện tử."/>
+  return html`<div class="stack-lg"><${PageHead} title="Tích hợp" sub="Giám sát và cấu hình Dsmart POS, chuyển khoản QR và hoá đơn điện tử."/>
     <${Async} state=${st}>${(d) => html`
       ${d.note && html`<${Banner} tone=${d.isProd ? 'warn' : 'info'} icon="info" title=${d.isProd ? 'Nguồn giá: file CSV' : 'Đang chạy bản giả lập'}>${d.note}<//>`}
       <${PosCard} d=${d} reload=${st.reload}/>
@@ -457,7 +457,7 @@ export function Reports({ me, stores }) {
       <div class="card"><h2>Chi tiết theo ngày</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Ngày</th><th class="r">Giao dịch</th><th class="r">Doanh thu</th><th class="r">Tiền mặt</th><th class="r">Chuyển khoản</th>${other && html`<th class="r">Khác</th>`}${ng ? html`<th class="r">Có hàng thêm</th><th class="r">Giá trị hàng thêm</th>` : html`<th class="r">Lượt kiểm tra</th><th class="r">Chênh lệch</th>`}</tr></thead>
         <tbody>${d.rows.map((r) => html`<tr key=${r.date}><td>${fmt.dateFull(`${r.date}T12:00:00Z`)}</td><td class="r">${fmt.num(r.tx)}</td><td class="r">${fmt.money(r.revenue)}</td><td class="r">${fmt.money(r.cash)}</td><td class="r">${fmt.money(r.transfer)}</td>${other && html`<td class="r">${fmt.money(r.other)}</td>`}${ng ? html`<td class="r">${fmt.num(r.extraTx)}</td><td class="r">${fmt.money(r.extraValue)}</td>` : html`<td class="r">${fmt.num(r.checks)}</td><td class="r">${fmt.num(r.mismatches)}</td>`}</tr>`)}</tbody>
         <tfoot><tr><td>Tổng</td><td class="r">${fmt.num(d.totals.tx)}</td><td class="r">${fmt.money(d.totals.revenue)}</td><td class="r">${fmt.money(d.totals.cash)}</td><td class="r">${fmt.money(d.totals.transfer)}</td>${other && html`<td class="r">${fmt.money(d.totals.other)}</td>`}<td class="r">${ng ? '–' : fmt.num(d.totals.checks)}</td><td class="r">${ng ? '–' : fmt.num(d.totals.mismatches)}</td></tr></tfoot></table></div>
-        <div class="hint">${ng ? 'Chi nhánh này không dùng bảo vệ ở cổng ra nên không có kiểm tra ngẫu nhiên (Không áp dụng).' : `Tỷ lệ chênh lệch = số lần chênh lệch / số giao dịch trong kỳ: ${fmt.pct(d.totals.mismatchRate)}.`}${other ? ' "Khác" là tiền thu bằng thẻ, ví điện tử… do DSmart POS ghi nhận.' : ''}</div></div>`;
+        <div class="hint">${ng ? 'Chi nhánh này không dùng bảo vệ ở cổng ra nên không có kiểm tra ngẫu nhiên (Không áp dụng).' : `Tỷ lệ chênh lệch = số lần chênh lệch / số giao dịch trong kỳ: ${fmt.pct(d.totals.mismatchRate)}.`}${other ? ' "Khác" là tiền thu bằng thẻ, ví điện tử… do Dsmart POS ghi nhận.' : ''}</div></div>`;
     }}<//></div>`;
 }
 

@@ -16,7 +16,7 @@
 | Mã giao dịch | Chuỗi duy nhất trong nội dung chuyển khoản, dùng để khớp thanh toán (ví dụ SG Q7 0384) |
 | QrProvider | Thành phần tạo QR chuyển khoản: `SelfQr` (app tự tạo) hoặc `ProviderQr` (từ nhà cung cấp) |
 | VietQR | Chuẩn mã QR chuyển khoản ngân hàng ở Việt Nam |
-| DSmart POS/ERP | Hệ thống bán hàng/quản trị hiện có, nguồn chân lý về giá & tồn kho |
+| Dsmart POS/ERP | Hệ thống bán hàng/quản trị hiện có, nguồn chân lý về giá & tồn kho |
 | `storeId` | Khoá chi nhánh, phân vùng multi-tenant |
 | Cờ tính năng | Công tắc bật/tắt Scan & Checkout hoặc từng cách thanh toán theo chi nhánh |
 | Đối soát | So tiền mặt đếm thực tế với hệ thống theo ca, và chuyển khoản với sao kê ngân hàng |

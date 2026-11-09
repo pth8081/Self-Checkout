@@ -2,9 +2,9 @@
 
 **Trạng thái:** Nháp
 
-## 1. DSmart POS/ERP (ưu tiên số 1)
+## 1. Dsmart POS/ERP (ưu tiên số 1)
 
-Nguyên tắc: BRG Scan & Checkout **không** là nơi nhập liệu song song với DSmart POS.
+Nguyên tắc: BRG Scan & Checkout **không** là nơi nhập liệu song song với Dsmart POS.
 
 Hiện trạng: khách hàng **đã có API tồn kho của tất cả siêu thị, cập nhật gần real-time** (D-04). Cần thêm để thiết kế chi tiết:
 
@@ -20,12 +20,12 @@ Hiện trạng: khách hàng **đã có API tồn kho của tất cả siêu th�
 
 | Trường hợp | Chiến lược |
 |------------|-----------|
-| DSmart POS có API/webhook thời gian thực | Đồng bộ trực tiếp, `ProductCache` cập nhật ngay |
-| DSmart POS chỉ xuất dữ liệu định kỳ | Đồng bộ chu kỳ ngắn (1–5 phút) + cảnh báo khi lệch quá ngưỡng (Q-12) |
+| Dsmart POS có API/webhook thời gian thực | Đồng bộ trực tiếp, `ProductCache` cập nhật ngay |
+| Dsmart POS chỉ xuất dữ liệu định kỳ | Đồng bộ chu kỳ ngắn (1–5 phút) + cảnh báo khi lệch quá ngưỡng (Q-12) |
 
 Màn hình quản trị A01 và A03 hiện độ trễ đồng bộ và số mã vạch không khớp. Khi khoá giỏ, hệ thống kiểm tra lại giá và tồn kho (M15).
 
-Ghi nhận giao dịch Scan & Checkout vào DSmart POS/kế toán/tồn kho: chưa có cơ chế, xem G-05.
+Ghi nhận giao dịch Scan & Checkout vào Dsmart POS/kế toán/tồn kho: chưa có cơ chế, xem G-05.
 
 ## 2. Thanh toán
 

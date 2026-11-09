@@ -42,7 +42,7 @@ i -- Còn lỗi --> b
 3. **Tài khoản ngân hàng nhận tiền** (chỉ cần khi tự thu bằng chuyển khoản; Tích hợp, thẻ Chuyển khoản QR): nhập **mã ngân hàng (BIN, 6 chữ số)**, tên ngân hàng, **số tài khoản**, chủ tài khoản. Sai thông tin này thì khách chuyển nhầm tài khoản, nên kiểm tra kỹ và chuyển thử một khoản nhỏ.
 4. **Chọn cách thu tiền** (cột "Thu tiền"):
    - **Tự thu trong BRG:** bật Tiền mặt và/hoặc Chuyển khoản QR. Cột Online đang khoá, ghi "Sắp có".
-   - **Qua DSmart POS:** cần đã tạo **khoá API cho DSmart POS** (mục Tích hợp, thẻ "DSmart POS gọi vào BRG") và không còn giỏ chờ thu ở chi nhánh. Gửi nhà cung cấp DSmart POS tài liệu API, địa chỉ API và khoá. Khi chuyển sang DSmart POS, hai công tắc Tiền mặt, Chuyển khoản QR mờ đi vì không dùng.
+   - **Qua Dsmart POS:** cần đã tạo **khoá API cho Dsmart POS** (mục Tích hợp, thẻ "Dsmart POS gọi vào BRG") và không còn giỏ chờ thu ở chi nhánh. Gửi nhà cung cấp Dsmart POS tài liệu API, địa chỉ API và khoá. Khi chuyển sang Dsmart POS, hai công tắc Tiền mặt, Chuyển khoản QR mờ đi vì không dùng.
 5. **Chọn có bảo vệ ở cổng ra hay không** (cột "Bảo vệ cổng ra"): chi nhánh không có người ở cổng thì **tắt**. Khi tắt: không có QR ra cổng, không kiểm tra ngẫu nhiên, thanh toán xong khách ra luôn. Cân nhắc biện pháp bù (xem hướng dẫn "Điểm cần chốt").
 6. **Tạo tài khoản nhân viên** (Tài khoản và phân quyền): gán đúng vai trò và chi nhánh, đặt PIN 4 đến 6 chữ số. Đảm bảo có người làm thu ngân và người làm cổng ra. **Xếp ca** (Nhân viên và ca) và xử lý các cảnh báo thiếu người.
 7. **Đặt tỷ lệ kiểm tra ngẫu nhiên** (bỏ qua nếu tắt bảo vệ) (Kiểm tra ngẫu nhiên). Khi thí điểm nên đặt cao.
@@ -58,7 +58,7 @@ Theo kế hoạch: bật thí điểm **2 đến 3 chi nhánh**, theo dõi chên
 
 ## Danh sách kiểm tra trước khi bật
 
-- [ ] Dữ liệu sản phẩm đã đồng bộ, không có cảnh báo DSmart POS chậm
+- [ ] Dữ liệu sản phẩm đã đồng bộ, không có cảnh báo Dsmart POS chậm
 - [ ] Tài khoản ngân hàng đúng, đã thử chuyển thật
 - [ ] Có thu ngân và cổng ra cho mọi ca dự kiến
 - [ ] Nhân viên đã được hướng dẫn quy trình thu tiền và kiểm tra

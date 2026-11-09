@@ -1,5 +1,5 @@
-// Adapter DSmart POS. Hiện dùng bản giả lập đọc bảng pos_products (đóng vai hệ thống DSmart POS thật).
-// Khi nối DSmart POS thật: viết adapter khác có cùng giao diện và chọn trong settings.pos.adapter.
+// Adapter Dsmart POS. Hiện dùng bản giả lập đọc bảng pos_products (đóng vai hệ thống Dsmart POS thật).
+// Khi nối Dsmart POS thật: viết adapter khác có cùng giao diện và chọn trong settings.pos.adapter.
 import { nowIso } from '../util.js';
 
 export function createMockPos(db) {
@@ -12,7 +12,7 @@ export function createMockPos(db) {
 
   return {
     name: 'mock',
-    /** Đồng bộ giá/tồn kho một chi nhánh từ DSmart POS vào bộ nhớ đệm. */
+    /** Đồng bộ giá/tồn kho một chi nhánh từ Dsmart POS vào bộ nhớ đệm. */
     sync(storeId) {
       const ts = nowIso();
       const r = copy.run(ts, storeId);
@@ -30,7 +30,7 @@ export function createMockPos(db) {
       }
       return null;
     },
-    /** Giá/tồn kho hiện tại từ nguồn DSmart POS (dùng khi khoá giỏ để kiểm tra lại). */
+    /** Giá/tồn kho hiện tại từ nguồn Dsmart POS (dùng khi khoá giỏ để kiểm tra lại). */
     current(storeId, skus) {
       const q = db.prepare('SELECT * FROM pos_products WHERE store_id = ? AND sku = ?');
       const map = new Map();

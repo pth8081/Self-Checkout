@@ -45,7 +45,7 @@ function App() {
     api.get('/me').then((r) => { setAuth({ user: r.user, store: r.store }); setShift(r.shift); setBoot('ok'); })
       .catch((e) => { if (e.status === 401) { setToken(null); setBoot('none'); } else setBoot(e); });
   }, []);
-  // Làm mới thông tin chi nhánh (cờ DSmart POS / bảo vệ) mà không hiện màn tải.
+  // Làm mới thông tin chi nhánh (cờ Dsmart POS / bảo vệ) mà không hiện màn tải.
   const refreshMe = useCallback(() => api.get('/me').then((r) => setAuth((a) => (a ? { user: r.user, store: r.store } : a))).catch(() => {}), []);
   useEffect(() => {
     setOnFlagChange((e) => { toast(e.message, 'err'); refreshMe(); go('/', true); });

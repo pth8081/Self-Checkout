@@ -23,24 +23,24 @@ Danh sách này gom các chỗ **quy trình chưa có quy định chính thức*
 | 7 | **Ngưỡng lệch tiền mặt** | Lệch bất kỳ phải ghi lý do; không có ngưỡng duyệt | Đặt ngưỡng (ví dụ lệch trên một mức cần quản lý duyệt), quy định xử lý khi lệch lặp lại | Trung bình |
 | 8 | **Tỷ lệ kiểm tra ngẫu nhiên** | Mẫu 10%, khách lần đầu 20%, giỏ từ 500.000₫ là 25% (quản lý đổi được) | Chốt giá trị bắt đầu, và ngưỡng dữ liệu để giảm dần (ví dụ tỷ lệ chênh lệch dưới mức X trong Y tuần) | Trung bình |
 | 9 | **Hàng bán theo cân, hàng tươi** | Chưa hỗ trợ, khách mua ở quầy thường | Chốt loại trừ ở giai đoạn 1 hay hỗ trợ mã cân động | Trung bình |
-| 10 | **Ghi nhận giao dịch vào DSmart POS và kế toán** | Chế độ DSmart POS: đơn nằm ở DSmart POS nên tồn kho, doanh thu, kế toán có sẵn. Chế độ tự thu: báo cáo chỉ lấy từ dữ liệu của BRG | Với chi nhánh tự thu, chốt cơ chế (xuất file hoặc API) để gộp vào DSmart POS và kế toán | Trung bình |
-| 11 | **Hoá đơn điện tử: bên nào xuất** | Giỏ QR cho DSmart POS: không có hoá đơn lúc thanh toán; khách tự khai báo qua link nhà cung cấp, BRG không xuất và không lưu số hoá đơn. Chế độ tự thu: bản giả lập của BRG | Chi nhánh nào tự thu thì chốt nhà cung cấp hoá đơn thật; chỉ để một bên xuất | Cao |
+| 10 | **Ghi nhận giao dịch vào Dsmart POS và kế toán** | Chế độ Dsmart POS: đơn nằm ở Dsmart POS nên tồn kho, doanh thu, kế toán có sẵn. Chế độ tự thu: báo cáo chỉ lấy từ dữ liệu của BRG | Với chi nhánh tự thu, chốt cơ chế (xuất file hoặc API) để gộp vào Dsmart POS và kế toán | Trung bình |
+| 11 | **Hoá đơn điện tử: bên nào xuất** | Giỏ QR cho Dsmart POS: không có hoá đơn lúc thanh toán; khách tự khai báo qua link nhà cung cấp, BRG không xuất và không lưu số hoá đơn. Chế độ tự thu: bản giả lập của BRG | Chi nhánh nào tự thu thì chốt nhà cung cấp hoá đơn thật; chỉ để một bên xuất | Cao |
 | 12 | **Thời gian lưu nhật ký và dữ liệu cá nhân** | Lưu không giới hạn | Chốt thời gian lưu theo quy định nội bộ và pháp lý (nhật ký, email khách) | Trung bình |
 | 13 | **Nhân sự tối thiểu mỗi ca** | Chỉ cảnh báo thiếu thu ngân hoặc cổng ra trên lịch ca | Chốt số người tối thiểu, quy định khi thiếu người (tạm tắt Scan & Checkout) | Trung bình |
 | 14 | **Sự cố mạng tại quầy hoặc cổng ra** | App nhân viên cần mạng, không có chế độ ngoại tuyến | Chốt phương án dự phòng (quầy thường, mạng dự phòng), có thể cần chế độ ngoại tuyến cho cổng ra | Trung bình |
 | 15 | **Hàng giá trị cao, nghi vấn** | Chỉ tăng xác suất kiểm tra theo ngưỡng giá trị | Cân nhắc buộc kiểm tra mọi giỏ vượt một mức giá trị | Thấp |
 
-## Bổ sung khi tích hợp DSmart POS và chi nhánh không có bảo vệ
+## Bổ sung khi tích hợp Dsmart POS và chi nhánh không có bảo vệ
 
 | # | Chủ đề | Hiện tại | Đề xuất | Mức |
 |---|--------|----------|---------|-----|
-| 16 | **DSmart POS báo thanh toán là tự xác nhận** (không còn người xác nhận trong BRG) | BRG tin báo của DSmart POS có khoá API hợp lệ | Chốt kiểm soát khoá API (ai giữ, đổi định kỳ), đối soát BRG với DSmart POS **mỗi ngày**, cảnh báo đơn lệch | Cao |
-| 17 | **Đơn DSmart POS bị bỏ quên** (DSmart POS nhận giỏ rồi không thanh toán, không huỷ) | Giỏ giữ nguyên, khách không sửa được; quản lý phải **Nhả giỏ** thủ công | Tự nhả giỏ sau một thời gian (ví dụ 15 đến 30 phút) và quy định DSmart POS gọi huỷ khi huỷ đơn treo | Cao |
+| 16 | **Dsmart POS báo thanh toán là tự xác nhận** (không còn người xác nhận trong BRG) | BRG tin báo của Dsmart POS có khoá API hợp lệ | Chốt kiểm soát khoá API (ai giữ, đổi định kỳ), đối soát BRG với Dsmart POS **mỗi ngày**, cảnh báo đơn lệch | Cao |
+| 17 | **Đơn Dsmart POS bị bỏ quên** (Dsmart POS nhận giỏ rồi không thanh toán, không huỷ) | Giỏ giữ nguyên, khách không sửa được; quản lý phải **Nhả giỏ** thủ công | Tự nhả giỏ sau một thời gian (ví dụ 15 đến 30 phút) và quy định Dsmart POS gọi huỷ khi huỷ đơn treo | Cao |
 | 18 | **Kiểm soát thất thoát khi không có bảo vệ** | Không có kiểm tra ngẫu nhiên, khách ra luôn | Biện pháp bù (camera, kiểm đếm tồn kho, nhân viên xem giỏ giá trị cao). Cân nhắc kiểm tra ngẫu nhiên **tại quầy** cho chi nhánh này | Cao |
-| 19 | **Tiền mặt và ca ở chế độ DSmart POS** | Két và ca do DSmart POS đối soát; các màn đối soát tiền mặt trong BRG không dùng | Chốt BRG chỉ đối chiếu theo đơn, hay bỏ hẳn phần ca thu ngân ở chi nhánh dùng DSmart POS | Trung bình |
-| 20 | **Số tiền DSmart POS khác BRG** | Chấp nhận số DSmart POS, đánh dấu lệch | Ngưỡng lệch cần quản lý duyệt, quy định xử lý khi lệch lặp lại | Trung bình |
-| 21 | **Hoá đơn công ty** | Khách nhập trước khi khoá giỏ, gửi cho DSmart POS; không sửa được sau khi DSmart POS nhận | Quy trình khi khách quên: thu ngân nhập trên DSmart POS | Thấp |
-| 22 | **Hoàn tiền sau khi khách đã ra** (ở DSmart POS) | BRG ghi nhận và loại khỏi doanh thu | Quy trình thu hồi hoặc ghi nhận thất thoát, ai chịu trách nhiệm | Trung bình |
+| 19 | **Tiền mặt và ca ở chế độ Dsmart POS** | Két và ca do Dsmart POS đối soát; các màn đối soát tiền mặt trong BRG không dùng | Chốt BRG chỉ đối chiếu theo đơn, hay bỏ hẳn phần ca thu ngân ở chi nhánh dùng Dsmart POS | Trung bình |
+| 20 | **Số tiền Dsmart POS khác BRG** | Chấp nhận số Dsmart POS, đánh dấu lệch | Ngưỡng lệch cần quản lý duyệt, quy định xử lý khi lệch lặp lại | Trung bình |
+| 21 | **Hoá đơn công ty** | Khách nhập trước khi khoá giỏ, gửi cho Dsmart POS; không sửa được sau khi Dsmart POS nhận | Quy trình khi khách quên: thu ngân nhập trên Dsmart POS | Thấp |
+| 22 | **Hoàn tiền sau khi khách đã ra** (ở Dsmart POS) | BRG ghi nhận và loại khỏi doanh thu | Quy trình thu hồi hoặc ghi nhận thất thoát, ai chịu trách nhiệm | Trung bình |
 
 ## Cách chốt
 
