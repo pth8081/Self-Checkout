@@ -204,6 +204,16 @@ curl http://127.0.0.1:3000/api/health
 
 Dữ liệu phát sinh giữa bản sao lưu và lúc hỏng sẽ mất (tối đa 1 giờ nếu sao lưu hằng giờ). Giao dịch trong khoảng đó cần đối chiếu thủ công bằng sao kê ngân hàng và sổ tiền mặt. **Hãy thử khôi phục thật định kỳ** (mỗi quý) trên một máy khác để chắc bản sao lưu dùng được.
 
+**Giữ dữ liệu và dữ liệu cá nhân.** Hệ thống tự xoá thông tin cá nhân của khách và nhật ký cũ, chạy lúc khởi động rồi mỗi 6 giờ. Quản trị chuỗi chỉnh thời hạn ở trang **Tích hợp > Giữ dữ liệu** (có nút "Dọn ngay"):
+
+| Loại dữ liệu | Mặc định | Cách xử lý khi quá hạn |
+|--------------|----------|------------------------|
+| Thông tin cá nhân của khách: email nhận bill, thông tin xuất hoá đơn công ty (mã số thuế, tên, địa chỉ), email đã xác minh của thiết bị, mã thiết bị gắn với đơn | 12 tháng kể từ lúc thanh toán | Xoá trắng các trường này. **Đơn, số tiền, dòng hàng, bill, hoàn trả giữ nguyên** nên doanh thu và đối soát không đổi |
+| Nhật ký kỹ thuật: nhật ký quét, chi tiết giỏ đã kết thúc, hàng chờ đồng bộ, lần quét ở cổng | 90 ngày | Xoá |
+| Nhật ký thao tác (ai làm gì, lúc nào) | 24 tháng | Xoá |
+
+Nhập `0` cho mục nào thì giữ mãi mục đó. Lưu ý: khách chỉ xem lại được lịch sử bill trong thời hạn giữ thông tin cá nhân, vì liên kết giữa khách và đơn bị xoá sau đó. **Bản sao lưu** chứa dữ liệu trước khi xoá, nên `BACKUP_KEEP` cần đủ ngắn để bản sao lưu cũ cũng bị loại theo thời hạn đã chọn.
+
 ## 7. Giám sát và nhật ký
 
 - **Theo dõi sống còn:** cho một dịch vụ giám sát (UptimeRobot, Uptime Kuma...) gọi `https://scan.hcrc.vn/api/health` mỗi phút và báo khi lỗi. Đường dẫn này kiểm tra cả CSDL.

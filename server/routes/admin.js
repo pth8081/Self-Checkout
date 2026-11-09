@@ -1,5 +1,6 @@
 import { config } from '../config.js';
 import { getSetting, setSetting } from '../db.js';
+import { retentionConfig, validateRetention, runRetention, RETENTION_KEY, RETENTION_DEFAULTS } from '../services/retention.js';
 import { publicSettings, saveSettings, SECURE_MODES, TLS_MODES, explainMailError } from '../services/mailer.js';
 import { PORTAL_KEY, PORTAL_PLACEHOLDERS, cartDiffOf } from '../services/bill.js';
 import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, sqlLocalDate, money, normCode, unauthorized } from '../util.js';
@@ -249,6 +250,23 @@ export default async function adminRoutes(app) {
       }
       audit(db, { storeId: id, actorType: 'admin', actorId: req.user.id, action: 'store.config_updated', entity: 'store', entityId: id, data: b });
       return { store: storeRow(db.prepare('SELECT * FROM stores WHERE id = ?').get(id)) };
+    });
+
+    // ---------------- Giữ dữ liệu có thời hạn (xoá thông tin cá nhân và nhật ký cũ) ----------------
+    s.get('/integrations/retention', async (req) => { chainOnly(req); return { config: retentionConfig(db), defaults: RETENTION_DEFAULTS, last: getSetting(db, 'retention_last', null) }; });
+    s.put('/integrations/retention', async (req) => {
+      chainOnly(req);
+      const r = validateRetention(req.body);
+      if (r.error) throw bad('BAD_RETENTION', r.error);
+      setSetting(db, RETENTION_KEY, { ...retentionConfig(db), ...r.value });
+      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'retention.config_saved', entity: 'settings', entityId: RETENTION_KEY, data: r.value });
+      return { config: retentionConfig(db) };
+    });
+    s.post('/integrations/retention/run', async (req) => {
+      chainOnly(req);
+      const last = runRetention(ctx);
+      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'retention.run_manual', entity: 'settings', entityId: RETENTION_KEY, data: last.done });
+      return { last };
     });
 
     // ---------------- Link khai báo hoá đơn điện tử của nhà cung cấp ----------------

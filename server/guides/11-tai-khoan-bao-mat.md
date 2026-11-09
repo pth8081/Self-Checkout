@@ -55,6 +55,15 @@ Quản trị viên xem được doanh thu và tiền thu nên nên **bật xác 
 - Nhân viên chỉ thao tác trên giao dịch của chi nhánh mình.
 - Mọi lần đăng nhập quản trị, đổi cấu hình, tạo hoặc khoá tài khoản đều được **ghi nhật ký**.
 
+## Giữ dữ liệu cá nhân
+
+Trang **Tích hợp > Giữ dữ liệu** (quản trị chuỗi) đặt thời hạn lưu. Hệ thống tự dọn mỗi 6 giờ, hoặc bấm **Dọn ngay**:
+
+- **Thông tin cá nhân của khách** (email nhận bill, thông tin xuất hoá đơn công ty, email đã xác minh, mã thiết bị gắn với đơn): mặc định xoá sau **12 tháng** kể từ lúc thanh toán. Đơn, số tiền, dòng hàng, bill và hoàn trả được giữ nguyên nên doanh thu và đối soát không đổi.
+- **Nhật ký kỹ thuật** (nhật ký quét, chi tiết giỏ đã kết thúc, lần quét ở cổng): mặc định **90 ngày**.
+- **Nhật ký thao tác** (ai làm gì): mặc định **24 tháng**.
+- Nhập `0` để giữ mãi mục đó. Sau thời hạn, khách không còn xem lại được bill cũ trong lịch sử trên điện thoại. Bản sao lưu vẫn chứa dữ liệu trước khi xoá, nên cần giới hạn số bản sao lưu giữ lại.
+
 ## Thực hành tốt
 
 - Mỗi người một tài khoản, **không dùng chung**.

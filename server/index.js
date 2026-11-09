@@ -2,6 +2,7 @@ import { buildApp } from './app.js';
 import { config } from './config.js';
 import { retryPendingInvoices } from './services/invoice.js';
 import { sweepStaleCarts } from './services/core.js';
+import { runRetention } from './services/retention.js';
 import { retryBillEmails } from './services/bill-email.js';
 
 // TRUST_PROXY=1 khi chạy sau Nginx để ghi đúng địa chỉ IP khách trong nhật ký.
@@ -24,6 +25,10 @@ if (process.env.RUN_JOBS !== '0') {
   // giỏ đang quét quá CART_TTL_HOURS (mặc định 3) không thao tác thì đóng.
   const sweep = () => { try { const n = sweepStaleCarts(app.ctx, { activeHours: Number(process.env.CART_TTL_HOURS || 3), lockedMinutes: Number(process.env.LOCKED_TTL_MINUTES || 30) }); if (n) app.log.info({ n }, 'Đã dọn giỏ bỏ quên'); } catch (e) { app.log.error(e); } };
   timers.push(setInterval(sweep, 60_000));
+  // Giữ dữ liệu có thời hạn: xoá thông tin cá nhân và nhật ký quá hạn (cấu hình ở trang quản trị). Chạy lúc khởi động và mỗi 6 giờ.
+  const retain = () => { try { const r = runRetention(app.ctx); const n = Object.values(r.done).reduce((a, b) => a + b, 0); if (n) app.log.info(r.done, 'Đã dọn dữ liệu quá hạn'); } catch (e) { app.log.error(e, 'Dọn dữ liệu quá hạn lỗi'); } };
+  setTimeout(retain, 60_000).unref?.();
+  timers.push(setInterval(retain, 6 * 3600_000));
 } else app.log.info('RUN_JOBS=0: tiến trình này không chạy công việc nền');
 
 if (!db.prepare('SELECT COUNT(*) n FROM stores').get().n) {

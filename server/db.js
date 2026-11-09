@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS integration_keys (
 
 /** Thêm cột còn thiếu cho CSDL tạo từ phiên bản cũ (CREATE TABLE IF NOT EXISTS không tự thêm cột). */
 const MIGRATIONS = [
-  ['transactions', 'cancel_reason', 'TEXT'],
+  ['transactions', 'cancel_reason', 'TEXT'], ['transactions', 'pii_purged_at', 'TEXT'],
   ['transactions', 'extra_qty', 'INTEGER NOT NULL DEFAULT 0'], ['transactions', 'extra_value', 'INTEGER NOT NULL DEFAULT 0'], ['transactions', 'less_qty', 'INTEGER NOT NULL DEFAULT 0'],
   ['transactions', 'pos_draft_json', 'TEXT'],
   ['transactions', 'bill_email', 'TEXT'], ['transactions', 'bill_email_status', 'TEXT'], ['transactions', 'bill_email_tries', 'INTEGER NOT NULL DEFAULT 0'],

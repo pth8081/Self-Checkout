@@ -931,3 +931,63 @@ test('hết hạn: giỏ đã bấm Thanh toán quá 30 phút bị huỷ đơn n
   assert.equal(db.prepare('SELECT status FROM scan_sessions WHERE id=?').get(C.body.session.id).status, 'abandoned');
   await app.close();
 });
+
+test('giữ dữ liệu: xoá thông tin cá nhân quá hạn nhưng giữ đơn, tiền và bill; xoá nhật ký kỹ thuật cũ; cấu hình qua API', async () => {
+  const { runRetention } = await import('../server/services/retention.js');
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const db = app.ctx.db;
+  const sua = barcodeOf(app, 'Q7', 'SUA01');
+  const mk = async (dev, ref, posRef) => {
+    const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' }, device: dev });
+    const id = s.body.session.id;
+    await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: sua }] }, device: dev });
+    const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref }, device: dev })).body.transaction;
+    await pos(app, key, 'POST', `/baskets/${ref}/paid`, { pointCode: 'SP-Q7', posOrderRef: posRef, amount: 29000, method: 'cash', lines: [{ barcode: sua, qty: 1, lineTotal: 29000 }] });
+    return { id, tx };
+  };
+  const old = await mk('devOld-1234567890abcdef', 'Q7-RETOLD234', 'P-OLD');
+  const fresh = await mk('devNew-1234567890abcdef', 'Q7-RETNEW234', 'P-NEW');
+  const ago = (d) => new Date(Date.now() - d * 86400_000).toISOString();
+  for (const t of [old.tx, fresh.tx]) db.prepare(`UPDATE transactions SET bill_email='khach@example.com', buyer_json='{"email":"khach@example.com","taxCode":"0123456789"}' WHERE id=?`).run(t.id);
+  db.prepare(`INSERT INTO invoices(transaction_id,type,email,tax_code,company_name,address,status,created_at) VALUES(?,?,?,?,?,?,?,?)`).run(old.tx.id, 'company', 'khach@example.com', '0123456789', 'Cty A', 'HN', 'issued', ago(400));
+  db.prepare('UPDATE transactions SET paid_at=?, created_at=? WHERE id=?').run(ago(400), ago(400), old.tx.id); // hơn 12 tháng
+  db.prepare('UPDATE transactions SET paid_at=? WHERE id=?').run(ago(30), fresh.tx.id);
+  db.prepare(`INSERT INTO device_emails(device_id,email,verified_at) VALUES('devOld','khach@example.com',?)`).run(ago(400));
+  db.prepare(`INSERT INTO device_emails(device_id,email,verified_at) VALUES('devNew','khac@example.com',?)`).run(ago(10));
+  db.prepare(`UPDATE scan_events SET ts=? WHERE session_id=?`).run(ago(120), old.id);
+  db.prepare(`UPDATE scan_sessions SET ended_at=?, last_activity=? WHERE id=?`).run(ago(120), ago(120), old.id);
+  db.prepare(`INSERT INTO audit_events(ts,actor_type,action) VALUES(?,?,?)`).run(ago(800), 'system', 'x.old');
+  const revenue = () => db.prepare('SELECT COALESCE(SUM(amount),0) s FROM payments').get().s;
+  const before = revenue();
+
+  const r = runRetention(app.ctx);
+  assert.equal(r.done.piiTransactions, 1);
+  const o = db.prepare('SELECT bill_email, buyer_json, device_id, status, total, pos_amount, pii_purged_at, items_json FROM transactions WHERE id=?').get(old.tx.id);
+  assert.equal(o.bill_email, null); assert.equal(o.buyer_json, null); assert.equal(o.device_id, '-'); assert.ok(o.pii_purged_at);
+  assert.equal(o.status, 'paid'); assert.equal(o.pos_amount, 29000); assert.ok(JSON.parse(o.items_json).length === 1); // đơn và hàng vẫn còn
+  assert.equal(db.prepare('SELECT email, tax_code, company_name, address FROM invoices WHERE transaction_id=?').get(old.tx.id).tax_code, null);
+  const n = db.prepare('SELECT bill_email, buyer_json, device_id FROM transactions WHERE id=?').get(fresh.tx.id);
+  assert.equal(n.bill_email, 'khach@example.com'); assert.ok(n.buyer_json); assert.notEqual(n.device_id, '-'); // đơn mới giữ nguyên
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM device_emails').get().n, 1);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM scan_events WHERE session_id=?').get(old.id).n, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM cart_items WHERE session_id=?').get(old.id).n, 0);
+  assert.ok(db.prepare('SELECT COUNT(*) n FROM cart_items WHERE session_id=?').get(fresh.id).n >= 0);
+  assert.equal(db.prepare(`SELECT COUNT(*) n FROM audit_events WHERE action='x.old'`).get().n, 0);
+  assert.equal(revenue(), before); // doanh thu không đổi
+  assert.equal(runRetention(app.ctx).done.piiTransactions, 0); // chạy lại không xử lý thêm
+
+  // cấu hình qua API
+  const g = await call(app, 'GET', '/api/a/integrations/retention', { token: admin });
+  assert.equal(g.body.config.piiMonths, 12); assert.ok(g.body.last);
+  assert.equal((await call(app, 'PUT', '/api/a/integrations/retention', { token: admin, body: { piiMonths: 3 } })).body.config.piiMonths, 3);
+  assert.equal((await call(app, 'PUT', '/api/a/integrations/retention', { token: admin, body: { piiMonths: 0 } })).body.config.piiMonths, 0); // giữ mãi
+  assert.equal((await call(app, 'PUT', '/api/a/integrations/retention', { token: admin, body: { logDays: 2 } })).body.error, 'BAD_RETENTION');
+  // piiMonths = 0: không xoá gì
+  db.prepare('UPDATE transactions SET paid_at=? WHERE id=?').run(ago(900), fresh.tx.id);
+  assert.equal(runRetention(app.ctx).done.piiTransactions, 0);
+  const run = await call(app, 'POST', '/api/a/integrations/retention/run', { token: admin });
+  assert.equal(run.status, 200);
+  await app.close();
+});

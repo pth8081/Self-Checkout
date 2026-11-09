@@ -359,6 +359,37 @@ function InvoicePortalCard() {
     <div class="row wrap" style="margin-top:12px;gap:8px"><button class="btn primary sm" disabled=${busy || url === d.url} onClick=${save}>Lưu link</button></div></div>`;
 }
 
+// ---- Giữ dữ liệu: xoá thông tin cá nhân và nhật ký cũ ----
+function RetentionCard() {
+  const st = useAsync(() => api.get('/integrations/retention'), []);
+  const [f, setF] = useState(null);
+  const [busy, run] = useBusy();
+  const [err, setErr] = useState('');
+  const d = st.data;
+  useEffect(() => { if (d && f === null) setF({ piiMonths: String(d.config.piiMonths), logDays: String(d.config.logDays), auditMonths: String(d.config.auditMonths) }); }, [d]);
+  if (!d || f === null) return html`<div class="card"><${Spinner}/></div>`;
+  const dirty = ['piiMonths', 'logDays', 'auditMonths'].some((k) => String(d.config[k]) !== String(f[k]).trim());
+  const save = () => run(async () => {
+    setErr('');
+    try { await api.put('/integrations/retention', { piiMonths: f.piiMonths, logDays: f.logDays, auditMonths: f.auditMonths }); await st.reload(); }
+    catch (x) { setErr(x.message); throw x; }
+  }, 'Đã lưu thời hạn giữ dữ liệu');
+  const runNow = () => run(async () => { await api.post('/integrations/retention/run', {}); await st.reload(); }, 'Đã dọn xong');
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const last = d.last;
+  const sum = last && Object.values(last.done).reduce((a, b) => a + b, 0);
+  return html`<div class="card">
+    <div class="cardhead"><div class="ico-tile"><${Icon} name="shield"/></div><div class="grow"><h2>Giữ dữ liệu</h2>
+      <div class="small muted">Hệ thống tự xoá thông tin cá nhân của khách và nhật ký cũ. Đơn, số tiền, các dòng hàng, bill và hoàn trả được giữ nguyên nên doanh thu và đối soát không đổi. Chạy mỗi 6 giờ.</div></div></div>
+    <${Field} label="Thông tin cá nhân của khách (tháng)" hint="Email nhận bill, thông tin xuất hoá đơn công ty, email đã xác minh, mã thiết bị gắn với đơn. Tính từ lúc thanh toán. Khuyến nghị 12. Nhập 0 để giữ mãi"><input class="input" inputmode="numeric" value=${f.piiMonths} onInput=${set('piiMonths')}/><//>
+    <${Field} label="Nhật ký kỹ thuật (ngày)" hint="Nhật ký quét, chi tiết giỏ đã kết thúc, lần quét ở cổng. Khuyến nghị 90. Nhập 0 để giữ mãi"><input class="input" inputmode="numeric" value=${f.logDays} onInput=${set('logDays')}/><//>
+    <${Field} label="Nhật ký thao tác (tháng)" hint="Ai làm gì, lúc nào. Khuyến nghị 24. Nhập 0 để giữ mãi"><input class="input" inputmode="numeric" value=${f.auditMonths} onInput=${set('auditMonths')}/><//>
+    ${err && html`<div class="errtext" role="alert">${err}</div>`}
+    ${last && html`<div class="small muted" style="margin-top:8px">Lần dọn gần nhất: ${fmt.dateTime(last.at)}. ${sum ? `Đã xử lý ${last.done.piiTransactions} đơn (xoá thông tin cá nhân), ${last.done.deviceEmails} email thiết bị, ${last.done.logs} dòng nhật ký, ${last.done.sessions} giỏ cũ, ${last.done.audit} dòng nhật ký thao tác.` : 'Không có gì quá hạn.'}</div>`}
+    <div class="row wrap" style="margin-top:12px;gap:8px"><button class="btn primary sm" disabled=${busy || !dirty} onClick=${save}>Lưu</button>
+      <button class="btn line sm" disabled=${busy} onClick=${runNow}>Dọn ngay</button></div></div>`;
+}
+
 // ---- Email: gửi mã xác nhận xem lịch sử và bill về email khách ----
 function EmailCard() {
   const st = useAsync(() => api.get('/integrations/email'), []);
@@ -422,6 +453,7 @@ export function Integrations({ stores }) {
       <${PosApiCard} d=${d} stores=${stores} reload=${st.reload}/>
       <${InvoicePortalCard}/>
       <${EmailCard}/>
+      <${RetentionCard}/>
       ${d.hasClassicStores && html`<div class="two"><${TransferCard} stores=${stores}/><${InvoiceCard} d=${d} reload=${st.reload}/></div>`}
       ${!d.isProd && html`<${DevTools} stores=${stores}/>`}`}<//></div>`;
 }
