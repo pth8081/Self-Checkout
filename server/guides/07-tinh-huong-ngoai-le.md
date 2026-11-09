@@ -8,7 +8,7 @@ access: all
 
 # Tình huống ngoại lệ
 
-> **Luồng hiện hành là "Giỏ QR cho POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào POS, POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở trang Chi nhánh. Xem thêm bài "Kết nối POS".
+> **Luồng hiện hành là "Giỏ QR cho DS Smart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào DS Smart POS, DS Smart POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho DS Smart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối DS Smart POS".
 
 Cột **Ứng dụng** cho biết việc đó có công cụ trong ứng dụng hay phải xử lý ngoài hệ thống:
 **Có** = đã hỗ trợ, **Một phần** = hỗ trợ một phần, **Thủ công** = chưa có chức năng, xử lý ngoài ứng dụng và ghi chú lại.
@@ -19,7 +19,7 @@ Cột **Ứng dụng** cho biết việc đó có công cụ trong ứng dụng 
 |-----------|-----------|---------|
 | Camera không quét được mã | Nhập mã tay: gõ dãy số dưới mã vạch. Mã quá mờ thì nhờ nhân viên hỗ trợ | Có |
 | Camera bị chặn | Làm theo hướng dẫn trên màn hình để bật quyền camera. Mở link trong Zalo hoặc Facebook thì chuyển sang Safari hoặc Chrome | Có |
-| Mã báo "chưa có trong hệ thống" | Nhờ nhân viên hỗ trợ. Mã được ghi vào danh sách **Mã không tìm thấy** để bổ sung vào POS. Khách có thể mua mặt hàng đó ở quầy thường | Một phần |
+| Mã báo "chưa có trong hệ thống" | Nhờ nhân viên hỗ trợ. Mã được ghi vào danh sách **Mã không tìm thấy** để bổ sung vào DS Smart POS. Khách có thể mua mặt hàng đó ở quầy thường | Một phần |
 | Hàng bán theo cân, hàng tươi không mã cố định | Chưa hỗ trợ. Khách mua ở quầy thường | Thủ công |
 | Khách mất mạng giữa chừng | Giỏ lưu trên máy, quét tiếp được, tự đồng bộ khi có mạng. Thanh toán cần có mạng | Có |
 | Giá hoặc tồn kho đổi lúc khoá giỏ | Khách xem thay đổi và đồng ý, hoặc quay lại giỏ | Có |
@@ -58,25 +58,25 @@ Cột **Ứng dụng** cho biết việc đó có công cụ trong ứng dụng 
 
 > **Cần xác nhận:** Hai dòng "Thủ công" ở cổng ra (QR hết hạn, khách mất điện thoại) là rủi ro vận hành thực tế. Đề xuất bổ sung chức năng cho qua thủ công có quản lý duyệt và ghi lý do. Xem "Điểm cần chốt".
 
-## Khi thu tiền qua POS
+## Khi thu tiền qua DS Smart POS
 
 | Tình huống | Cách xử lý | Ứng dụng |
 |-----------|-----------|---------|
-| Thu ngân quét mã giỏ trong POS mà POS báo không nhận được | Kiểm tra mã giỏ còn hiệu lực (khách có thể đã sửa giỏ, mã mới). Mời khách mở lại màn hình mã giỏ. POS báo "đã bị đơn khác nhận" thì hỏi quản lý | Có |
-| POS nhận giỏ nhưng sập, khách đứng chờ, không sửa được giỏ | Quản lý **Nhả giỏ** trong Đơn POS (ghi lý do). Thu ngân tạo đơn lại sau khi POS hoạt động | Có |
-| POS ngừng hoạt động nhiều giờ | Quản trị chuỗi chuyển chi nhánh về **Tự thu trong BRG** (cần hết giỏ chờ), thu ngân thu thủ công, chuyển lại khi POS sẵn sàng | Có |
-| POS thu tiền xong nhưng chưa báo về (mất mạng giữa POS và BRG) | POS tự thử lại. Nếu không được, quản lý đối chiếu đơn POS với giỏ trong BRG và nhờ nhà cung cấp POS gửi lại thông báo | Một phần |
-| Khách đã trả trên POS nhưng màn hình khách chưa chuyển | Chờ vài giây (màn khách tự làm mới). Quá lâu thì kiểm tra Đơn POS xem BRG đã nhận báo chưa | Có |
-| Số tiền POS khác tạm tính | Bình thường nếu có khuyến mãi theo hoá đơn. Thu theo POS. Đơn được đánh dấu lệch tiền để quản lý xem lại | Có |
-| POS huỷ đơn sau khi khách đã thanh toán và ra | BRG ghi nhận và loại khỏi doanh thu. Hàng hoá đã ra, cửa hàng xử lý theo quy định | Một phần |
-| Hoá đơn công ty: khách quên nhập thông tin trước khi khoá giỏ | Khách báo thu ngân **trước khi thanh toán**; thu ngân nhập thông tin hoá đơn ngay trên POS (BRG không sửa được sau khi giỏ đã được POS nhận) | Một phần |
+| Thu ngân quét mã giỏ trong DS Smart POS mà DS Smart POS báo không nhận được | Kiểm tra mã giỏ còn hiệu lực (khách có thể đã sửa giỏ, mã mới). Mời khách mở lại màn hình mã giỏ. DS Smart POS báo "đã bị đơn khác nhận" thì hỏi quản lý | Có |
+| DS Smart POS nhận giỏ nhưng sập, khách đứng chờ, không sửa được giỏ | Quản lý **Nhả giỏ** trong Đơn DS Smart POS (ghi lý do). Thu ngân tạo đơn lại sau khi DS Smart POS hoạt động | Có |
+| DS Smart POS ngừng hoạt động nhiều giờ | Quản trị chuỗi chuyển chi nhánh về **Tự thu trong BRG** (cần hết giỏ chờ), thu ngân thu thủ công, chuyển lại khi DS Smart POS sẵn sàng | Có |
+| DS Smart POS thu tiền xong nhưng chưa báo về (mất mạng giữa DS Smart POS và BRG) | DS Smart POS tự thử lại. Nếu không được, quản lý đối chiếu đơn DS Smart POS với giỏ trong BRG và nhờ nhà cung cấp DS Smart POS gửi lại thông báo | Một phần |
+| Khách đã trả trên DS Smart POS nhưng màn hình khách chưa chuyển | Chờ vài giây (màn khách tự làm mới). Quá lâu thì kiểm tra Đơn DS Smart POS xem BRG đã nhận báo chưa | Có |
+| Số tiền DS Smart POS khác tạm tính | Bình thường nếu có khuyến mãi theo hoá đơn. Thu theo DS Smart POS. Đơn được đánh dấu lệch tiền để quản lý xem lại | Có |
+| DS Smart POS huỷ đơn sau khi khách đã thanh toán và ra | BRG ghi nhận và loại khỏi doanh thu. Hàng hoá đã ra, cửa hàng xử lý theo quy định | Một phần |
+| Hoá đơn công ty: khách quên nhập thông tin trước khi khoá giỏ | Khách báo thu ngân **trước khi thanh toán**; thu ngân nhập thông tin hoá đơn ngay trên DS Smart POS (BRG không sửa được sau khi giỏ đã được DS Smart POS nhận) | Một phần |
 
 ## Sự cố hệ thống
 
 | Tình huống | Cách xử lý | Ứng dụng |
 |-----------|-----------|---------|
 | Mất mạng tại quầy hoặc cổng ra (app nhân viên cần mạng) | Tạm dừng Scan & Checkout ở chi nhánh (quản trị chuỗi tắt chi nhánh), chuyển khách sang quầy thường. Giỏ đã khoá nhưng chưa thu thì thu ở quầy thường | Một phần |
-| POS đồng bộ chậm hoặc sai giá | Tổng quan hiện cảnh báo khi dữ liệu chậm quá ngưỡng. Việc đối chiếu lại giá lúc khoá giỏ giúp chặn sai giá. Báo bộ phận POS | Có |
+| DS Smart POS đồng bộ chậm hoặc sai giá | Tổng quan hiện cảnh báo khi dữ liệu chậm quá ngưỡng. Việc đối chiếu lại giá lúc khoá giỏ giúp chặn sai giá. Báo bộ phận DS Smart POS | Có |
 | Hoá đơn treo nhiều | Kiểm tra kết nối nhà cung cấp, bấm thử lại, báo bộ phận kế toán | Có |
 | Thiếu nhân viên ca (không có thu ngân hoặc cổng ra) | Lịch ca hiện cảnh báo. Điều người hỗ trợ hoặc tạm tắt chi nhánh | Có |
 | Máy cầm tay hỏng | Dùng điện thoại khác đăng nhập app nhân viên bằng tài khoản của mình | Có |
@@ -87,7 +87,7 @@ Cột **Ứng dụng** cho biết việc đó có công cụ trong ứng dụng 
 | Tình huống | Cách xử lý | Ứng dụng |
 |-----------|-----------|---------|
 | Khách hỏi mã QR ra cổng | Chi nhánh không dùng QR ra cổng, thanh toán xong là ra | Có |
-| Nghi ngờ lấy hàng không quét | Không có kiểm tra ở cổng. Xem số liệu tồn kho và chênh lệch với POS, bố trí biện pháp bù (camera, nhân viên quầy xem giỏ) | Thủ công |
+| Nghi ngờ lấy hàng không quét | Không có kiểm tra ở cổng. Xem số liệu tồn kho và chênh lệch với DS Smart POS, bố trí biện pháp bù (camera, nhân viên quầy xem giỏ) | Thủ công |
 | Cần kiểm tra giỏ của một khách | Nhân viên quầy đối chiếu hàng thật với màn hình giỏ ngay khi khách thanh toán (không ghi nhận trong BRG) | Thủ công |
 
 ## Nguyên tắc chung khi gặp tình huống chưa có hướng dẫn

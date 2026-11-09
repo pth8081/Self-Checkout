@@ -32,7 +32,7 @@ let state = {
   queue: saved.queue || [],          // thao tác chưa gửi được
   issues: [],                        // lỗi phát hiện khi đồng bộ nền
   receipt: saved.receipt || null,    // bản lưu QR biên nhận để xem khi mất mạng
-  basket: saved.basket || null,      // giỏ QR đưa cho POS: lưu trên máy để mở lại được khi mất mạng hoặc tắt trình duyệt
+  basket: saved.basket || null,      // giỏ QR đưa cho DS Smart POS: lưu trên máy để mở lại được khi mất mạng hoặc tắt trình duyệt
   online: navigator.onLine,
   syncing: false,
   booted: false
@@ -132,7 +132,7 @@ export async function refreshSession() {
   }
 }
 
-// ---------- Giỏ QR cho POS ----------
+// ---------- Giỏ QR cho DS Smart POS ----------
 export const EMAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 /** Khách để lại email nhận bill: lưu trên máy và gửi lên máy chủ khi giỏ đã đồng bộ (hoặc đã thanh toán thì gửi bill ngay). */
 export async function setBillEmail(email, txId) {
@@ -328,7 +328,7 @@ export async function lock(method, acceptChanges = false, buyer = undefined) {
   setState({ session: r.session });
   return r.transaction;
 }
-/** Thời điểm khách tự mở khoá giỏ (để phân biệt với việc thu ngân huỷ đơn bên POS). */
+/** Thời điểm khách tự mở khoá giỏ (để phân biệt với việc thu ngân huỷ đơn bên DS Smart POS). */
 export let lastUnlockAt = 0;
 export async function unlock() {
   lastUnlockAt = Date.now();

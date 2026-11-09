@@ -1,7 +1,7 @@
-// Định dạng mã QR "giỏ hàng" đưa cho phần mềm POS quét. Dùng chung cho điện thoại khách và máy chủ.
+// Định dạng mã QR "giỏ hàng" đưa cho phần mềm DS Smart POS quét. Dùng chung cho điện thoại khách và máy chủ.
 //   BRG1|<mã điểm>|<mã giỏ>|<giờ unix giây>|<mã vạch>*<số lượng>,<mã vạch>*<số lượng>...|T<tạm tính>|<CRC16>
 // CRC16 (CCITT-FALSE, hex hoa 4 ký tự) tính trên toàn bộ chuỗi đứng trước dấu | cuối cùng.
-// POS chỉ cần mã vạch và số lượng để dựng đơn rồi tính giá theo hệ thống của POS. Phần T chỉ để đối chiếu.
+// DS Smart POS chỉ cần mã vạch và số lượng để dựng đơn rồi tính giá theo hệ thống của DS Smart POS. Phần T chỉ để đối chiếu.
 
 export function crc16(str) {
   let crc = 0xffff;
@@ -34,7 +34,7 @@ export function encodeBasket({ point, ref, at = Date.now(), items, total = 0 }) 
   return `${body}|${crc16(body)}`;
 }
 
-/** Trả { ok, point, ref, at, items, total } hoặc { ok:false, error }. POS dùng cùng quy tắc này. */
+/** Trả { ok, point, ref, at, items, total } hoặc { ok:false, error }. DS Smart POS dùng cùng quy tắc này. */
 export function decodeBasket(text) {
   const s = String(text || '').trim();
   const cut = s.lastIndexOf('|');

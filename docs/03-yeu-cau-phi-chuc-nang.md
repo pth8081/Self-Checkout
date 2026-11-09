@@ -23,7 +23,7 @@
 | NFR-12 | Chống gian lận QR | QR biên nhận ký số, dùng một lần, có hạn. Mã giỏ hàng chỉ có tác dụng với tài khoản nhân viên đúng chi nhánh |
 | NFR-13 | Truy cập được | Cỡ chữ, tương phản, hướng dẫn tiếng Việt rõ ràng, dùng một tay |
 | NFR-14 | Tương thích | Ma trận trình duyệt/thiết bị hỗ trợ (xem PWA-10) |
-| NFR-15 | Khả năng quan sát | Log, metric, cảnh báo cho độ trễ đồng bộ POS và tỷ lệ lỗi thanh toán |
+| NFR-15 | Khả năng quan sát | Log, metric, cảnh báo cho độ trễ đồng bộ DS Smart POS và tỷ lệ lỗi thanh toán |
 | NFR-16 | Kiểm soát xác nhận thủ công | Mọi xác nhận thu tiền ghi người, cách thu, thời điểm; không sửa/xoá sau khi ghi; đối soát tiền mặt theo ca và chuyển khoản với sao kê hằng ngày (FR-PAY-07, FR-ADM-08) |
 | NFR-17 | Tính bền của QR biên nhận | QR do máy chủ ký, dùng một lần, có hạn; xác nhận ở cổng đánh dấu đã dùng ngay (chặn chụp lại ảnh) |
 

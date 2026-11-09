@@ -8,7 +8,7 @@ access: all
 
 # Vai trò và trách nhiệm
 
-> **Luồng hiện hành là "Giỏ QR cho POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào POS, POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở trang Chi nhánh. Xem thêm bài "Kết nối POS".
+> **Luồng hiện hành là "Giỏ QR cho DS Smart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào DS Smart POS, DS Smart POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho DS Smart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối DS Smart POS".
 
 ## Ai làm được gì
 
@@ -29,7 +29,7 @@ access: all
 
 Nhân viên có vai trò **thu ngân + cổng ra** làm được cả hai cột.
 
-Ở chi nhánh **thu tiền qua POS**, công việc của thu ngân diễn ra trên **POS** (do nhà cung cấp POS phân quyền), không phải trong BRG; app nhân viên của BRG chỉ còn việc ở cổng ra và của quản lý. Ở chi nhánh **không có bảo vệ**, không có việc ở cổng ra. Chỉ **quản trị chuỗi** đổi được cách thu tiền, bật hoặc tắt bước bảo vệ, tạo và thu hồi **khoá API cho POS**. Khoá API cho phép POS xác nhận thanh toán thay thu ngân, nên **giữ bí mật như mật khẩu** và thu hồi ngay khi nghi lộ. Quản lý đăng nhập app nhân viên bằng PIN cũng làm được các việc của thu ngân, cổng ra và quản lý.
+Ở chi nhánh **thu tiền qua DS Smart POS**, công việc của thu ngân diễn ra trên **DS Smart POS** (do nhà cung cấp DS Smart POS phân quyền), không phải trong BRG; app nhân viên của BRG chỉ còn việc ở cổng ra và của quản lý. Ở chi nhánh **không có bảo vệ**, không có việc ở cổng ra. Chỉ **quản trị chuỗi** đổi được cách thu tiền, bật hoặc tắt bước bảo vệ, tạo và thu hồi **khoá API cho DS Smart POS**. Khoá API cho phép DS Smart POS xác nhận thanh toán thay thu ngân, nên **giữ bí mật như mật khẩu** và thu hồi ngay khi nghi lộ. Quản lý đăng nhập app nhân viên bằng PIN cũng làm được các việc của thu ngân, cổng ra và quản lý.
 
 ## Tách biệt nhiệm vụ
 
@@ -47,7 +47,7 @@ Các nguyên tắc kiểm soát nội bộ mà ứng dụng hỗ trợ:
 
 | Bước | Người chịu trách nhiệm | Cách kiểm soát |
 |------|------------------------|----------------|
-| Giá và tồn kho đúng | Bộ phận POS và hàng hoá | Cảnh báo POS chậm, đối chiếu lại giá lúc khoá giỏ, danh sách mã không tìm thấy |
+| Giá và tồn kho đúng | Bộ phận DS Smart POS và hàng hoá | Cảnh báo DS Smart POS chậm, đối chiếu lại giá lúc khoá giỏ, danh sách mã không tìm thấy |
 | Giỏ hàng khớp hàng thật | Nhân viên cổng ra (và thu ngân khi đối chiếu sớm) | Kiểm tra ngẫu nhiên, nhật ký chênh lệch |
 | Tiền mặt thu đủ | Thu ngân | Số khách đưa, tiền thừa, đối soát cuối ca |
 | Tiền chuyển khoản đã vào | Thu ngân xác nhận, quản lý đối soát | 3 ô tick, đối soát sao kê hằng ngày |

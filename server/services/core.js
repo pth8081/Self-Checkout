@@ -19,7 +19,7 @@ export function getStoreConfig(db, storeId) {
   const store = db.prepare('SELECT * FROM stores WHERE id = ?').get(storeId);
   if (!store) throw notFound('STORE_NOT_FOUND', 'Không tìm thấy chi nhánh');
   const raw = db.prepare('SELECT * FROM store_config WHERE store_id = ?').get(storeId);
-  // Chế độ "giỏ QR cho POS": POS thu tiền, không có bước bảo vệ. Các luồng cũ (thu tại quầy, cổng ra) bị khoá, không xoá.
+  // Chế độ "giỏ QR cho DS Smart POS": DS Smart POS thu tiền, không có bước bảo vệ. Các luồng cũ (thu tại quầy, cổng ra) bị khoá, không xoá.
   const cfg = raw.checkout_mode === 'basket' ? { ...raw, payment_source: 'pos', guard_check: 0 } : raw;
   return { store, cfg };
 }
@@ -27,7 +27,7 @@ export function getStoreConfig(db, storeId) {
 export function storeView(db, storeId) {
   const { store, cfg } = getStoreConfig(db, storeId);
   const bankOk = !!(cfg.bank_bin && cfg.bank_account);
-  const pos = cfg.payment_source === 'pos'; // thu tiền tại POS: khách chỉ có một lựa chọn "thanh toán tại quầy"
+  const pos = cfg.payment_source === 'pos'; // thu tiền tại DS Smart POS: khách chỉ có một lựa chọn "thanh toán tại quầy"
   return {
     id: store.id, name: store.name, address: store.address, enabled: !!store.enabled,
     paymentSource: cfg.payment_source, guardCheck: !!cfg.guard_check,
@@ -97,12 +97,12 @@ export function cleanBuyer(b) {
   return Object.keys(out).length ? JSON.stringify(out) : null;
 }
 
-/** Dọn giỏ bỏ quên (khách tắt trình duyệt rồi đi): giỏ đang quét hoặc đã khoá nhưng POS chưa nhận, quá `hours` giờ không hoạt động. */
+/** Dọn giỏ bỏ quên (khách tắt trình duyệt rồi đi): giỏ đang quét hoặc đã khoá nhưng DS Smart POS chưa nhận, quá `hours` giờ không hoạt động. */
 export function sweepStaleCarts(ctx, hours = 12) {
   const cutoff = new Date(Date.now() - hours * 3600_000).toISOString();
   const rows = ctx.db.prepare(`SELECT * FROM scan_sessions WHERE status IN ('active','locked') AND last_activity < ?`).all(cutoff);
   let n = 0;
-  for (const s of rows) { try { abandonSession(ctx, s); n++; } catch { /* POS đang xử lý: để nguyên */ } }
+  for (const s of rows) { try { abandonSession(ctx, s); n++; } catch { /* DS Smart POS đang xử lý: để nguyên */ } }
   return n;
 }
 
@@ -212,7 +212,7 @@ export function txView(ctx, tx, { staff = false } = {}) {
     posClaimedAt: tx.pos_claimed_at, posCashier: tx.pos_cashier, posTerminal: tx.pos_terminal,
     buyer: tx.buyer_json ? JSON.parse(tx.buyer_json) : null,
     invoicePortalUrl: tx.status === 'paid' ? portalUrl(db, tx) : null,
-    // Đơn POS thực mua (sau khi thanh toán) và đơn POS đang tính (trước khi thanh toán) so với giỏ khách quét
+    // Đơn DS Smart POS thực mua (sau khi thanh toán) và đơn DS Smart POS đang tính (trước khi thanh toán) so với giỏ khách quét
     cartDiff: tx.status === 'paid' ? cartDiffOf(tx) : null,
     posItemCount: tx.status === 'paid' && tx.pos_bill_json ? JSON.parse(tx.pos_bill_json).reduce((a, l) => a + l.qty, 0) : null,
     posDraft: tx.status === 'awaiting_counter' && tx.pos_draft_json ? (() => { const d = JSON.parse(tx.pos_draft_json); return { total: d.amount, itemCount: d.lines.reduce((a, l) => a + l.qty, 0), at: d.at, diff: diffLines(JSON.parse(tx.items_json), d.lines) }; })() : null,
@@ -269,7 +269,7 @@ export function lockSession(ctx, session, { method, acceptChanges = false, buyer
   const { db } = ctx;
   const { store, cfg } = getStoreConfig(db, session.store_id);
   if (!store.enabled) throw conflict('STORE_DISABLED', 'Chi nhánh này chưa bật Scan & Checkout');
-  if (cfg.checkout_mode === 'basket') throw conflict('BASKET_MODE', 'Chi nhánh dùng giỏ QR cho POS, không dùng luồng thanh toán này');
+  if (cfg.checkout_mode === 'basket') throw conflict('BASKET_MODE', 'Chi nhánh dùng giỏ QR cho DS Smart POS, không dùng luồng thanh toán này');
   const posMode = cfg.payment_source === 'pos';
   if (posMode) {
     if (method && method !== 'pos') throw bad('METHOD_UNAVAILABLE', 'Chi nhánh thu tiền tại quầy qua máy tính tiền');
@@ -362,7 +362,7 @@ export function lockBasket(ctx, session, { ref, email } = {}) {
       const c = cur.get(it.sku);
       if (c && c.active) db.prepare('UPDATE cart_items SET unit_price=?, promo_min_qty=?, promo_off=?, name=? WHERE id=?').run(c.price, c.promo_min_qty, c.promo_off, c.name, it.id);
     }
-    const fresh = itemsOf(db, session.id); // mặt hàng ngừng bán vẫn nằm trong giỏ để POS quyết định
+    const fresh = itemsOf(db, session.id); // mặt hàng ngừng bán vẫn nằm trong giỏ để DS Smart POS quyết định
     const t = totals(fresh);
     const seq = nextCounter(db, session.store_id, 'tx');
     const id = `SG-${session.store_id}-${String(seq).padStart(4, '0')}`;
@@ -379,7 +379,7 @@ export function lockBasket(ctx, session, { ref, email } = {}) {
   })();
 }
 
-/** Khách bấm "Đã thanh toán xong": kết thúc giỏ, giao dịch chuyển sang `handed_off` (đã chuyển POS) nếu POS chưa báo. */
+/** Khách bấm "Đã thanh toán xong": kết thúc giỏ, giao dịch chuyển sang `handed_off` (đã chuyển DS Smart POS) nếu DS Smart POS chưa báo. */
 export function finishBasket(ctx, session) {
   const { db } = ctx;
   const tx = db.prepare(`SELECT * FROM transactions WHERE session_id = ? ORDER BY created_at DESC LIMIT 1`).get(session.id);
@@ -475,7 +475,7 @@ export async function collectPayment(ctx, user, txId, body) {
   const { db, invoicer } = ctx;
   if (!canCash(user)) throw forbidden('NOT_CASHIER', 'Tài khoản này không được thu tiền');
   const tx = ownTx(ctx, user, txId);
-  if (getStoreConfig(db, tx.store_id).cfg.payment_source === 'pos') throw conflict('POS_MODE', 'Chi nhánh thu tiền qua máy tính tiền (POS). Thu tiền trên POS, hệ thống tự xác nhận khi POS báo thanh toán');
+  if (getStoreConfig(db, tx.store_id).cfg.payment_source === 'pos') throw conflict('POS_MODE', 'Chi nhánh thu tiền qua máy tính tiền (DS Smart POS). Thu tiền trên DS Smart POS, hệ thống tự xác nhận khi DS Smart POS báo thanh toán');
   const shift = activeShift(db, user.id);
   if (!shift) throw conflict('NO_SHIFT', 'Hãy bắt đầu ca trước khi thu tiền');
   if (tx.exit_status === 'held') throw conflict('HELD', 'Giao dịch đang chờ quản lý xử lý');

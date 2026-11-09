@@ -1,4 +1,4 @@
-// Chế độ giỏ QR: khách bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng từng mặt hàng để thu ngân quét vào POS.
+// Chế độ giỏ QR: khách bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng từng mặt hàng để thu ngân quét vào DS Smart POS.
 // Mã QR được tạo và lưu ngay trên máy nên vẫn hiện khi mất mạng, tắt điện thoại hoặc tắt trình duyệt.
 import { html, useState, useEffect, Header, Icon, QR, Banner, Pill, Spinner, ErrorBox, Loading, go, fmt, toast, useAsync } from '/shared/lib.js';
 import { setBasket, editBasket, finishBasket, syncBasket, refreshSession, loadBill, cachedBill, downloadBillPdf, setBillEmail, loadPublicBill, downloadPublicBillPdf, local, EMAIL_RE } from './store.js';
@@ -15,7 +15,7 @@ function DiffNotice({ diff, title, footer }) {
     ${footer && html`<div class="small" style="margin-top:6px">${footer}</div>`}<//>`;
 }
 
-/** Ô nhập email nhận bill. Trước khi thanh toán: lưu để gửi khi POS báo xong. Sau thanh toán: gửi ngay. */
+/** Ô nhập email nhận bill. Trước khi thanh toán: lưu để gửi khi DS Smart POS báo xong. Sau thanh toán: gửi ngay. */
 function EmailBox({ txId, paid, status, masked, initial }) {
   const [v, setV] = useState(initial || '');
   const [busy, setBusy] = useState(false);
@@ -39,12 +39,12 @@ export function Basket({ s, store }) {
   const b = s.basket;
   const tx = s.session?.transaction;
   const [busy, setBusy] = useState('');
-  // Tự hỏi máy chủ vài giây một lần (nếu POS báo đã thanh toán thì hiện), và gửi lại khi có mạng.
+  // Tự hỏi máy chủ vài giây một lần (nếu DS Smart POS báo đã thanh toán thì hiện), và gửi lại khi có mạng.
   useEffect(() => {
     const t = setInterval(() => { if (navigator.onLine && s.session) { syncBasket().then(() => refreshSession()).catch(() => {}); } }, 6000);
     return () => clearInterval(t);
   }, [!!s.session]);
-  // Thu ngân huỷ đơn trên POS trước khi thu tiền: máy chủ trả giỏ về trạng thái đang quét. Báo khách và cho sửa giỏ.
+  // Thu ngân huỷ đơn trên DS Smart POS trước khi thu tiền: máy chủ trả giỏ về trạng thái đang quét. Báo khách và cho sửa giỏ.
   useEffect(() => {
     if (b?.synced && s.session?.status === 'active' && !tx) { toast('Thu ngân đã huỷ đơn. Bạn có thể sửa giỏ rồi thanh toán lại'); setBasket(null); go('/cart', true); }
   }, [b?.synced, s.session?.status, !!tx]);
@@ -85,7 +85,7 @@ export function Basket({ s, store }) {
     </div></div></div>`;
 }
 
-/** Màn hình bill: bill thật từ POS (nếu POS đã gửi) hoặc tạm tính của BRG, kèm tải PDF. */
+/** Màn hình bill: bill thật từ DS Smart POS (nếu DS Smart POS đã gửi) hoặc tạm tính của BRG, kèm tải PDF. */
 export function Bill({ id, token }) {
   const { data, error, loading, reload } = useAsync(() => (token ? loadPublicBill(token) : loadBill(id)), [id, token]);
   const [busy, setBusy] = useState(false);

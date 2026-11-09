@@ -10,7 +10,7 @@ Khách tự quét mã vạch bằng điện thoại (PWA, không cần cài app)
 | Web quản trị | `/a/` | Quản trị chuỗi và chi nhánh: báo cáo, cờ tính năng, tích hợp, tài khoản, ca, đối soát, truy vết, và **Hướng dẫn nghiệp vụ** (quy trình có sơ đồ, chỉ quản trị viên xem; nguồn ở `server/guides/`, xem [docs/12](docs/12-huong-dan-nghiep-vu.md)) |
 
 **Giai đoạn 1:** thanh toán tiền mặt hoặc chuyển khoản QR tại quầy, nhân viên xác nhận. Thanh toán online (ví, VNPay, thẻ) giữ chỗ trong giao diện (hiện mờ "Sắp có"), bật bằng cấu hình khi đã tích hợp.
-POS/ERP và hoá đơn điện tử hiện chạy **bản giả lập**; cách gắn hệ thống thật xem [docs/11-ung-dung.md](docs/11-ung-dung.md).
+DS Smart POS/ERP và hoá đơn điện tử hiện chạy **bản giả lập**; cách gắn hệ thống thật xem [docs/11-ung-dung.md](docs/11-ung-dung.md).
 
 Tài liệu yêu cầu, kiến trúc, quyết định: [docs/](docs/README.md). Bản vẽ giao diện: [docs/thiet-ke/man-hinh.html](docs/thiet-ke/man-hinh.html).
 
@@ -71,6 +71,6 @@ Tóm tắt:
 2. Chạy sau Nginx có **HTTPS** (camera chỉ chạy trên HTTPS). Mẫu cấu hình ở `deploy/`, `ecosystem.config.cjs` cho PM2, `.env.example` cho biến môi trường.
 3. CSDL là một file SQLite: sao lưu bằng `npm run backup` (chạy được khi máy chủ đang hoạt động), đặt lịch bằng `deploy/backup.cron.example`.
 4. Cập nhật: `bash deploy/update.sh`. Giám sát: `GET /api/health`.
-5. Trước khi mở cho khách: gắn POS thật, gắn nhà cung cấp hoá đơn điện tử, kiểm chứng QR chuyển khoản với ngân hàng, thử quét mã trên điện thoại thật. Xem [docs/09](docs/09-phan-tich-khoang-trong.md) và [docs/11](docs/11-ung-dung.md).
+5. Trước khi mở cho khách: gắn DS Smart POS thật, gắn nhà cung cấp hoá đơn điện tử, kiểm chứng QR chuyển khoản với ngân hàng, thử quét mã trên điện thoại thật. Xem [docs/09](docs/09-phan-tich-khoang-trong.md) và [docs/11](docs/11-ung-dung.md).
 
 Nguồn gốc: *Tài liệu Yêu cầu & Kiến trúc Hệ thống* (bản .docx, 04/11/2026).

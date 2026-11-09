@@ -1,17 +1,17 @@
-// Đóng vai POS gọi API của BRG Scan & Checkout, để thử và để nhà cung cấp POS đối chiếu cách gọi.
+// Đóng vai DS Smart POS gọi API của BRG Scan & Checkout, để thử và để nhà cung cấp DS Smart POS đối chiếu cách gọi.
 //   node scripts/pos-simulator.js --base http://localhost:3000 --key brgpos_xxx <lệnh> [đối số]
 // Lệnh:
 //   health
 //   preview <mã giỏ>                      xem giỏ, không nhận
-//   claim <mã giỏ> --ref <mã đơn POS> [--cashier thu01] [--terminal Q1]
-//   status <mã đơn POS>
-//   paid <mã đơn POS> --amount 112800 --method cash|qr_transfer|card|ewallet|other [--invoice HD0001] [--cashier thu01]
-//   cancelled <mã đơn POS> [--reason "Khách đổi ý"]
-// Giỏ QR (cách dùng hiện nay): POS báo theo mã giỏ có trong mã QR của khách.
+//   claim <mã giỏ> --ref <mã đơn DS Smart POS> [--cashier thu01] [--terminal Q1]
+//   status <mã đơn DS Smart POS>
+//   paid <mã đơn DS Smart POS> --amount 112800 --method cash|qr_transfer|card|ewallet|other [--invoice HD0001] [--cashier thu01]
+//   cancelled <mã đơn DS Smart POS> [--reason "Khách đổi ý"]
+// Giỏ QR (cách dùng hiện nay): DS Smart POS báo theo mã giỏ có trong mã QR của khách.
 //   basket-status <mã giỏ>
-//   basket-paid <mã giỏ> --point <mã điểm> --ref <mã đơn POS> --amount 112800 --method cash|qr_transfer|card|ewallet
+//   basket-paid <mã giỏ> --point <mã điểm> --ref <mã đơn DS Smart POS> --amount 112800 --method cash|qr_transfer|card|ewallet
 //                         [--cashier thu01] [--terminal Q1]
-//   basket-cancelled <mã giỏ> --point <mã điểm> --ref <mã đơn POS> [--reason "Khách đổi ý"]
+//   basket-cancelled <mã giỏ> --point <mã điểm> --ref <mã đơn DS Smart POS> [--reason "Khách đổi ý"]
 // Biến môi trường thay cho tham số: BASE, KEY.
 const argv = process.argv.slice(2);
 const opt = (k, d) => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 1] : d; };

@@ -31,7 +31,7 @@ export const fmt = {
     return `${Math.round(s / 3600)} giờ trước`;
   },
   digits: (s) => String(s ?? '').replace(/\D/g, ''),
-  method: (m) => ({ cash: 'Tiền mặt', qr_transfer: 'Chuyển khoản', card: 'Thẻ', ewallet: 'Ví điện tử', other: 'Khác', pos: 'Tại quầy (POS)', basket: 'Giỏ QR (tại quầy)', online: 'Thanh toán online' }[m] || m),
+  method: (m) => ({ cash: 'Tiền mặt', qr_transfer: 'Chuyển khoản', card: 'Thẻ', ewallet: 'Ví điện tử', other: 'Khác', pos: 'Tại quầy (DS Smart POS)', basket: 'Giỏ QR (tại quầy)', online: 'Thanh toán online' }[m] || m),
   tone: (i) => (i * 47) % 360
 };
 export const todayStr = () => { const d = new Date(Date.now() + 7 * 3600_000); return d.toISOString().slice(0, 10); };

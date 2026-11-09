@@ -1,4 +1,4 @@
-// Bill (hoá đơn bán hàng) cho khách xem và tải PDF. Bill thật lấy từ POS; chưa có thì dùng tạm tính của BRG và ghi rõ.
+// Bill (hoá đơn bán hàng) cho khách xem và tải PDF. Bill thật lấy từ DS Smart POS; chưa có thì dùng tạm tính của BRG và ghi rõ.
 import fs from 'node:fs';
 import PDFDocument from 'pdfkit';
 import { getSetting } from '../db.js';
@@ -10,7 +10,7 @@ const METHOD = { cash: 'Tiền mặt', qr_transfer: 'Chuyển khoản', card: 'T
 
 /** Link khai báo hoá đơn điện tử của nhà cung cấp, do quản trị cấu hình. Thay các ký hiệu {code} {posOrderRef} {amount} {storeCode} {posCode}. Lúc thanh toán chưa có hoá đơn điện tử: khách tự khai báo ở link này, nên không có số hoá đơn. */
 export const PORTAL_KEY = 'invoice_portal';
-export const PORTAL_PLACEHOLDERS = { '{code}': 'mã giỏ hàng', '{posOrderRef}': 'mã đơn (mã bill) trên POS', '{amount}': 'tổng tiền thanh toán', '{storeCode}': 'mã chi nhánh', '{posCode}': 'mã điểm' };
+export const PORTAL_PLACEHOLDERS = { '{code}': 'mã giỏ hàng', '{posOrderRef}': 'mã đơn (mã bill) trên DS Smart POS', '{amount}': 'tổng tiền thanh toán', '{storeCode}': 'mã chi nhánh', '{posCode}': 'mã điểm' };
 export function portalUrl(db, tx) {
   const url = getSetting(db, PORTAL_KEY, {}).url;
   if (!url) return null;
@@ -19,7 +19,7 @@ export function portalUrl(db, tx) {
   return Object.entries(vals).reduce((u, [k, v]) => u.split(k).join(encodeURIComponent(v)), url);
 }
 
-/** So giỏ khách quét với các dòng POS: mặt hàng bớt đi, thêm vào hoặc đổi số lượng. */
+/** So giỏ khách quét với các dòng DS Smart POS: mặt hàng bớt đi, thêm vào hoặc đổi số lượng. */
 export function diffLines(cartItems, posLines) {
   const cart = new Map(); for (const i of cartItems) cart.set(String(i.barcode), { name: i.name, qty: i.qty });
   const pos = new Map();
@@ -31,7 +31,7 @@ export function diffLines(cartItems, posLines) {
 }
 /**
  * Số lượng và giá trị hàng thu ngân THÊM ở quầy so với giỏ khách quét (khách lấy mà chưa quét), và số lượng khách BỚT.
- * Giá trị hàng thêm tính theo đơn giá bình quân của dòng trong đơn POS.
+ * Giá trị hàng thêm tính theo đơn giá bình quân của dòng trong đơn DS Smart POS.
  */
 export function extraOf(cartItems, posLines) {
   const cart = new Map(); for (const i of cartItems) cart.set(String(i.barcode), (cart.get(String(i.barcode)) || 0) + i.qty);
@@ -45,7 +45,7 @@ export function extraOf(cartItems, posLines) {
   for (const [k, q] of cart) { const p = pos.get(k)?.qty || 0; if (q > p) lessQty += q - p; }
   return { extraQty, extraValue, lessQty };
 }
-/** Khác biệt giữa giỏ khách quét và đơn POS đã thanh toán (null nếu POS không gửi dòng hàng). */
+/** Khác biệt giữa giỏ khách quét và đơn DS Smart POS đã thanh toán (null nếu DS Smart POS không gửi dòng hàng). */
 export const cartDiffOf = (tx) => (tx.pos_bill_json ? diffLines(JSON.parse(tx.items_json), JSON.parse(tx.pos_bill_json)) : null);
 
 export function billOf(ctx, tx) {
@@ -54,7 +54,7 @@ export function billOf(ctx, tx) {
   const posLines = tx.pos_bill_json ? JSON.parse(tx.pos_bill_json) : null;
   const items = posLines || JSON.parse(tx.items_json).map((i) => ({ barcode: i.barcode, name: i.name, qty: i.qty, unitPrice: i.price, discount: i.discount || 0, lineTotal: i.price * i.qty - (i.discount || 0) }));
   const total = tx.pos_amount ?? tx.total;
-  // POS có thể giảm ở cấp hoá đơn (voucher, làm tròn...) nên tổng tiền khác tổng các dòng: hiện phần chênh để bill cộng đúng.
+  // DS Smart POS có thể giảm ở cấp hoá đơn (voucher, làm tròn...) nên tổng tiền khác tổng các dòng: hiện phần chênh để bill cộng đúng.
   const refunds = db.prepare('SELECT * FROM refunds WHERE transaction_id = ? ORDER BY id').all(tx.id).map((r) => ({ amount: r.amount, reason: r.reason, at: r.created_at, lines: r.lines_json ? JSON.parse(r.lines_json) : [] }));
   const refundTotal = refunds.reduce((a, r) => a + r.amount, 0);
   const adjustment = posLines ? total - items.reduce((a, l) => a + l.lineTotal, 0) : 0;
@@ -63,7 +63,7 @@ export function billOf(ctx, tx) {
     paidAt: tx.paid_at, method: tx.method, methodLabel: METHOD[tx.method] || tx.method, cashier: tx.pos_cashier || null,
     refunds, refundTotal, netTotal: total - refundTotal, lines: items, discount: items.reduce((a, l) => a + (l.discount || 0), 0), adjustment, total,
     posOrderRef: tx.pos_order_ref || null, invoicePortalUrl: portalUrl(db, tx),
-    provisional: !posLines // true: chưa có bill thật từ POS, đây là tạm tính của BRG
+    provisional: !posLines // true: chưa có bill thật từ DS Smart POS, đây là tạm tính của BRG
   };
 }
 
@@ -89,7 +89,7 @@ export function billPdf(b) {
   doc.moveDown(0.6); rule();
   doc.fontSize(8.5).font('r');
   doc.text(`Mã giỏ: ${b.code}`); doc.text(`Thời gian: ${when(b.paidAt)}`); doc.text(`Hình thức: ${b.methodLabel}${b.cashier ? ` · Thu ngân ${b.cashier}` : ''}`);
-  if (b.posOrderRef) doc.text(`Mã bill POS: ${b.posOrderRef}`);
+  if (b.posOrderRef) doc.text(`Mã bill DS Smart POS: ${b.posOrderRef}`);
   doc.moveDown(0.4); rule();
   for (const l of b.lines) {
     doc.fontSize(9).font('r').text(l.name, M, doc.y, { width: inner });

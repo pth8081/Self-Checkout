@@ -8,7 +8,7 @@ access: all
 
 # Cổng ra và kiểm tra ngẫu nhiên
 
-> **Luồng hiện hành là "Giỏ QR cho POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào POS, POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho POS" ở trang Chi nhánh. Xem thêm bài "Kết nối POS".
+> **Luồng hiện hành là "Giỏ QR cho DS Smart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào DS Smart POS, DS Smart POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho DS Smart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối DS Smart POS".
 
 Nhân viên cổng ra dùng **app nhân viên** (điện thoại hoặc máy cầm tay). Mục đích: chỉ cho qua người **đã thanh toán**, mỗi QR **một lần**, và kiểm tra hàng thật với một tỷ lệ khách do hệ thống chọn.
 

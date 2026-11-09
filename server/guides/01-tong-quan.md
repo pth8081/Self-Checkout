@@ -8,17 +8,17 @@ access: all
 
 # Tổng quan nghiệp vụ
 
-> **Cách vận hành hiện nay (Giỏ QR cho POS):**
+> **Cách vận hành hiện nay (Giỏ QR cho DS Smart POS):**
 > 1. Khách mở link QR ở cổng vào, quét mã vạch từng mặt hàng bằng điện thoại và thấy **tạm tính** theo giá của đúng chi nhánh.
 > 2. Khách bấm **Thanh toán**: điện thoại hiện **mã QR** chứa mã vạch và số lượng từng mặt hàng. Mã được lưu trên điện thoại nên không mất khi mất mạng, tắt máy hoặc tắt trình duyệt.
-> 3. Thu ngân **quét mã QR vào phần mềm POS**. POS tạo đơn, tính giá và khuyến mãi, thu tiền, xuất hoá đơn. Thu ngân không quét từng mặt hàng, khách không đứng chờ.
-> 4. POS **tự báo thanh toán về BRG** (thử lại khi mạng lỗi). Màn hình khách chuyển sang "Đã hoàn thành thanh toán", khách xem bill và tải PDF.
+> 3. Thu ngân **quét mã QR vào phần mềm DS Smart POS**. DS Smart POS tạo đơn, tính giá và khuyến mãi, thu tiền, xuất hoá đơn. Thu ngân không quét từng mặt hàng, khách không đứng chờ.
+> 4. DS Smart POS **tự báo thanh toán về BRG** (thử lại khi mạng lỗi). Màn hình khách chuyển sang "Đã hoàn thành thanh toán", khách xem bill và tải PDF.
 >
 > Không có thanh toán trên web, không có bước bảo vệ cổng ra, BRG không quản lý tồn kho. Phần còn lại của bài này mô tả luồng cũ, đang khoá, để dùng lại sau.
 
 BRG Scan & Checkout cho khách **tự quét mã vạch từng mặt hàng bằng điện thoại**, xem giỏ hàng và tổng tiền ngay, rồi **thanh toán tại quầy Scan & Checkout** và ra cổng bằng **mã QR biên nhận**. Nhân viên không phải quét từng mặt hàng, chỉ đối chiếu giỏ, thu tiền và kiểm tra.
 
-> **Lưu ý:** Giai đoạn 1 chưa có thanh toán online trong BRG. Mỗi chi nhánh chọn **một trong hai cách thu tiền** (xem bên dưới). Ví điện tử, VNPay, thẻ sẽ bật sau bằng cấu hình, hoặc dùng sẵn trên POS ở chế độ thu tiền qua POS.
+> **Lưu ý:** Giai đoạn 1 chưa có thanh toán online trong BRG. Mỗi chi nhánh chọn **một trong hai cách thu tiền** (xem bên dưới). Ví điện tử, VNPay, thẻ sẽ bật sau bằng cấu hình, hoặc dùng sẵn trên DS Smart POS ở chế độ thu tiền qua DS Smart POS.
 
 ## Hai cách thu tiền và tuỳ chọn bảo vệ
 
@@ -27,11 +27,11 @@ Quản trị chuỗi chọn cho **từng chi nhánh**:
 | Cài đặt | Lựa chọn | Hệ quả |
 |---------|----------|--------|
 | **Thu tiền** | **Tự thu trong BRG** (mặc định) | Khách trả **tiền mặt** hoặc **chuyển khoản QR** tại quầy, **thu ngân xác nhận** trong app nhân viên |
-| | **Qua POS** | Thu ngân quét mã giỏ **trong phần mềm POS**. POS lấy mặt hàng từ BRG qua API, thu tiền (QR, tiền mặt, thẻ), phát hành hoá đơn điện tử và **báo thanh toán về BRG; BRG tự xác nhận**, thu ngân không thao tác thêm trong BRG |
+| | **Qua DS Smart POS** | Thu ngân quét mã giỏ **trong phần mềm DS Smart POS**. DS Smart POS lấy mặt hàng từ BRG qua API, thu tiền (QR, tiền mặt, thẻ), phát hành hoá đơn điện tử và **báo thanh toán về BRG; BRG tự xác nhận**, thu ngân không thao tác thêm trong BRG |
 | **Bảo vệ cổng ra** | **Bật** (mặc định) | Khách nhận QR ra cổng, bảo vệ quét, có kiểm tra ngẫu nhiên |
 | | **Tắt** (chi nhánh không có bảo vệ) | Thanh toán xong khách **ra luôn**, **không có QR ra cổng**, không có kiểm tra ngẫu nhiên |
 
-Hai cài đặt độc lập, nên có bốn tổ hợp. Các hướng dẫn nghiệp vụ mô tả luồng **mặc định** (tự thu, có bảo vệ) và có mục riêng cho **chế độ POS** và **chi nhánh không có bảo vệ**.
+Hai cài đặt độc lập, nên có bốn tổ hợp. Các hướng dẫn nghiệp vụ mô tả luồng **mặc định** (tự thu, có bảo vệ) và có mục riêng cho **chế độ DS Smart POS** và **chi nhánh không có bảo vệ**.
 
 ## Các bên tham gia
 
@@ -42,7 +42,7 @@ Hai cài đặt độc lập, nên có bốn tổ hợp. Các hướng dẫn ngh
 | Nhân viên cổng ra | App nhân viên `/s/` | Quét QR biên nhận, thực hiện kiểm tra ngẫu nhiên, ghi chênh lệch |
 | Quản lý chi nhánh | Web quản trị `/a/` và app nhân viên | Xem giao dịch trong ngày, xếp ca, đặt tỷ lệ kiểm tra, xử lý ca bị giữ, đối soát, huỷ giao dịch khi cần |
 | Quản trị chuỗi | Web quản trị `/a/` | Bật hoặc tắt chi nhánh và cách thanh toán, cấu hình ngân hàng, tích hợp, tài khoản, báo cáo toàn chuỗi |
-| Hệ thống | Máy chủ | Tra giá và tồn kho từ POS, tính tổng, sinh mã, ký QR, ghi nhật ký |
+| Hệ thống | Máy chủ | Tra giá và tồn kho từ DS Smart POS, tính tổng, sinh mã, ký QR, ghi nhật ký |
 
 Một nhân viên có thể vừa là thu ngân vừa làm cổng ra (vai trò "thu ngân + cổng ra"), thường ở chi nhánh ít người.
 
@@ -73,15 +73,15 @@ Cùng một giao dịch đi qua ba bước kiểm soát độc lập: **hệ th�
 
 ## Nguyên tắc nghiệp vụ
 
-1. **POS là nguồn giá và tồn kho.** BRG Scan & Checkout không tự nhập giá. Giá khách thấy lúc quét có thể bị đối chiếu lại khi khoá giỏ, và khách phải đồng ý nếu giá đổi.
+1. **DS Smart POS là nguồn giá và tồn kho.** BRG Scan & Checkout không tự nhập giá. Giá khách thấy lúc quét có thể bị đối chiếu lại khi khoá giỏ, và khách phải đồng ý nếu giá đổi.
 2. **Giá chốt khi khoá giỏ.** Sau khi khoá, không sửa được giỏ, trừ khi khách (hoặc thu ngân) mở khoá và quay lại bước quét.
-3. **Khách không tự xác nhận đã thanh toán.** Ở chế độ tự thu, chỉ thu ngân xác nhận (ghi rõ người thu, cách thu, giờ). Ở chế độ POS, POS báo thanh toán thành công và BRG tự xác nhận (ghi rõ nguồn POS, cách trả, số tiền, số hoá đơn).
+3. **Khách không tự xác nhận đã thanh toán.** Ở chế độ tự thu, chỉ thu ngân xác nhận (ghi rõ người thu, cách thu, giờ). Ở chế độ DS Smart POS, DS Smart POS báo thanh toán thành công và BRG tự xác nhận (ghi rõ nguồn DS Smart POS, cách trả, số tiền, số hoá đơn).
 4. **QR biên nhận dùng một lần.** Quét hợp lệ ở cổng là bị đánh dấu đã dùng ngay. Chụp lại ảnh QR để vào lần hai sẽ bị chặn.
 5. **Không sửa, không xoá.** Thanh toán và nhật ký chỉ được thêm. Sai sót được xử lý bằng thao tác huỷ có lý do và người duyệt, vẫn để lại dấu vết.
 6. **Kiểm tra ngẫu nhiên do hệ thống chọn**, không phải nhân viên. Không có nút bỏ qua.
 7. **Mỗi chi nhánh bật tắt độc lập.** Tắt một chi nhánh khi có sự cố không ảnh hưởng chi nhánh khác.
 
-## Luồng khi thu tiền qua POS
+## Luồng khi thu tiền qua DS Smart POS
 
 ```seq
 title: Chế độ thu tiền qua POS

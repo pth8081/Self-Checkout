@@ -23,24 +23,24 @@ Danh sách này gom các chỗ **quy trình chưa có quy định chính thức*
 | 7 | **Ngưỡng lệch tiền mặt** | Lệch bất kỳ phải ghi lý do; không có ngưỡng duyệt | Đặt ngưỡng (ví dụ lệch trên một mức cần quản lý duyệt), quy định xử lý khi lệch lặp lại | Trung bình |
 | 8 | **Tỷ lệ kiểm tra ngẫu nhiên** | Mẫu 10%, khách lần đầu 20%, giỏ từ 500.000₫ là 25% (quản lý đổi được) | Chốt giá trị bắt đầu, và ngưỡng dữ liệu để giảm dần (ví dụ tỷ lệ chênh lệch dưới mức X trong Y tuần) | Trung bình |
 | 9 | **Hàng bán theo cân, hàng tươi** | Chưa hỗ trợ, khách mua ở quầy thường | Chốt loại trừ ở giai đoạn 1 hay hỗ trợ mã cân động | Trung bình |
-| 10 | **Ghi nhận giao dịch vào POS và kế toán** | Chế độ POS: đơn nằm ở POS nên tồn kho, doanh thu, kế toán có sẵn. Chế độ tự thu: báo cáo chỉ lấy từ dữ liệu của BRG | Với chi nhánh tự thu, chốt cơ chế (xuất file hoặc API) để gộp vào POS và kế toán | Trung bình |
-| 11 | **Hoá đơn điện tử: bên nào xuất** | Giỏ QR cho POS: không có hoá đơn lúc thanh toán; khách tự khai báo qua link nhà cung cấp, BRG không xuất và không lưu số hoá đơn. Chế độ tự thu: bản giả lập của BRG | Chi nhánh nào tự thu thì chốt nhà cung cấp hoá đơn thật; chỉ để một bên xuất | Cao |
+| 10 | **Ghi nhận giao dịch vào DS Smart POS và kế toán** | Chế độ DS Smart POS: đơn nằm ở DS Smart POS nên tồn kho, doanh thu, kế toán có sẵn. Chế độ tự thu: báo cáo chỉ lấy từ dữ liệu của BRG | Với chi nhánh tự thu, chốt cơ chế (xuất file hoặc API) để gộp vào DS Smart POS và kế toán | Trung bình |
+| 11 | **Hoá đơn điện tử: bên nào xuất** | Giỏ QR cho DS Smart POS: không có hoá đơn lúc thanh toán; khách tự khai báo qua link nhà cung cấp, BRG không xuất và không lưu số hoá đơn. Chế độ tự thu: bản giả lập của BRG | Chi nhánh nào tự thu thì chốt nhà cung cấp hoá đơn thật; chỉ để một bên xuất | Cao |
 | 12 | **Thời gian lưu nhật ký và dữ liệu cá nhân** | Lưu không giới hạn | Chốt thời gian lưu theo quy định nội bộ và pháp lý (nhật ký, email khách) | Trung bình |
 | 13 | **Nhân sự tối thiểu mỗi ca** | Chỉ cảnh báo thiếu thu ngân hoặc cổng ra trên lịch ca | Chốt số người tối thiểu, quy định khi thiếu người (tạm tắt Scan & Checkout) | Trung bình |
 | 14 | **Sự cố mạng tại quầy hoặc cổng ra** | App nhân viên cần mạng, không có chế độ ngoại tuyến | Chốt phương án dự phòng (quầy thường, mạng dự phòng), có thể cần chế độ ngoại tuyến cho cổng ra | Trung bình |
 | 15 | **Hàng giá trị cao, nghi vấn** | Chỉ tăng xác suất kiểm tra theo ngưỡng giá trị | Cân nhắc buộc kiểm tra mọi giỏ vượt một mức giá trị | Thấp |
 
-## Bổ sung khi tích hợp POS và chi nhánh không có bảo vệ
+## Bổ sung khi tích hợp DS Smart POS và chi nhánh không có bảo vệ
 
 | # | Chủ đề | Hiện tại | Đề xuất | Mức |
 |---|--------|----------|---------|-----|
-| 16 | **POS báo thanh toán là tự xác nhận** (không còn người xác nhận trong BRG) | BRG tin báo của POS có khoá API hợp lệ | Chốt kiểm soát khoá API (ai giữ, đổi định kỳ), đối soát BRG với POS **mỗi ngày**, cảnh báo đơn lệch | Cao |
-| 17 | **Đơn POS bị bỏ quên** (POS nhận giỏ rồi không thanh toán, không huỷ) | Giỏ giữ nguyên, khách không sửa được; quản lý phải **Nhả giỏ** thủ công | Tự nhả giỏ sau một thời gian (ví dụ 15 đến 30 phút) và quy định POS gọi huỷ khi huỷ đơn treo | Cao |
+| 16 | **DS Smart POS báo thanh toán là tự xác nhận** (không còn người xác nhận trong BRG) | BRG tin báo của DS Smart POS có khoá API hợp lệ | Chốt kiểm soát khoá API (ai giữ, đổi định kỳ), đối soát BRG với DS Smart POS **mỗi ngày**, cảnh báo đơn lệch | Cao |
+| 17 | **Đơn DS Smart POS bị bỏ quên** (DS Smart POS nhận giỏ rồi không thanh toán, không huỷ) | Giỏ giữ nguyên, khách không sửa được; quản lý phải **Nhả giỏ** thủ công | Tự nhả giỏ sau một thời gian (ví dụ 15 đến 30 phút) và quy định DS Smart POS gọi huỷ khi huỷ đơn treo | Cao |
 | 18 | **Kiểm soát thất thoát khi không có bảo vệ** | Không có kiểm tra ngẫu nhiên, khách ra luôn | Biện pháp bù (camera, kiểm đếm tồn kho, nhân viên xem giỏ giá trị cao). Cân nhắc kiểm tra ngẫu nhiên **tại quầy** cho chi nhánh này | Cao |
-| 19 | **Tiền mặt và ca ở chế độ POS** | Két và ca do POS đối soát; các màn đối soát tiền mặt trong BRG không dùng | Chốt BRG chỉ đối chiếu theo đơn, hay bỏ hẳn phần ca thu ngân ở chi nhánh dùng POS | Trung bình |
-| 20 | **Số tiền POS khác BRG** | Chấp nhận số POS, đánh dấu lệch | Ngưỡng lệch cần quản lý duyệt, quy định xử lý khi lệch lặp lại | Trung bình |
-| 21 | **Hoá đơn công ty** | Khách nhập trước khi khoá giỏ, gửi cho POS; không sửa được sau khi POS nhận | Quy trình khi khách quên: thu ngân nhập trên POS | Thấp |
-| 22 | **Hoàn tiền sau khi khách đã ra** (ở POS) | BRG ghi nhận và loại khỏi doanh thu | Quy trình thu hồi hoặc ghi nhận thất thoát, ai chịu trách nhiệm | Trung bình |
+| 19 | **Tiền mặt và ca ở chế độ DS Smart POS** | Két và ca do DS Smart POS đối soát; các màn đối soát tiền mặt trong BRG không dùng | Chốt BRG chỉ đối chiếu theo đơn, hay bỏ hẳn phần ca thu ngân ở chi nhánh dùng DS Smart POS | Trung bình |
+| 20 | **Số tiền DS Smart POS khác BRG** | Chấp nhận số DS Smart POS, đánh dấu lệch | Ngưỡng lệch cần quản lý duyệt, quy định xử lý khi lệch lặp lại | Trung bình |
+| 21 | **Hoá đơn công ty** | Khách nhập trước khi khoá giỏ, gửi cho DS Smart POS; không sửa được sau khi DS Smart POS nhận | Quy trình khi khách quên: thu ngân nhập trên DS Smart POS | Thấp |
+| 22 | **Hoàn tiền sau khi khách đã ra** (ở DS Smart POS) | BRG ghi nhận và loại khỏi doanh thu | Quy trình thu hồi hoặc ghi nhận thất thoát, ai chịu trách nhiệm | Trung bình |
 
 ## Cách chốt
 

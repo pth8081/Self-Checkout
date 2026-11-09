@@ -11,7 +11,7 @@ const TOKEN_KEY = 'brg_a_token', STORE_KEY = 'brg_a_store';
 
 const PAGE_TITLES = {
   overview: 'Tổng quan chuỗi', stores: 'Chi nhánh & tính năng', integrations: 'Tích hợp', reports: 'Báo cáo', users: 'Tài khoản & phân quyền', audit: 'Nhật ký',
-  today: 'Hôm nay', transactions: 'Giao dịch', 'pos-orders': 'Đơn POS', plans: 'Nhân viên & ca', 'random-check': 'Kiểm tra ngẫu nhiên', reconcile: 'Đối soát', 'unknown-barcodes': 'Mã không tìm thấy',
+  today: 'Hôm nay', transactions: 'Giao dịch', 'pos-orders': 'Đơn DS Smart POS', plans: 'Nhân viên & ca', 'random-check': 'Kiểm tra ngẫu nhiên', reconcile: 'Đối soát', 'unknown-barcodes': 'Mã không tìm thấy',
   'huong-dan': 'Hướng dẫn nghiệp vụ', 'huong-dan-he-thong': 'Hướng dẫn hệ thống'
 };
 const CHAIN_ONLY = ['overview', 'integrations'];
@@ -20,7 +20,7 @@ function navItems(me, storeName) {
   const chain = me.role === 'chain_admin';
   const guides = [{ group: 'Hướng dẫn' }, { id: 'huong-dan', label: 'Hướng dẫn nghiệp vụ', icon: 'docok' }, { id: 'huong-dan-he-thong', label: 'Hướng dẫn hệ thống', icon: 'settings' }];
   const branch = [
-    { id: 'today', label: 'Hôm nay', icon: 'home' }, { id: 'transactions', label: 'Giao dịch', icon: 'receipt' }, { id: 'pos-orders', label: 'Đơn POS', icon: 'card' },
+    { id: 'today', label: 'Hôm nay', icon: 'home' }, { id: 'transactions', label: 'Giao dịch', icon: 'receipt' }, { id: 'pos-orders', label: 'Đơn DS Smart POS', icon: 'card' },
     { id: 'plans', label: 'Nhân viên & ca', icon: 'calendar' }, { id: 'random-check', label: 'Kiểm tra ngẫu nhiên', icon: 'shield' },
     { id: 'reconcile', label: 'Đối soát', icon: 'cash' }, { id: 'unknown-barcodes', label: 'Mã không tìm thấy', icon: 'barcode' }
   ];
@@ -153,7 +153,7 @@ function App() {
   const loadMe = useCallback(async () => {
     const [r, cfg] = await Promise.all([api.get('/me'), api.get('/stores').catch(() => ({ stores: [] }))]);
     const byId = Object.fromEntries(cfg.stores.map((x) => [x.id, x]));
-    // Gộp cấu hình (thu tiền qua POS, bảo vệ cổng ra) vào danh sách chi nhánh để các trang dùng chung.
+    // Gộp cấu hình (thu tiền qua DS Smart POS, bảo vệ cổng ra) vào danh sách chi nhánh để các trang dùng chung.
     setSession({ me: r.user, stores: r.stores.map((x) => ({ ...x, address: byId[x.id]?.address, config: byId[x.id]?.config || {} })), permissions: r.permissions });
   }, []);
   const start = useCallback(async () => {
