@@ -1057,3 +1057,15 @@ test('xoá dữ liệu theo yêu cầu của khách: tìm theo email, xoá thôn
   assert.equal((await call(app, 'POST', '/api/a/privacy/erase-preview', { token: admin, body: { email: 'khach.a@example.com' } })).body.counts.transactions, 0);
   await app.close();
 });
+
+test('phiên bản: số sau chạy 0 đến 9 rồi số trước tăng, hiện trong /api/health', async () => {
+  const { nextVersion, appVersion } = await import('../server/version.js');
+  assert.equal(nextVersion('1.0'), '1.1'); assert.equal(nextVersion('1.8'), '1.9');
+  assert.equal(nextVersion('1.9'), '2.0'); assert.equal(nextVersion('2.9'), '3.0'); assert.equal(nextVersion('9.9'), '10.0');
+  assert.equal(nextVersion('1.9.0'), '2.0');
+  assert.throws(() => nextVersion('1.10'));
+  const app = await makeApp({ basket: true });
+  const h = await call(app, 'GET', '/api/health');
+  assert.equal(h.body.version, appVersion()); assert.match(h.body.version, /^\d+\.\d$/);
+  await app.close();
+});
