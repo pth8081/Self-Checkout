@@ -17,7 +17,7 @@
 | FR-CUS-07 | Nhận mã QR biên nhận duy nhất sau khi nhân viên xác nhận đã thu tiền | M | M19 | QR dùng một lần, hiển thị cả khi mất mạng (PWA-06) |
 | FR-CUS-08 | Nhận hoá đơn điện tử; yêu cầu hoá đơn công ty bằng mã số thuế | M | M21, M22 | Hoá đơn bán lẻ mặc định; hoá đơn công ty trong ngày phát sinh (G-06) |
 | FR-CUS-09 | Mất mạng tạm thời hoặc tải lại trang không mất giỏ hàng | M | M07, M14 | Lưu cục bộ, đồng bộ khi có mạng (PWA-03) |
-| FR-CUS-10 | Được báo khi giá hoặc tồn kho thay đổi trước khi thanh toán và phải đồng ý | M | M15 | Hiện khi dữ liệu DS Smart POS khác lúc quét (G-03) |
+| FR-CUS-10 | Được báo khi giá hoặc tồn kho thay đổi trước khi thanh toán và phải đồng ý | M | M15 | Hiện khi dữ liệu DSmart POS khác lúc quét (G-03) |
 | FR-CUS-11 | Được hướng dẫn khi camera bị chặn hoặc link mở trong app khác (Zalo, Facebook) | M | M04, M06 | R6 |
 | FR-CUS-12 | Được hướng dẫn nhanh lần đầu sử dụng | S | M02 | Bỏ qua được |
 | FR-CUS-13 | Đánh giá trải nghiệm sau khi qua cổng | C | M21 | Một chạm, bỏ qua được |
@@ -36,10 +36,10 @@
 | FR-PAY-07 | Nhân viên kết thúc ca bằng đối soát tiền mặt thực tế với hệ thống; lệch phải ghi lý do | M | N14, A10 | |
 | FR-PAY-08 | Quản trị chuỗi bật/tắt từng cách thanh toán theo chi nhánh | M | A02 | Cờ tính năng |
 | FR-PAY-09 | Thanh toán online qua cổng (ví, VNPay, thẻ), tự xác nhận | GĐ2 | M23, M24 | Hiện mờ ở GĐ1 |
-| FR-PAY-10 | Chi nhánh chọn thu tiền **qua DS Smart POS**: khách chỉ có "Thanh toán tại quầy", thu ngân quét mã giỏ trong DS Smart POS, DS Smart POS thu tiền và xuất hoá đơn, BRG tự xác nhận khi DS Smart POS báo thanh toán | M | M16, M18, A02 | [api-pos](api-pos.md) |
-| FR-PAY-11 | API cho DS Smart POS gọi: xem trước và nhận giỏ, hỏi trạng thái, báo đã thanh toán, báo huỷ; xác thực bằng khoá API quản lý được (tạo, thu hồi, giới hạn chi nhánh); idempotent theo mã đơn DS Smart POS | M | A03 | |
-| FR-PAY-12 | Quản trị theo dõi đơn DS Smart POS (đã nhận, đã thanh toán, đã huỷ, lệch tiền, chờ lâu) và **nhả giỏ** khi DS Smart POS không báo kết quả | M | Đơn DS Smart POS, A07 | |
-| FR-PAY-13 | Khách nhập thông tin hoá đơn (email, hoá đơn công ty) trước khi khoá giỏ để DS Smart POS xuất đúng ngay lần đầu | M | M16 | |
+| FR-PAY-10 | Chi nhánh chọn thu tiền **qua DSmart POS**: khách chỉ có "Thanh toán tại quầy", thu ngân quét mã giỏ trong DSmart POS, DSmart POS thu tiền và xuất hoá đơn, BRG tự xác nhận khi DSmart POS báo thanh toán | M | M16, M18, A02 | [api-pos](api-pos.md) |
+| FR-PAY-11 | API cho DSmart POS gọi: xem trước và nhận giỏ, hỏi trạng thái, báo đã thanh toán, báo huỷ; xác thực bằng khoá API quản lý được (tạo, thu hồi, giới hạn chi nhánh); idempotent theo mã đơn DSmart POS | M | A03 | |
+| FR-PAY-12 | Quản trị theo dõi đơn DSmart POS (đã nhận, đã thanh toán, đã huỷ, lệch tiền, chờ lâu) và **nhả giỏ** khi DSmart POS không báo kết quả | M | Đơn DSmart POS, A07 | |
+| FR-PAY-13 | Khách nhập thông tin hoá đơn (email, hoá đơn công ty) trước khi khoá giỏ để DSmart POS xuất đúng ngay lần đầu | M | M16 | |
 
 ## 3. Nhân viên cổng ra
 
@@ -59,14 +59,14 @@
 |----|-----------|---------|---------|----------|
 | FR-ADM-01 | Bật/tắt Scan & Checkout từng chi nhánh, không ảnh hưởng chi nhánh khác | Chuỗi | M | A02 |
 | FR-ADM-02 | Báo cáo tổng hợp: giao dịch, doanh thu, tỷ lệ chênh lệch theo chi nhánh | Chuỗi | M | A01, A04 |
-| FR-ADM-03 | Cấu hình & giám sát tích hợp (DS Smart POS, chuyển khoản QR, hoá đơn) | Chuỗi | M | A03 |
+| FR-ADM-03 | Cấu hình & giám sát tích hợp (DSmart POS, chuyển khoản QR, hoá đơn) | Chuỗi | M | A03 |
 | FR-ADM-04 | Báo cáo giao dịch, doanh thu riêng chi nhánh | Chi nhánh | M | A06 |
 | FR-ADM-05 | Quản lý danh sách & ca làm việc nhân viên | Chi nhánh | M | A08, N01, N02 |
 | FR-ADM-06 | Cấu hình tỷ lệ kiểm tra ngẫu nhiên | Chi nhánh | M | A09 |
 | FR-ADM-07 | Phân quyền tài khoản và vai trò | Chuỗi | M | A05 |
 | FR-ADM-08 | Đối soát tiền mặt theo ca và chuyển khoản với sao kê | Chi nhánh | M | A10 |
 | FR-ADM-09 | Truy vết một giao dịch từ quét đến ra cổng | Chi nhánh | M | A07 |
-| FR-ADM-10 | Xem mã vạch khách quét nhưng không có trong DS Smart POS | Chi nhánh | S | A11 |
+| FR-ADM-10 | Xem mã vạch khách quét nhưng không có trong DSmart POS | Chi nhánh | S | A11 |
 | FR-ADM-11 | Chọn cách tạo QR chuyển khoản: app tự tạo hoặc lấy từ nhà cung cấp | Chuỗi | M | A03 |
 | FR-ADM-12 | Đăng nhập quản trị bằng tài khoản và mật khẩu, kèm mã xác thực 2 bước (đề xuất); khoá tạm khi sai nhiều lần; ghi log đăng nhập | Chuỗi, Chi nhánh | M | A12 |
 

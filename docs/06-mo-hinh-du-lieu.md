@@ -7,8 +7,8 @@
 | Thực thể | Mô tả | Trường chính | Quan hệ |
 |----------|-------|--------------|---------|
 | Store | Siêu thị trong chuỗi | `storeId`, tên, địa chỉ, `enabled` | Gốc phân vùng |
-| StoreConfig | Cấu hình từng chi nhánh | `paymentMethods` (cash, qrTransfer, online), `qrProvider` (self/provider), `randomCheckRate`, ngưỡng lệch DS Smart POS, tài khoản nhận chuyển khoản | 1-1 Store |
-| ProductCache | Bản sao giá/tồn kho từ DS Smart POS | `sku`, `barcode`, `storeId`, tên, giá, tồn kho, `lastSyncedAt` | Thuộc 1 Store; nguồn gốc là DS Smart POS |
+| StoreConfig | Cấu hình từng chi nhánh | `paymentMethods` (cash, qrTransfer, online), `qrProvider` (self/provider), `randomCheckRate`, ngưỡng lệch DSmart POS, tài khoản nhận chuyển khoản | 1-1 Store |
+| ProductCache | Bản sao giá/tồn kho từ DSmart POS | `sku`, `barcode`, `storeId`, tên, giá, tồn kho, `lastSyncedAt` | Thuộc 1 Store; nguồn gốc là DSmart POS |
 | ScanSession | Một lượt mua sắm | `sessionId`, `storeId`, `startedAt`, `endedAt`, trạng thái, `lockedAt` | Thuộc 1 Store; nhiều CartItem |
 | CartItem | Sản phẩm được quét | `sessionId`, `barcode`, số lượng, giá tại thời điểm quét | Thuộc 1 ScanSession |
 | Transaction | Giao dịch | `transactionId`, `sessionId`, `storeId`, tổng tiền, trạng thái, `cartCode` (mã giỏ hàng), mã QR biên nhận, link hoá đơn | 1-1 ScanSession |
@@ -42,7 +42,7 @@ erDiagram
 
 | Thực thể | Lý do |
 |----------|-------|
-| Promotion | Giá khuyến mãi từ DS Smart POS (G-03); giỏ hàng M12 đang giả định có dòng khuyến mãi |
+| Promotion | Giá khuyến mãi từ DSmart POS (G-03); giỏ hàng M12 đang giả định có dòng khuyến mãi |
 | Customer (tuỳ chọn) | Nếu cần lịch sử đơn hoặc tự điền hoá đơn (G-04, G-06) |
 | Gate | Nếu có nhiều cổng ra mỗi chi nhánh và cần báo cáo theo cổng |
 
@@ -55,8 +55,8 @@ erDiagram
 
 ## 4. Quy tắc dữ liệu
 
-1. Giá trong `CartItem` **chốt tại lúc quét**; khi khoá giỏ, hệ thống kiểm tra lại với dữ liệu DS Smart POS, nếu khác thì khách phải đồng ý (FR-CUS-10).
-2. `ProductCache` không bao giờ là nơi nhập liệu; chỉ ghi qua đồng bộ DS Smart POS.
+1. Giá trong `CartItem` **chốt tại lúc quét**; khi khoá giỏ, hệ thống kiểm tra lại với dữ liệu DSmart POS, nếu khác thì khách phải đồng ý (FR-CUS-10).
+2. `ProductCache` không bao giờ là nơi nhập liệu; chỉ ghi qua đồng bộ DSmart POS.
 3. `Payment` và `AuditEvent` chỉ thêm, không sửa, không xoá. Sửa sai bằng bản ghi bù/huỷ có người duyệt.
 4. Dữ liệu cá nhân (nếu có) tách riêng, có thời hạn lưu (Q-06, NFR-09). Không lưu ảnh từ camera.
 5. Tiền tệ lưu bằng số nguyên theo đơn vị nhỏ nhất (VND không có phần lẻ), không dùng số thực.

@@ -17,11 +17,11 @@ const rawApi = createApi({
   onUnauthorized: () => { if (token) onUnauth(); }
 });
 
-/** Cờ chi nhánh: pos = thu tiền qua DS Smart POS, guard = có bước kiểm tra của bảo vệ ở cổng ra. */
+/** Cờ chi nhánh: pos = thu tiền qua DSmart POS, guard = có bước kiểm tra của bảo vệ ở cổng ra. */
 export const flagsOf = (store) => ({ pos: store?.paymentSource === 'pos', guard: store?.guardCheck !== false });
-export const POS_TEXT = 'Chi nhánh này thu tiền trên máy tính tiền (DS Smart POS). Thu ngân quét mã giỏ hàng của khách trong phần mềm DS Smart POS. Hệ thống tự xác nhận khi DS Smart POS báo đã thanh toán.';
+export const POS_TEXT = 'Chi nhánh này thu tiền trên máy tính tiền (DSmart POS). Thu ngân quét mã giỏ hàng của khách trong phần mềm DSmart POS. Hệ thống tự xác nhận khi DSmart POS báo đã thanh toán.';
 export const GUARD_TEXT = 'Chi nhánh này không dùng bước kiểm tra của bảo vệ. Khách thanh toán xong là ra luôn, không có mã QR ra cổng.';
-const FLAG_MSG = { POS_MODE: 'Chi nhánh đã chuyển sang thu tiền trên DS Smart POS. Thu ngân quét mã giỏ hàng trong phần mềm DS Smart POS.', GUARD_DISABLED: 'Chi nhánh không còn dùng bước kiểm tra của bảo vệ ở cổng ra.' };
+const FLAG_MSG = { POS_MODE: 'Chi nhánh đã chuyển sang thu tiền trên DSmart POS. Thu ngân quét mã giỏ hàng trong phần mềm DSmart POS.', GUARD_DISABLED: 'Chi nhánh không còn dùng bước kiểm tra của bảo vệ ở cổng ra.' };
 let onFlagChange = () => {};
 export const setOnFlagChange = (f) => { onFlagChange = f; };
 let lastFlagAt = 0;
@@ -113,9 +113,9 @@ export function NeedShift({ c }) {
 /** Màn thông báo khi chức năng không dùng ở chi nhánh này (vào bằng địa chỉ cũ). */
 export function Unavailable({ c, kind }) {
   const pos = kind === 'pos';
-  return html`<${Top} c=${c} title=${pos ? 'Thu tiền qua DS Smart POS' : 'Không có bước cổng ra'} back="/"/><${Page}>
+  return html`<${Top} c=${c} title=${pos ? 'Thu tiền qua DSmart POS' : 'Không có bước cổng ra'} back="/"/><${Page}>
     <${Empty} icon=${pos ? 'cash' : 'shield'} title=${pos ? 'Thu tiền trên máy tính tiền' : 'Không cần kiểm tra cổng ra'} text=${pos ? POS_TEXT : GUARD_TEXT}>
-      ${pos && html`<p class="small muted">Nếu DS Smart POS bị lỗi và cần thu thủ công, hãy báo quản lý chuyển chi nhánh về chế độ thủ công trong web quản trị.</p>`}
+      ${pos && html`<p class="small muted">Nếu DSmart POS bị lỗi và cần thu thủ công, hãy báo quản lý chuyển chi nhánh về chế độ thủ công trong web quản trị.</p>`}
       <button class="btn primary" onClick=${() => go('/')}>Về trang chính</button><//><//>`;
 }
 

@@ -8,9 +8,9 @@ access: all
 
 # Thu ngân và ca làm việc
 
-> **Luồng hiện hành là "Giỏ QR cho DS Smart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào DS Smart POS, DS Smart POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho DS Smart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối DS Smart POS".
+> **Luồng hiện hành là "Giỏ QR cho DSmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào DSmart POS, DSmart POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho DSmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối DSmart POS".
 
-> **Lưu ý:** Hướng dẫn này cho chi nhánh **tự thu trong BRG**. Ở chi nhánh **thu tiền qua DS Smart POS**, thu ngân làm việc hoàn toàn trên DS Smart POS: quét mã giỏ trong DS Smart POS, thu tiền, và hệ thống tự xác nhận. Các chức năng thu tiền trong app nhân viên (quét mã giỏ, hàng đợi, thu tiền mặt, xác nhận chuyển khoản, thu bổ sung, đối soát tiền mặt cuối ca) được **ẩn**; tiền mặt do DS Smart POS đối soát theo ca của DS Smart POS.
+> **Lưu ý:** Hướng dẫn này cho chi nhánh **tự thu trong BRG**. Ở chi nhánh **thu tiền qua DSmart POS**, thu ngân làm việc hoàn toàn trên DSmart POS: quét mã giỏ trong DSmart POS, thu tiền, và hệ thống tự xác nhận. Các chức năng thu tiền trong app nhân viên (quét mã giỏ, hàng đợi, thu tiền mặt, xác nhận chuyển khoản, thu bổ sung, đối soát tiền mặt cuối ca) được **ẩn**; tiền mặt do DSmart POS đối soát theo ca của DSmart POS.
 
 ## Vòng đời một ca
 

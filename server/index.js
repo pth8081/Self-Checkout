@@ -11,9 +11,9 @@ const { db, pos } = app.ctx;
 // Công việc nền chỉ nên chạy ở MỘT tiến trình. RUN_JOBS=0 để tắt ở tiến trình phụ (nếu có).
 let timers = [];
 if (process.env.RUN_JOBS !== '0') {
-  // Đồng bộ giá/tồn kho định kỳ từ DS Smart POS vào bộ nhớ đệm.
+  // Đồng bộ giá/tồn kho định kỳ từ DSmart POS vào bộ nhớ đệm.
   const syncEvery = Number(process.env.POS_SYNC_SECONDS || 60) * 1000;
-  const tick = () => { try { pos.syncAll(); } catch (e) { app.log.error(e, 'Đồng bộ DS Smart POS lỗi'); } };
+  const tick = () => { try { pos.syncAll(); } catch (e) { app.log.error(e, 'Đồng bộ DSmart POS lỗi'); } };
   tick();
   timers.push(setInterval(tick, syncEvery));
   // Thử lại hoá đơn điện tử còn treo.

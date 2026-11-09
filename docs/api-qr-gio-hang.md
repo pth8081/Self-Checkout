@@ -1,15 +1,15 @@
-# Tài liệu tích hợp DS Smart POS: mã QR giỏ hàng và báo thanh toán
+# Tài liệu tích hợp DSmart POS: mã QR giỏ hàng và báo thanh toán
 
-Tài liệu này gửi cho đơn vị làm phần mềm DS Smart POS. Có hai việc DS Smart POS cần làm:
+Tài liệu này gửi cho đơn vị làm phần mềm DSmart POS. Có hai việc DSmart POS cần làm:
 
 1. **Đọc mã QR** trên điện thoại khách để tạo đơn hàng và tính tiền (mục 2 và 3).
 2. **Gọi API của BRG Scan & Checkout** để báo thanh toán thành công (mục 4 và 5). BRG Scan & Checkout trả lại kết quả cho khách và lưu bill.
 
 ## Hoá đơn điện tử: không có lúc thanh toán
 
-**Lúc thanh toán chưa có hoá đơn điện tử và chưa có số hoá đơn.** DS Smart POS thu tiền xong chỉ báo cho BRG Scan & Checkout: mã hàng, số lượng, thành tiền, tổng tiền và cách thanh toán. DS Smart POS **không gửi số hoá đơn hay link hoá đơn**.
+**Lúc thanh toán chưa có hoá đơn điện tử và chưa có số hoá đơn.** DSmart POS thu tiền xong chỉ báo cho BRG Scan & Checkout: mã hàng, số lượng, thành tiền, tổng tiền và cách thanh toán. DSmart POS **không gửi số hoá đơn hay link hoá đơn**.
 
-Hoá đơn điện tử được phát hành **sau đó**, khi khách tự khai báo thông tin xuất hoá đơn ở trang của nhà cung cấp hoá đơn. BRG Scan & Checkout chỉ hiện cho khách nút **Khai báo hoá đơn điện tử** mở link của nhà cung cấp (link do quản trị cấu hình, có thể gắn mã giỏ hoặc mã đơn DS Smart POS vào link). Nếu nhà cung cấp cho khách khai báo bằng mã bill, mã đó là **mã đơn DS Smart POS** (`posOrderRef`), nên hãy dùng mã mà khách đọc được trên bill của DS Smart POS.
+Hoá đơn điện tử được phát hành **sau đó**, khi khách tự khai báo thông tin xuất hoá đơn ở trang của nhà cung cấp hoá đơn. BRG Scan & Checkout chỉ hiện cho khách nút **Khai báo hoá đơn điện tử** mở link của nhà cung cấp (link do quản trị cấu hình, có thể gắn mã giỏ hoặc mã đơn DSmart POS vào link). Nếu nhà cung cấp cho khách khai báo bằng mã bill, mã đó là **mã đơn DSmart POS** (`posOrderRef`), nên hãy dùng mã mà khách đọc được trên bill của DSmart POS.
 
 ## 1. Quy trình tổng thể
 
@@ -31,29 +31,29 @@ sequenceDiagram
 |------|--------|----------|
 | 1 | Khách và BRG Scan & Checkout | Khách quét mặt hàng bằng điện thoại. Điện thoại hiện **tạm tính**, chỉ để tham khảo |
 | 2 | BRG Scan & Checkout | Khi khách bấm Thanh toán, tạo **mã giỏ** và mã QR. Mã QR lưu trên điện thoại nên còn khi mất mạng |
-| 3 | DS Smart POS | Thu ngân quét mã QR. DS Smart POS đọc, kiểm tra, **tạo đơn** với đúng mặt hàng và số lượng |
-| 4 | DS Smart POS | Tính giá và khuyến mãi **theo hệ thống của DS Smart POS**, thu tiền (tiền mặt, QR, thẻ). Chưa có hoá đơn điện tử lúc này |
-| 5 | DS Smart POS | **Báo thanh toán về BRG Scan & Checkout** bằng API ở mục 4. Số tiền trong báo cáo này là số tiền thật |
+| 3 | DSmart POS | Thu ngân quét mã QR. DSmart POS đọc, kiểm tra, **tạo đơn** với đúng mặt hàng và số lượng |
+| 4 | DSmart POS | Tính giá và khuyến mãi **theo hệ thống của DSmart POS**, thu tiền (tiền mặt, QR, thẻ). Chưa có hoá đơn điện tử lúc này |
+| 5 | DSmart POS | **Báo thanh toán về BRG Scan & Checkout** bằng API ở mục 4. Số tiền trong báo cáo này là số tiền thật |
 | 6 | BRG Scan & Checkout | Ghi nhận, màn hình khách hiện hoàn thành, khách xem và tải bill |
 
 **Hai mã định danh cần phân biệt**
 
 | Tên | Do ai sinh | Có trong mã QR | Dùng để |
 |-----|-----------|----------------|---------|
-| **Mã giỏ** (ví dụ `Q7-LM3K2AB`) | BRG Scan & Checkout (điện thoại khách) | Có | BRG Scan & Checkout nhận ra giỏ. DS Smart POS gửi lại trong đường dẫn khi báo thanh toán |
-| **Mã đơn DS Smart POS** (`posOrderRef`, mã giao dịch hoặc mã bill của DS Smart POS) | DS Smart POS | Không | DS Smart POS gửi lại trong báo thanh toán. BRG Scan & Checkout dùng để **chống ghi trùng** và đối soát |
+| **Mã giỏ** (ví dụ `Q7-LM3K2AB`) | BRG Scan & Checkout (điện thoại khách) | Có | BRG Scan & Checkout nhận ra giỏ. DSmart POS gửi lại trong đường dẫn khi báo thanh toán |
+| **Mã đơn DSmart POS** (`posOrderRef`, mã giao dịch hoặc mã bill của DSmart POS) | DSmart POS | Không | DSmart POS gửi lại trong báo thanh toán. BRG Scan & Checkout dùng để **chống ghi trùng** và đối soát |
 
 ## Quy tắc then chốt: kiểm tra mã điểm
 
-> **DS Smart POS bắt buộc kiểm tra mã điểm trước mọi bước khác.** Mã điểm trong mã QR phải **đúng bằng mã điểm của cửa hàng mà máy DS Smart POS đang bán**. Không khớp thì **từ chối ngay: không tạo đơn, không thu tiền**, báo thu ngân "Mã này của cửa hàng khác". Không có ngoại lệ.
+> **DSmart POS bắt buộc kiểm tra mã điểm trước mọi bước khác.** Mã điểm trong mã QR phải **đúng bằng mã điểm của cửa hàng mà máy DSmart POS đang bán**. Không khớp thì **từ chối ngay: không tạo đơn, không thu tiền**, báo thu ngân "Mã này của cửa hàng khác". Không có ngoại lệ.
 
 Mã điểm đi từ đâu đến đâu:
 
-1. Quản trị BRG Scan & Checkout nhập **mã điểm** cho từng chi nhánh (đúng mã của cửa hàng trong hệ thống giá và DS Smart POS).
+1. Quản trị BRG Scan & Checkout nhập **mã điểm** cho từng chi nhánh (đúng mã của cửa hàng trong hệ thống giá và DSmart POS).
 2. Khách quét mã QR dán ở cổng vào của cửa hàng. BRG Scan & Checkout biết khách ở chi nhánh nào và lấy mã điểm của chi nhánh đó.
 3. Giá của từng mặt hàng được tra theo mã điểm này, và mã điểm được ghi vào mã QR giỏ hàng.
-4. DS Smart POS quét mã QR giỏ, **so mã điểm trong mã QR với mã điểm của mình**. Khác thì từ chối.
-5. Khi DS Smart POS báo thanh toán về BRG Scan & Checkout, DS Smart POS phải gửi lại `pointCode` (mã điểm của mình). BRG Scan & Checkout so với mã điểm của giỏ; **khác thì từ chối** (lỗi `POINT_MISMATCH`), không ghi thanh toán.
+4. DSmart POS quét mã QR giỏ, **so mã điểm trong mã QR với mã điểm của mình**. Khác thì từ chối.
+5. Khi DSmart POS báo thanh toán về BRG Scan & Checkout, DSmart POS phải gửi lại `pointCode` (mã điểm của mình). BRG Scan & Checkout so với mã điểm của giỏ; **khác thì từ chối** (lỗi `POINT_MISMATCH`), không ghi thanh toán.
 
 Cửa hàng **chưa có mã điểm** thì không bật được và khách không tạo được mã QR giỏ.
 
@@ -74,8 +74,8 @@ BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T60800|1E1A
 | Phần | Ý nghĩa |
 |------|---------|
 | `BRG1` | Nhận dạng và phiên bản. Chuỗi không bắt đầu bằng `BRG1|` thì không phải mã của BRG Scan & Checkout |
-| mã điểm | Mã siêu thị trong hệ thống giá và DS Smart POS, do quản trị BRG Scan & Checkout nhập cho từng chi nhánh. DS Smart POS **nên so với điểm bán của máy đang dùng**, khác thì báo thu ngân |
-| mã giỏ | Duy nhất. DS Smart POS **lưu mã này** để không tạo đơn hai lần nếu mã bị quét lại |
+| mã điểm | Mã siêu thị trong hệ thống giá và DSmart POS, do quản trị BRG Scan & Checkout nhập cho từng chi nhánh. DSmart POS **nên so với điểm bán của máy đang dùng**, khác thì báo thu ngân |
+| mã giỏ | Duy nhất. DSmart POS **lưu mã này** để không tạo đơn hai lần nếu mã bị quét lại |
 | giờ | Giờ tạo giỏ, giây Unix |
 | mặt hàng | `mã vạch*số lượng`, cách nhau dấu phẩy. Cùng mã vạch đã gộp thành một dòng. Mã vạch là mã **in trên tem** hàng hoá. Số lượng từ 1 đến 999 |
 | `T` | **Tạm tính** của BRG Scan & Checkout (VND). Chỉ để đối chiếu, **không dùng làm số tiền thu** |
@@ -112,21 +112,21 @@ static string Crc16(string s) {
 }
 ```
 
-### DS Smart POS xử lý khi quét
+### DSmart POS xử lý khi quét
 
 1. Kiểm tra tiền tố `BRG1|` và CRC16. Sai thì báo "Mã không hợp lệ, nhờ khách tạo lại".
-2. **Kiểm tra mã điểm (bắt buộc):** phải bằng mã điểm của cửa hàng máy DS Smart POS đang bán. Không khớp thì **từ chối, không tạo đơn, không thanh toán**, báo thu ngân "Mã này của cửa hàng khác".
+2. **Kiểm tra mã điểm (bắt buộc):** phải bằng mã điểm của cửa hàng máy DSmart POS đang bán. Không khớp thì **từ chối, không tạo đơn, không thanh toán**, báo thu ngân "Mã này của cửa hàng khác".
 3. Kiểm tra mã giỏ chưa dùng. Đã dùng thì mở lại đơn cũ, không tạo đơn mới.
-4. Với mỗi dòng, tìm sản phẩm theo mã vạch (mã nhà cung cấp hoặc mã nội bộ đều được, tuỳ DS Smart POS) và thêm đúng số lượng. Mã không có trong DS Smart POS thì báo thu ngân xử lý tại chỗ.
-5. DS Smart POS tự tính giá, khuyến mãi, trừ kho. **BRG Scan & Checkout không quản lý tồn kho và không tính tiền thay DS Smart POS.**
+4. Với mỗi dòng, tìm sản phẩm theo mã vạch (mã nhà cung cấp hoặc mã nội bộ đều được, tuỳ DSmart POS) và thêm đúng số lượng. Mã không có trong DSmart POS thì báo thu ngân xử lý tại chỗ.
+5. DSmart POS tự tính giá, khuyến mãi, trừ kho. **BRG Scan & Checkout không quản lý tồn kho và không tính tiền thay DSmart POS.**
 
-## 3. Thông tin BRG Scan & Checkout cung cấp cho DS Smart POS để chạy được
+## 3. Thông tin BRG Scan & Checkout cung cấp cho DSmart POS để chạy được
 
 | Thông tin | Cách có |
 |-----------|---------|
 | Địa chỉ API (ví dụ `https://scan.hcrc.vn`) | BRG Scan & Checkout cung cấp |
 | Khoá API | Quản trị BRG Scan & Checkout tạo ở mục Tích hợp, có thể giới hạn theo chi nhánh. Chỉ hiện **một lần** |
-| Mã điểm của từng chi nhánh | Quản trị BRG Scan & Checkout nhập, hai bên thống nhất với mã điểm trong DS Smart POS |
+| Mã điểm của từng chi nhánh | Quản trị BRG Scan & Checkout nhập, hai bên thống nhất với mã điểm trong DSmart POS |
 | Môi trường thử và mã QR mẫu | BRG Scan & Checkout cấp môi trường thử, kèm mã QR mẫu ở `docs/mau/` |
 
 ## 4. API báo thanh toán thành công
@@ -152,24 +152,24 @@ Xác thực: header `Authorization: Bearer <khoá API>` (hoặc `X-Api-Key`). Ch
 
 | Trường | Bắt buộc | Ý nghĩa |
 |--------|----------|---------|
-| `pointCode` | **Có** | **Mã điểm của cửa hàng máy DS Smart POS đang bán.** BRG Scan & Checkout so với mã điểm của giỏ, khác thì từ chối. |
-| `posOrderRef` | **Có** | Mã đơn (mã giao dịch hoặc mã bill) trên DS Smart POS. **Khoá chống trùng** |
+| `pointCode` | **Có** | **Mã điểm của cửa hàng máy DSmart POS đang bán.** BRG Scan & Checkout so với mã điểm của giỏ, khác thì từ chối. |
+| `posOrderRef` | **Có** | Mã đơn (mã giao dịch hoặc mã bill) trên DSmart POS. **Khoá chống trùng** |
 | `amount` | **Có** | Số tiền thực thu, VND, số nguyên dương |
 | `method` | **Có** | `cash`, `qr_transfer`, `card`, `ewallet` |
-| `lines` | Nên có | Các dòng bill DS Smart POS với giá và khuyến mãi thật. Có thì khách thấy đúng bill DS Smart POS. Không có thì khách thấy bản tạm tính, ghi rõ "chưa có bill chính thức" |
+| `lines` | Nên có | Các dòng bill DSmart POS với giá và khuyến mãi thật. Có thì khách thấy đúng bill DSmart POS. Không có thì khách thấy bản tạm tính, ghi rõ "chưa có bill chính thức" |
 | `cashier`, `terminal` | Không | Hiện trên bill và báo cáo |
 
 Mỗi dòng của `lines`:
 - **Bắt buộc:** `barcode` (mã hàng; hoặc `name` nếu không có mã), `qty` (số lượng), `lineTotal` (thành tiền của dòng, số nguyên đồng).
 - **Không bắt buộc:** `name` (bỏ trống thì hệ thống tự điền theo mã hàng), `unitPrice` (bỏ trống thì hệ thống tính bằng (`lineTotal` + `discount`) chia `qty`), `discount` (số tiền giảm của dòng).
 
-Vì vậy DS Smart POS chỉ cần gửi **mã hàng, số lượng, thành tiền** từng dòng là đủ để khách thấy bill.
+Vì vậy DSmart POS chỉ cần gửi **mã hàng, số lượng, thành tiền** từng dòng là đủ để khách thấy bill.
 
 **Khuyến mãi hiện trên bill thế nào:**
 - Gửi `lineTotal` là thành tiền **đã trừ khuyến mãi của mặt hàng**. Nếu chỉ gửi `lineTotal`, bill hiện đơn giá bình quân (`lineTotal` chia `qty`).
 - Muốn bill hiện giá gốc và số tiền giảm của mặt hàng, gửi thêm `unitPrice` (giá gốc) và `discount` (số tiền giảm). Ví dụ giá gốc 30.000, giảm 5.000: `unitPrice` 30000, `discount` 5000, `lineTotal` 25000.
-- Giảm giá cấp hoá đơn (voucher, làm tròn, khuyến mãi theo tổng tiền): **không cần gửi riêng**. Hệ thống lấy `amount` trừ tổng các dòng, nếu khác 0 thì hiện dòng "Điều chỉnh theo hoá đơn" để bill cộng đúng và khớp số tiền DS Smart POS thu.
-- Bill hiện đúng những gì DS Smart POS gửi, kể cả khi thu ngân thêm hoặc bớt mặt hàng so với giỏ trên điện thoại khách.
+- Giảm giá cấp hoá đơn (voucher, làm tròn, khuyến mãi theo tổng tiền): **không cần gửi riêng**. Hệ thống lấy `amount` trừ tổng các dòng, nếu khác 0 thì hiện dòng "Điều chỉnh theo hoá đơn" để bill cộng đúng và khớp số tiền DSmart POS thu.
+- Bill hiện đúng những gì DSmart POS gửi, kể cả khi thu ngân thêm hoặc bớt mặt hàng so với giỏ trên điện thoại khách.
 
 **Phản hồi thành công `200`:**
 
@@ -177,7 +177,7 @@ Vì vậy DS Smart POS chỉ cần gửi **mã hàng, số lượng, thành ti�
 { "ok": true, "duplicate": false, "transactionId": "SG-Q7-0042", "status": "paid", "amountMatches": true }
 ```
 
-`duplicate: true` nghĩa là BRG Scan & Checkout đã nhận trước đó (không ghi lần hai). `amountMatches: false` nghĩa là số tiền DS Smart POS thu khác tạm tính của BRG Scan & Checkout. Việc này **bình thường** (khuyến mãi khác), BRG Scan & Checkout vẫn lấy số của DS Smart POS.
+`duplicate: true` nghĩa là BRG Scan & Checkout đã nhận trước đó (không ghi lần hai). `amountMatches: false` nghĩa là số tiền DSmart POS thu khác tạm tính của BRG Scan & Checkout. Việc này **bình thường** (khuyến mãi khác), BRG Scan & Checkout vẫn lấy số của DSmart POS.
 
 ### Các lệnh khác
 
@@ -185,7 +185,7 @@ Vì vậy DS Smart POS chỉ cần gửi **mã hàng, số lượng, thành ti�
 |------|---------|
 | `GET /api/pos/v1/baskets/{mã giỏ}` | Xem trạng thái giỏ (đã thanh toán chưa, đã lưu bill chưa) |
 | `POST /api/pos/v1/baskets/{mã giỏ}/update` | Báo đơn đang tính ở quầy khi thu ngân thêm, bớt hàng (mục 6.1b) |
-| `POST /api/pos/v1/baskets/{mã giỏ}/cancelled` | DS Smart POS huỷ đơn (mục 6.2, 6.4) |
+| `POST /api/pos/v1/baskets/{mã giỏ}/cancelled` | DSmart POS huỷ đơn (mục 6.2, 6.4) |
 | `POST /api/pos/v1/baskets/{mã giỏ}/refund` | Hoàn trả một phần sau thanh toán (mục 6.3) |
 | `GET /api/pos/v1/health` | Kiểm tra khoá API và kết nối |
 
@@ -193,7 +193,7 @@ Vì vậy DS Smart POS chỉ cần gửi **mã hàng, số lượng, thành ti�
 
 Dạng `{ "error": "MÃ", "message": "…" }`.
 
-| HTTP | Mã lỗi | Ý nghĩa | DS Smart POS làm |
+| HTTP | Mã lỗi | Ý nghĩa | DSmart POS làm |
 |------|--------|---------|---------|
 | 400 | `POINT_REQUIRED` | Thiếu `pointCode` | Gửi lại có `pointCode` |
 | 409 | `POINT_MISMATCH` | **Mã điểm không khớp** cửa hàng của giỏ | **Không thử lại, không thanh toán**, báo quản lý |
@@ -201,19 +201,19 @@ Dạng `{ "error": "MÃ", "message": "…" }`.
 | 401 | `NO_API_KEY`, `BAD_API_KEY` | Khoá thiếu, sai hoặc bị thu hồi | Không thử lại, báo quản lý |
 | 403 | `STORE_FORBIDDEN` | Khoá không dùng cho chi nhánh này | Không thử lại |
 | 404 | `BASKET_NOT_FOUND` | Chưa thấy giỏ. Điện thoại khách có thể đang mất mạng nên giỏ chưa lên hệ thống | **Thử lại sau** |
-| 409 | `REF_IN_USE` | Giỏ đã gắn với đơn DS Smart POS khác hoặc mã đơn dùng cho giỏ khác | Không thử lại, báo quản lý |
-| 409 | `ORDER_CANCELLED` | Đơn đã bị DS Smart POS huỷ hoặc huỷ sau khi thanh toán | Không thử lại, đối soát tay |
+| 409 | `REF_IN_USE` | Giỏ đã gắn với đơn DSmart POS khác hoặc mã đơn dùng cho giỏ khác | Không thử lại, báo quản lý |
+| 409 | `ORDER_CANCELLED` | Đơn đã bị DSmart POS huỷ hoặc huỷ sau khi thanh toán | Không thử lại, đối soát tay |
 | 5xx, timeout, 429 | | Lỗi tạm thời | **Thử lại** |
 
-## 5. Quy tắc thử lại (bắt buộc với DS Smart POS)
+## 5. Quy tắc thử lại (bắt buộc với DSmart POS)
 
-Mạng có thể chập chờn, nên **DS Smart POS phải thử lại cho đến khi BRG Scan & Checkout trả `200`**. BRG Scan & Checkout xử lý gửi trùng an toàn (cùng mã giỏ và cùng `posOrderRef`), nên thử lại không thu tiền hai lần.
+Mạng có thể chập chờn, nên **DSmart POS phải thử lại cho đến khi BRG Scan & Checkout trả `200`**. BRG Scan & Checkout xử lý gửi trùng an toàn (cùng mã giỏ và cùng `posOrderRef`), nên thử lại không thu tiền hai lần.
 
 - **Lịch:** lần 1 ngay sau khi thu tiền; thử lại sau 5 giây, 30 giây, 2 phút (tổng 4 lần).
-- **Sau 4 lần vẫn chưa được:** DS Smart POS giữ đơn trong hàng đợi, thử lại **mỗi 5 phút**, tối đa 24 giờ, và báo quản lý cửa hàng.
+- **Sau 4 lần vẫn chưa được:** DSmart POS giữ đơn trong hàng đợi, thử lại **mỗi 5 phút**, tối đa 24 giờ, và báo quản lý cửa hàng.
 - Mọi lần thử gửi **cùng nội dung**.
 - Chỉ thử lại với lỗi ở cột "Thử lại" ở mục 4. Lỗi 400, 401, 403, 409 thì dừng và báo người quản lý.
-- Khách vẫn hoàn tất được nếu DS Smart POS báo chậm: khách bấm "Đã thanh toán xong", khi DS Smart POS báo sau thì BRG Scan & Checkout cập nhật thành đã thanh toán kèm số tiền thật và bill.
+- Khách vẫn hoàn tất được nếu DSmart POS báo chậm: khách bấm "Đã thanh toán xong", khi DSmart POS báo sau thì BRG Scan & Checkout cập nhật thành đã thanh toán kèm số tiền thật và bill.
 
 Ví dụ gọi thử:
 
@@ -225,18 +225,18 @@ curl -X POST "https://scan.hcrc.vn/api/pos/v1/baskets/Q7-LM3K2AB/paid" \
 
 ## 6. Khách thay đổi: lấy ít hơn, đổi ý, trả hàng, huỷ
 
-**Nguyên tắc: đơn trên DS Smart POS là bản đúng.** BRG Scan & Checkout chỉ ghi lại theo DS Smart POS. DS Smart POS chỉ cần báo kết quả thực tế, không cần báo "khách đã bớt gì". Bảng dưới là bốn tình huống thường gặp và việc DS Smart POS cần làm.
+**Nguyên tắc: đơn trên DSmart POS là bản đúng.** BRG Scan & Checkout chỉ ghi lại theo DSmart POS. DSmart POS chỉ cần báo kết quả thực tế, không cần báo "khách đã bớt gì". Bảng dưới là bốn tình huống thường gặp và việc DSmart POS cần làm.
 
-| # | Tình huống | DS Smart POS làm | Kết quả |
+| # | Tình huống | DSmart POS làm | Kết quả |
 |---|-----------|---------|---------|
-| 1 | Khách lấy ít hơn hoặc nhiều hơn số đã quét (ví dụ quét 10 lấy 8; hoặc quét 8 lấy 10, mục 6.1c; chưa thu tiền) | Sửa đơn trên DS Smart POS, thu tiền theo hàng thực mua, báo **thanh toán** với các dòng thực mua. **Không cần huỷ** | Báo thành công. Bill và doanh thu theo DS Smart POS |
-| 2 | Khách đổi ý cả đơn (chưa thu tiền) | Huỷ đơn trên DS Smart POS, gọi lệnh **huỷ** | Điện thoại khách báo "Thu ngân đã huỷ đơn", khách thanh toán lại bằng mã giỏ mới |
-| 3 | Khách trả **một phần** hàng sau khi đã thanh toán | Hoàn tiền phần trả lại trên DS Smart POS, gọi lệnh **hoàn trả** | Đơn vẫn "đã thanh toán", doanh thu giảm đúng số hoàn, bill hiện phần hoàn trả |
-| 4 | Huỷ hoặc hoàn **toàn bộ** sau khi đã thanh toán | Hoàn toàn bộ trên DS Smart POS, gọi lệnh **huỷ** (hoặc hoàn trả đủ số tiền đã thu) | Đơn thành "đã huỷ", khoản thu bị trừ khỏi doanh thu |
+| 1 | Khách lấy ít hơn hoặc nhiều hơn số đã quét (ví dụ quét 10 lấy 8; hoặc quét 8 lấy 10, mục 6.1c; chưa thu tiền) | Sửa đơn trên DSmart POS, thu tiền theo hàng thực mua, báo **thanh toán** với các dòng thực mua. **Không cần huỷ** | Báo thành công. Bill và doanh thu theo DSmart POS |
+| 2 | Khách đổi ý cả đơn (chưa thu tiền) | Huỷ đơn trên DSmart POS, gọi lệnh **huỷ** | Điện thoại khách báo "Thu ngân đã huỷ đơn", khách thanh toán lại bằng mã giỏ mới |
+| 3 | Khách trả **một phần** hàng sau khi đã thanh toán | Hoàn tiền phần trả lại trên DSmart POS, gọi lệnh **hoàn trả** | Đơn vẫn "đã thanh toán", doanh thu giảm đúng số hoàn, bill hiện phần hoàn trả |
+| 4 | Huỷ hoặc hoàn **toàn bộ** sau khi đã thanh toán | Hoàn toàn bộ trên DSmart POS, gọi lệnh **huỷ** (hoặc hoàn trả đủ số tiền đã thu) | Đơn thành "đã huỷ", khoản thu bị trừ khỏi doanh thu |
 
 ### 6.1 Khách quét 10 mặt hàng, chỉ lấy 8 (chưa thanh toán)
 
-Đây **không phải huỷ**. Thu ngân bỏ các mặt hàng khách không lấy khỏi đơn trên DS Smart POS, thu tiền theo hàng thực mua, rồi báo thanh toán như bình thường. Chỉ cần `lines` và `amount` phản ánh **hàng thực mua**:
+Đây **không phải huỷ**. Thu ngân bỏ các mặt hàng khách không lấy khỏi đơn trên DSmart POS, thu tiền theo hàng thực mua, rồi báo thanh toán như bình thường. Chỉ cần `lines` và `amount` phản ánh **hàng thực mua**:
 
 Ví dụ: khách quét 6 hộp sữa và 4 gói mì (10 mặt hàng), ở quầy chỉ lấy 5 hộp sữa và 3 gói mì (8 mặt hàng):
 
@@ -254,14 +254,14 @@ Ví dụ: khách quét 6 hộp sữa và 4 gói mì (10 mặt hàng), ở quầy
 ```
 
 - BRG trả `200`, `status: "paid"`. Không có lỗi vì số lượng ít hơn giỏ khách.
-- **Bill** của khách hiện đúng 8 mặt hàng DS Smart POS gửi. **Doanh thu** là số DS Smart POS thu.
+- **Bill** của khách hiện đúng 8 mặt hàng DSmart POS gửi. **Doanh thu** là số DSmart POS thu.
 - **Quản trị** thấy mục "Khác với giỏ khách quét" trong chi tiết giao dịch (ví dụ sữa 6 thành 5, mì 4 thành 3), để theo dõi khách quét nhiều hơn lấy hoặc thu ngân điều chỉnh ở quầy.
-- Trường hợp khách **lấy thêm** mặt hàng ở quầy cũng tương tự: DS Smart POS thêm vào đơn và báo đủ các dòng.
-- Nếu DS Smart POS **không gửi `lines`**, BRG chỉ biết tổng tiền và bill sẽ hiện giỏ khách quét (10 mặt hàng) kèm ghi chú "chưa có bill chính thức". Vì vậy DS Smart POS **nên luôn gửi `lines`**.
+- Trường hợp khách **lấy thêm** mặt hàng ở quầy cũng tương tự: DSmart POS thêm vào đơn và báo đủ các dòng.
+- Nếu DSmart POS **không gửi `lines`**, BRG chỉ biết tổng tiền và bill sẽ hiện giỏ khách quét (10 mặt hàng) kèm ghi chú "chưa có bill chính thức". Vì vậy DSmart POS **nên luôn gửi `lines`**.
 
 ### 6.1b Khách lấy thêm mặt hàng so với mã QR, điện thoại báo thế nào
 
-Khi khách lấy **thêm** (hoặc đổi số lượng) ở quầy, đơn DS Smart POS nhiều hơn giỏ trong mã QR. DS Smart POS **không cần làm gì đặc biệt để thu tiền**, nhưng nên báo cho điện thoại khách biết để khách kiểm tra. Có hai thời điểm:
+Khi khách lấy **thêm** (hoặc đổi số lượng) ở quầy, đơn DSmart POS nhiều hơn giỏ trong mã QR. DSmart POS **không cần làm gì đặc biệt để thu tiền**, nhưng nên báo cho điện thoại khách biết để khách kiểm tra. Có hai thời điểm:
 
 **a) Trước khi thanh toán: lệnh cập nhật đơn đang tính** (không bắt buộc, nên có)
 
@@ -280,7 +280,7 @@ Khi khách lấy **thêm** (hoặc đổi số lượng) ở quầy, đơn DS Sm
 }
 ```
 
-- `lines` là **toàn bộ đơn đang tính trên DS Smart POS** (không chỉ phần thêm). `amount` là tổng DS Smart POS đang tính, bỏ trống thì hệ thống cộng các dòng.
+- `lines` là **toàn bộ đơn đang tính trên DSmart POS** (không chỉ phần thêm). `amount` là tổng DSmart POS đang tính, bỏ trống thì hệ thống cộng các dòng.
 - Gửi **mỗi khi thu ngân thêm, bớt hoặc đổi số lượng**; lần sau thay lần trước. Không thay cho lệnh báo thanh toán và **không khoá giỏ** của khách.
 - Phản hồi: `{ "ok": true, "itemCount": 4, "total": 108500, "differsFromPhone": true }`.
 - **Điện thoại khách tự hiện (vài giây)** thẻ **"Thu ngân đã cập nhật đơn tại quầy"** liệt kê từng mặt hàng: *Thêm 1*, *Bớt 1*, *Số lượng 1 thành 2*, kèm "Đơn tại quầy: 4 mặt hàng, tạm tính 108.500₫. Số tiền cuối cùng theo máy tính tiền".
@@ -288,10 +288,10 @@ Khi khách lấy **thêm** (hoặc đổi số lượng) ở quầy, đơn DS Sm
 
 **b) Sau khi thanh toán: lệnh báo thanh toán** (bắt buộc, như mọi đơn)
 
-DS Smart POS báo `paid` với **đủ các dòng thực mua** (kể cả mặt hàng thêm). Điện thoại khách:
-- Hiện "Đã hoàn thành thanh toán" với **"Thực mua · 4 mặt hàng"** và số tiền DS Smart POS thu.
+DSmart POS báo `paid` với **đủ các dòng thực mua** (kể cả mặt hàng thêm). Điện thoại khách:
+- Hiện "Đã hoàn thành thanh toán" với **"Thực mua · 4 mặt hàng"** và số tiền DSmart POS thu.
 - Hiện thẻ **"Đơn ở quầy khác giỏ bạn đã quét"** liệt kê mặt hàng thêm, bớt, đổi số lượng.
-- Bill theo đơn DS Smart POS. Quản trị thấy mục "Khác với giỏ khách quét".
+- Bill theo đơn DSmart POS. Quản trị thấy mục "Khác với giỏ khách quét".
 
 ### 6.1c Khách quét 8, lấy thực tế 10 (hai mặt hàng không quét)
 
@@ -302,30 +302,30 @@ DS Smart POS báo `paid` với **đủ các dòng thực mua** (kể cả mặt 
 | Bên | Biết gì | Phát hiện được không |
 |-----|---------|----------------------|
 | Điện thoại / BRG | Chỉ biết những gì khách quét | **Không.** Mặt hàng chưa quét thì BRG hoàn toàn không có dữ liệu |
-| DS Smart POS và thu ngân | Hàng thực tế trên quầy | **Có**, nhưng chỉ khi thu ngân đối chiếu túi hàng với số mặt hàng hiển thị |
+| DSmart POS và thu ngân | Hàng thực tế trên quầy | **Có**, nhưng chỉ khi thu ngân đối chiếu túi hàng với số mặt hàng hiển thị |
 
 BRG **không tự chặn** được việc này. Việc phát hiện luôn nằm ở quầy thu ngân. BRG làm hai việc: (1) giúp thu ngân dễ đối chiếu, (2) ghi nhận và thống kê để quản lý thấy.
 
-**DS Smart POS làm gì (khi thu ngân phát hiện hàng thừa)**
+**DSmart POS làm gì (khi thu ngân phát hiện hàng thừa)**
 
-1. Quét thêm hai mặt hàng đó vào đơn trên DS Smart POS, thu tiền theo đơn đầy đủ 10 mặt hàng.
+1. Quét thêm hai mặt hàng đó vào đơn trên DSmart POS, thu tiền theo đơn đầy đủ 10 mặt hàng.
 2. (Nên) Gọi lệnh `update` (mục 6.1b) để điện thoại khách thấy "Thêm 2" trước khi trả tiền.
 3. Báo `paid` với **đủ các dòng thực mua** (10 mặt hàng) và `amount` là số đã thu.
 
-Không có mã lỗi riêng và không cần cờ đặc biệt: DS Smart POS cứ báo đúng đơn thực tế. BRG tự so sánh với giỏ khách quét. Nếu thu ngân **không** phát hiện thì DS Smart POS không có gì để báo, đơn vẫn là 8 mặt hàng và BRG không có cách biết.
+Không có mã lỗi riêng và không cần cờ đặc biệt: DSmart POS cứ báo đúng đơn thực tế. BRG tự so sánh với giỏ khách quét. Nếu thu ngân **không** phát hiện thì DSmart POS không có gì để báo, đơn vẫn là 8 mặt hàng và BRG không có cách biết.
 
 **BRG hiển thị và ghi nhận**
 
 - **Điện thoại khách** (sau khi thanh toán): "Thực mua · 10 mặt hàng" và thẻ **"Đơn ở quầy khác giỏ bạn đã quét"**, liệt kê hai mặt hàng *Thêm*.
 - **Chi tiết giao dịch (quản trị)**: mục "Khác với giỏ khách quét" ghi từng mặt hàng thêm.
-- **Báo cáo và "Hôm nay"**: các chỉ số **"Giao dịch có hàng thêm"**, **"Số hàng thêm ở quầy"**, **"Giá trị hàng thêm"** (tính theo đơn giá bình quân trên dòng DS Smart POS) và **tỷ lệ giao dịch có hàng thêm**. Bản CSV có các cột tương ứng. Cột "Giao dịch bớt hàng" thể hiện chiều ngược lại (quét nhiều hơn lấy).
+- **Báo cáo và "Hôm nay"**: các chỉ số **"Giao dịch có hàng thêm"**, **"Số hàng thêm ở quầy"**, **"Giá trị hàng thêm"** (tính theo đơn giá bình quân trên dòng DSmart POS) và **tỷ lệ giao dịch có hàng thêm**. Bản CSV có các cột tương ứng. Cột "Giao dịch bớt hàng" thể hiện chiều ngược lại (quét nhiều hơn lấy).
 
 **Cách giảm thất thoát**
 
 - Màn hình QR của khách luôn hiện **số mặt hàng** (ví dụ "Tạm tính · 8 mặt hàng") để thu ngân đếm nhanh túi hàng.
 - Thu ngân đối chiếu số mặt hàng trước khi thu tiền; kiểm tra ngẫu nhiên một số túi.
 - Quản lý theo dõi tỷ lệ "có hàng thêm" theo cửa hàng, theo ngày: cao bất thường thường là khách quên quét hàng loạt (biển hướng dẫn chưa tốt) hoặc điểm thu ngân chưa kiểm tra. Hàng chưa quét **không bao giờ** nằm trong số liệu này, nên vẫn cần kiểm kê định kỳ.
-- Không dùng BRG để "bắt" khách: BRG chỉ ghi nhận chênh lệch khi DS Smart POS đã báo.
+- Không dùng BRG để "bắt" khách: BRG chỉ ghi nhận chênh lệch khi DSmart POS đã báo.
 
 ### 6.2 Khách đổi ý cả đơn, chưa thu tiền
 
@@ -355,9 +355,9 @@ Giỏ về trạng thái đang quét. Điện thoại khách báo "Thu ngân đ�
 
 | Trường | Bắt buộc | Ý nghĩa |
 |--------|----------|---------|
-| `pointCode` | Có | Mã điểm của cửa hàng DS Smart POS đang bán |
-| `posOrderRef` | Có | Mã đơn DS Smart POS của đơn đã thanh toán |
-| `refundRef` | **Có** | Mã **lần hoàn** trên DS Smart POS. **Khoá chống trùng**: báo lại cùng mã thì không ghi lần hai |
+| `pointCode` | Có | Mã điểm của cửa hàng DSmart POS đang bán |
+| `posOrderRef` | Có | Mã đơn DSmart POS của đơn đã thanh toán |
+| `refundRef` | **Có** | Mã **lần hoàn** trên DSmart POS. **Khoá chống trùng**: báo lại cùng mã thì không ghi lần hai |
 | `amount` | **Có** | Số tiền hoàn lần này, số nguyên đồng, lớn hơn 0 |
 | `method` | Không | Cách hoàn: `cash`, `qr_transfer`, `card`, `ewallet` (mặc định `cash`) |
 | `reason` | Không | Lý do |
@@ -370,7 +370,7 @@ Phản hồi: `{ "ok": true, "duplicate": false, "refunded": 30000, "remaining":
 - Bill của khách hiện thêm "Đã hoàn trả" kèm các mặt hàng đã trả và **"Thực thanh toán"** = tổng thanh toán trừ phần đã hoàn.
 - Hoàn đủ số tiền đã thu thì đơn tự thành "đã huỷ" (giống tình huống 4).
 
-| Lỗi | Ý nghĩa | DS Smart POS làm |
+| Lỗi | Ý nghĩa | DSmart POS làm |
 |-----|---------|---------|
 | 400 `REFUND_REF_REQUIRED`, `BAD_AMOUNT`, `BAD_LINES`, `BAD_METHOD` | Dữ liệu gửi sai | Sửa rồi gửi lại, không tự thử lại |
 | 409 `NOT_REFUNDABLE` | Đơn chưa thanh toán | Dùng lệnh huỷ (6.2) |
@@ -387,31 +387,31 @@ Gọi lệnh `cancelled` như 6.2 (hoặc `refund` đủ số tiền đã thu). 
 
 ### 6.5 Các trường hợp khác
 
-- **Khách bấm "Sửa giỏ hàng" trên điện thoại** trong lúc DS Smart POS đang xử lý mã QR cũ: DS Smart POS cứ xử lý và báo thanh toán bình thường. BRG vẫn ghi nhận khoản thu (tiền đã thu là thật) và không ảnh hưởng giỏ mới của khách.
-- **DS Smart POS huỷ hoặc hoàn trả đơn mà điện thoại khách chưa gửi giỏ lên** (khách đang mất mạng): lệnh huỷ trả `200` kèm `"status": "unknown"` (không có gì để huỷ, DS Smart POS không cần thử lại). Lệnh hoàn trả thì trả `404 BASKET_NOT_FOUND`, DS Smart POS thử lại sau.
+- **Khách bấm "Sửa giỏ hàng" trên điện thoại** trong lúc DSmart POS đang xử lý mã QR cũ: DSmart POS cứ xử lý và báo thanh toán bình thường. BRG vẫn ghi nhận khoản thu (tiền đã thu là thật) và không ảnh hưởng giỏ mới của khách.
+- **DSmart POS huỷ hoặc hoàn trả đơn mà điện thoại khách chưa gửi giỏ lên** (khách đang mất mạng): lệnh huỷ trả `200` kèm `"status": "unknown"` (không có gì để huỷ, DSmart POS không cần thử lại). Lệnh hoàn trả thì trả `404 BASKET_NOT_FOUND`, DSmart POS thử lại sau.
 - **Đổi hàng:** xử lý như hoàn trả phần đổi, rồi khách quét giỏ mới cho hàng mới.
-- Sau khi DS Smart POS đã huỷ một đơn mà còn báo thanh toán cho chính đơn đó thì BRG từ chối (`ORDER_CANCELLED`). Muốn thu lại, khách khoá giỏ với mã giỏ mới.
+- Sau khi DSmart POS đã huỷ một đơn mà còn báo thanh toán cho chính đơn đó thì BRG từ chối (`ORDER_CANCELLED`). Muốn thu lại, khách khoá giỏ với mã giỏ mới.
 - Mọi lệnh huỷ và hoàn trả đều bắt buộc có `pointCode` đúng, và dùng quy tắc thử lại ở mục 5.
 
 ## 7. Bill khách xem
 
 - Khách xem bill ngay trong ứng dụng web và tải bản **PDF**. Bill lưu trên điện thoại để xem lại khi mất mạng; tải PDF cần mạng.
-- Nội dung bill lấy từ `lines` và `amount` DS Smart POS gửi, kèm mã đơn DS Smart POS. Không in giấy.
+- Nội dung bill lấy từ `lines` và `amount` DSmart POS gửi, kèm mã đơn DSmart POS. Không in giấy.
 - Bill có nút **Khai báo hoá đơn điện tử** (link nhà cung cấp do quản trị cấu hình).
 
 ## 8. Danh sách kiểm tra khi tích hợp
 
-- [ ] DS Smart POS quét được mã QR mẫu `docs/mau/qr-gio-hang-mau.svg` và đọc ra đúng 2 dòng hàng, mã điểm `SP-0107`, mã giỏ `Q7-LM3K2AB`.
-- [ ] DS Smart POS kiểm tra CRC16 và từ chối khi chuỗi bị sửa một ký tự.
+- [ ] DSmart POS quét được mã QR mẫu `docs/mau/qr-gio-hang-mau.svg` và đọc ra đúng 2 dòng hàng, mã điểm `SP-0107`, mã giỏ `Q7-LM3K2AB`.
+- [ ] DSmart POS kiểm tra CRC16 và từ chối khi chuỗi bị sửa một ký tự.
 - [ ] Quét cùng một mã QR hai lần không tạo hai đơn.
-- [ ] **Mã điểm trong mã QR khác mã điểm cửa hàng của DS Smart POS thì DS Smart POS từ chối ngay**, không tạo đơn, không thu tiền.
+- [ ] **Mã điểm trong mã QR khác mã điểm cửa hàng của DSmart POS thì DSmart POS từ chối ngay**, không tạo đơn, không thu tiền.
 - [ ] Báo thanh toán thiếu `pointCode` bị từ chối (400), sai `pointCode` bị từ chối (409 `POINT_MISMATCH`).
 - [ ] Báo thanh toán lần 1 trả `duplicate: false`, lần 2 trả `duplicate: true`, không thu hai lần.
-- [ ] Ngắt mạng giữa chừng: DS Smart POS thử lại theo lịch ở mục 5 và cuối cùng báo được.
-- [ ] Số tiền DS Smart POS tính khác tạm tính vẫn báo được bình thường.
-- [ ] Khách quét nhiều hơn số lấy: DS Smart POS báo thanh toán với các dòng thực mua, bill hiện đúng hàng thực mua.
-- [ ] Khách lấy thêm ở quầy: DS Smart POS gọi lệnh cập nhật đơn, điện thoại hiện "Thu ngân đã cập nhật đơn tại quầy"; sau thanh toán hiện "Đơn ở quầy khác giỏ bạn đã quét".
+- [ ] Ngắt mạng giữa chừng: DSmart POS thử lại theo lịch ở mục 5 và cuối cùng báo được.
+- [ ] Số tiền DSmart POS tính khác tạm tính vẫn báo được bình thường.
+- [ ] Khách quét nhiều hơn số lấy: DSmart POS báo thanh toán với các dòng thực mua, bill hiện đúng hàng thực mua.
+- [ ] Khách lấy thêm ở quầy: DSmart POS gọi lệnh cập nhật đơn, điện thoại hiện "Thu ngân đã cập nhật đơn tại quầy"; sau thanh toán hiện "Đơn ở quầy khác giỏ bạn đã quét".
 - [ ] Huỷ đơn trước khi thu: gọi lệnh huỷ, điện thoại khách báo "Thu ngân đã huỷ đơn".
 - [ ] Hoàn trả một phần: gọi lệnh hoàn trả, doanh thu giảm đúng số hoàn, bill hiện "Thực thanh toán"; báo lại cùng `refundRef` không ghi trùng.
 - [ ] Huỷ toàn bộ sau khi thu: đơn thành "đã huỷ" và doanh thu giảm đúng số tiền.
-- [ ] Khách thấy "Đã hoàn thành thanh toán" và bill khớp với bill DS Smart POS.
+- [ ] Khách thấy "Đã hoàn thành thanh toán" và bill khớp với bill DSmart POS.

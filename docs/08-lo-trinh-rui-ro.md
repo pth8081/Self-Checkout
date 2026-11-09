@@ -4,17 +4,17 @@
 
 ## 1. Lộ trình
 
-Mục tiêu của khách hàng: **dùng được trong khoảng 2 tháng**. Chưa xác nhận khả thi, vì chưa biết đội ngũ và tình trạng tài liệu API DS Smart POS. Cắt giảm phạm vi bằng thanh toán thủ công (D-02) là để đạt mục tiêu này.
+Mục tiêu của khách hàng: **dùng được trong khoảng 2 tháng**. Chưa xác nhận khả thi, vì chưa biết đội ngũ và tình trạng tài liệu API DSmart POS. Cắt giảm phạm vi bằng thanh toán thủ công (D-02) là để đạt mục tiêu này.
 
 | Giai đoạn | Phạm vi | Thời gian dự kiến | Tiêu chí hoàn thành |
 |-----------|---------|------------------|---------------------|
-| 1 — Thí điểm 2–3 chi nhánh | PWA khách + PWA nhân viên + web quản trị; thanh toán tiền mặt và chuyển khoản QR do nhân viên xác nhận; multi-tenant cho cả chuỗi, chỉ bật 2–3 chi nhánh qua cờ | Mục tiêu 2 tháng để dùng được, rồi 2–4 tuần vận hành thí điểm | Gian lận trong ngưỡng chấp nhận, đồng bộ DS Smart POS ổn định, đối soát tiền khớp, khách phản hồi tích cực (cần đặt số, G-10) |
+| 1 — Thí điểm 2–3 chi nhánh | PWA khách + PWA nhân viên + web quản trị; thanh toán tiền mặt và chuyển khoản QR do nhân viên xác nhận; multi-tenant cho cả chuỗi, chỉ bật 2–3 chi nhánh qua cờ | Mục tiêu 2 tháng để dùng được, rồi 2–4 tuần vận hành thí điểm | Gian lận trong ngưỡng chấp nhận, đồng bộ DSmart POS ổn định, đối soát tiền khớp, khách phản hồi tích cực (cần đặt số, G-10) |
 | 1.5 — Thanh toán tự động (thử) | Bật QR từ nhà cung cấp (hoặc ví, VNPay) ở một chi nhánh bằng cờ; so sánh với cách thủ công | Làm song song, khi tích hợp xong | Tự xác nhận đúng, đối soát khớp, không tăng khiếu nại |
 | 2 — Nhân rộng | Bật cho các chi nhánh còn lại qua cùng cờ, không phát triển lại; có thể thêm cổng vật lý quét QR | Theo tốc độ bật dần sau khi GĐ1 đạt | Toàn bộ chi nhánh ổn định, báo cáo toàn chuỗi đầy đủ |
 | 3 — Chống thất thoát nâng cao (tuỳ chọn) | Cân thông minh / camera AI cho chi nhánh rủi ro cao | Sau 2–3 tháng dữ liệu vận hành | Quyết định đầu tư theo số liệu |
 
 Trình tự kỹ thuật đề xuất cho giai đoạn 1 (TODO gắn ngày khi chốt đội ngũ):
-1. Khảo sát API DS Smart POS và **kiểm chứng quét mã vạch trên điện thoại thật** (iPhone, Android đời thấp). Đây là rủi ro lớn nhất.
+1. Khảo sát API DSmart POS và **kiểm chứng quét mã vạch trên điện thoại thật** (iPhone, Android đời thấp). Đây là rủi ro lớn nhất.
 2. Kiểm chứng QR chuyển khoản tự tạo với ngân hàng của công ty.
 3. Khung kỹ thuật, đồng bộ sản phẩm, PWA khách (quét, giỏ, khoá giỏ).
 4. PWA nhân viên (thu tiền, cổng ra, kiểm tra ngẫu nhiên), hoá đơn điện tử.
@@ -25,7 +25,7 @@ Trình tự kỹ thuật đề xuất cho giai đoạn 1 (TODO gắn ngày khi c
 
 | Mã | Rủi ro | Mức | Giảm thiểu |
 |----|--------|-----|-----------|
-| R1 | DS Smart POS không có API thời gian thực | Thấp (đã có API gần real-time) | Vẫn thiết kế lớp đồng bộ linh hoạt; kiểm tra thực tế độ trễ |
+| R1 | DSmart POS không có API thời gian thực | Thấp (đã có API gần real-time) | Vẫn thiết kế lớp đồng bộ linh hoạt; kiểm tra thực tế độ trễ |
 | R2 | Gian lận vượt dự kiến khi thí điểm | Trung bình | Bắt đầu với tỷ lệ kiểm tra cao, giảm dần theo dữ liệu |
 | R3 | Khách chưa quen tự quét | Trung bình | Hướng dẫn trong app (M02); nhân viên hỗ trợ tại chỗ |
 | R4 | Đăng ký merchant cổng thanh toán lâu | Thấp ở GĐ1 (không cần), Trung bình ở GĐ1.5 | Làm song song với phát triển |

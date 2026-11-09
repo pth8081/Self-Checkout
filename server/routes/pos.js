@@ -1,7 +1,7 @@
 import { nowIso, unauthorized } from '../util.js';
 import { hashKey, previewCart, claimCart, orderStatus, orderPaid, orderCancelled, basketPaid, basketCancelled, basketStatus, basketRefund, basketUpdate } from '../services/pos-api.js';
 
-/** API cho DS Smart POS gọi. Xác thực bằng khoá API (Authorization: Bearer <khoá> hoặc X-Api-Key). Chỉ dùng qua HTTPS. */
+/** API cho DSmart POS gọi. Xác thực bằng khoá API (Authorization: Bearer <khoá> hoặc X-Api-Key). Chỉ dùng qua HTTPS. */
 export default async function posRoutes(app) {
   const { db } = app.ctx;
   const ctx = app.ctx;
@@ -19,7 +19,7 @@ export default async function posRoutes(app) {
   app.get('/v1/health', async (req) => ({ ok: true, key: req.scope.name, storeScope: req.scope.storeId || 'all' }));
   app.get('/v1/carts/:code', async (req) => ({ cart: previewCart(ctx, req.scope, req.params.code) }));
   app.post('/v1/carts/:code/claim', async (req) => claimCart(ctx, req.scope, req.params.code, req.body || {}));
-  // Giỏ QR: DS Smart POS báo theo mã giỏ có trong mã QR
+  // Giỏ QR: DSmart POS báo theo mã giỏ có trong mã QR
   app.get('/v1/baskets/:code', async (req) => basketStatus(ctx, req.scope, req.params.code));
   app.post('/v1/baskets/:code/paid', async (req) => basketPaid(ctx, req.scope, req.params.code, req.body || {}));
   app.post('/v1/baskets/:code/update', async (req) => basketUpdate(ctx, req.scope, req.params.code, req.body || {}));

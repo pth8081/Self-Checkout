@@ -2,14 +2,14 @@
 
 **Mục đích:** khi khách quét mã vạch, BRG Scan & Checkout phải hiện đúng tên và giá **của chi nhánh khách đang đứng**. Hệ thống của bạn là nguồn giá; BRG Scan & Checkout chỉ đọc, không ghi.
 
-Phần này tách khỏi [api-pos](api-pos.md) (DS Smart POS gọi vào BRG Scan & Checkout). Ở đây là BRG Scan & Checkout gọi ra.
+Phần này tách khỏi [api-pos](api-pos.md) (DSmart POS gọi vào BRG Scan & Checkout). Ở đây là BRG Scan & Checkout gọi ra.
 
 ## 1. Nguyên tắc
 
 - Giá luôn tra theo cặp **(chi nhánh, mã vạch)**. Cùng mã vạch ở hai chi nhánh có thể khác giá.
-- Giá BRG Scan & Checkout hiện cho khách và giá DS Smart POS thu **nên cùng một nguồn**. Khi đó giá khớp, không cần DS Smart POS tính lại; DS Smart POS chỉ cần dựng đơn từ danh sách BRG Scan & Checkout gửi và thu đúng số tiền đó.
+- Giá BRG Scan & Checkout hiện cho khách và giá DSmart POS thu **nên cùng một nguồn**. Khi đó giá khớp, không cần DSmart POS tính lại; DSmart POS chỉ cần dựng đơn từ danh sách BRG Scan & Checkout gửi và thu đúng số tiền đó.
 - BRG Scan & Checkout tra giá hai lần: lúc khách quét, và lúc khách khoá giỏ (để phát hiện giá vừa đổi). Vì vậy API cần trả lời nhanh.
-- BRG Scan & Checkout không dùng tồn kho (DS Smart POS tự xử lý). Trường tồn kho có hay không đều được.
+- BRG Scan & Checkout không dùng tồn kho (DSmart POS tự xử lý). Trường tồn kho có hay không đều được.
 
 ## 2. Hai lệnh cần có
 
@@ -37,7 +37,7 @@ Trả về, mỗi mã vạch tìm thấy là một phần tử (mã không có t
 
 | Trường | Ý nghĩa |
 |--------|---------|
-| `sku` | Mã sản phẩm trong hệ thống của bạn. DS Smart POS dùng mã này để dựng đơn |
+| `sku` | Mã sản phẩm trong hệ thống của bạn. DSmart POS dùng mã này để dựng đơn |
 | `price` | Giá bán lẻ **đang áp dụng tại chi nhánh**, VND, số nguyên, đã gồm thuế |
 | `active` | `false` nếu ngừng bán tại chi nhánh |
 | `ageRestricted` | `true` với rượu, thuốc lá… (thu ngân sẽ kiểm tra ở quầy) |
@@ -51,7 +51,7 @@ Một mã vạch ứng với một `sku`. Một `sku` có thể có nhiều mã 
 
 Trả danh sách như 2.1, có phân trang và `updatedSince` để chỉ lấy dòng thay đổi. BRG Scan & Checkout dùng để giữ bản sao tra nhanh và đồng bộ mỗi phút.
 
-### 2.3 Tính giá cả giỏ theo khuyến mãi (nên có, để tạm tính khớp DS Smart POS)
+### 2.3 Tính giá cả giỏ theo khuyến mãi (nên có, để tạm tính khớp DSmart POS)
 
 Giá từng mặt hàng chưa đủ để ra đúng số tiền khi có khuyến mãi phụ thuộc cả giỏ (combo, mua kèm, tổng tiền, theo giờ, chương trình theo chi nhánh). Cách chính xác nhất là **để chính bộ tính giá của hệ thống/POS tính**, BRG Scan & Checkout chỉ gọi.
 
@@ -76,9 +76,9 @@ Trả về:
 }
 ```
 
-- Tính **như DS Smart POS tính cho khách không có thẻ thành viên** (khách vãng lai), cùng bảng giá và quy tắc khuyến mãi tại thời điểm gọi.
+- Tính **như DSmart POS tính cho khách không có thẻ thành viên** (khách vãng lai), cùng bảng giá và quy tắc khuyến mãi tại thời điểm gọi.
 - `unknown`: các mã vạch không có trong hệ thống của chi nhánh.
-- Hàng ngừng bán hoặc hết hạn khuyến mãi: trả như DS Smart POS sẽ làm khi quét.
+- Hàng ngừng bán hoặc hết hạn khuyến mãi: trả như DSmart POS sẽ làm khi quét.
 
 **Cách BRG Scan & Checkout dùng:** lúc khách quét từng mặt hàng thì hiện đơn giá (từ 2.1). Khi khách bấm Thanh toán thì BRG Scan & Checkout gọi `/quote` để lấy tổng chính xác. Mất mạng hoặc API không trả lời thì BRG Scan & Checkout tính tạm theo giá thường và khuyến mãi đơn giản, ghi rõ "tạm tính, có thể chênh lệch khuyến mãi tại quầy".
 
@@ -100,9 +100,9 @@ Mỗi chi nhánh trong BRG Scan & Checkout có **mã điểm**: mã của siêu 
    Mã vạch nhận vào gồm dạng nào: EAN-13, UPC-A 12 số, mã của nhà cung cấp, mã nội bộ? Một mã vạch ứng với một hay nhiều `sku`?
 6. Có API **tính giá cả giỏ** (mục 2.3) không? Nếu không, cần bảng khuyến mãi và quy tắc kết hợp (ưu tiên, cộng dồn, làm tròn).
 2. Giá trả về đã là **giá khách thực trả** (đã gồm giá khuyến mãi)? Hay khuyến mãi tách riêng?
-3. Khuyến mãi phức tạp hơn "mua N giảm X" (combo, tặng kèm, theo giờ)? Nếu có, nói rõ để BRG Scan & Checkout hoặc DS Smart POS xử lý.
+3. Khuyến mãi phức tạp hơn "mua N giảm X" (combo, tặng kèm, theo giờ)? Nếu có, nói rõ để BRG Scan & Checkout hoặc DSmart POS xử lý.
 4. Hàng bán theo cân/ký có mã riêng hay mã chứa giá/khối lượng?
-5. Cùng nguồn này DS Smart POS cũng dùng để tính tiền không? Nếu cùng nguồn thì DS Smart POS không cần tính lại.
+5. Cùng nguồn này DSmart POS cũng dùng để tính tiền không? Nếu cùng nguồn thì DSmart POS không cần tính lại.
 
 ## 5. Phía BRG Scan & Checkout sẽ làm khi có API
 

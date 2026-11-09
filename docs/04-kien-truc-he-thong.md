@@ -22,7 +22,7 @@ flowchart LR
     BE --> DB[(CSDL + audit log)]
 ```
 
-Tích hợp: **DS Smart POS/ERP**, **hoá đơn điện tử**, và (GĐ2) **cổng thanh toán**. Ở GĐ1 không có tích hợp thanh toán bên ngoài: xác nhận thu tiền do nhân viên thực hiện qua PWA nhân viên. Thiết bị cổng ra cũng chính là PWA nhân viên.
+Tích hợp: **DSmart POS/ERP**, **hoá đơn điện tử**, và (GĐ2) **cổng thanh toán**. Ở GĐ1 không có tích hợp thanh toán bên ngoài: xác nhận thu tiền do nhân viên thực hiện qua PWA nhân viên. Thiết bị cổng ra cũng chính là PWA nhân viên.
 
 ## 2. Các khối (khung — TODO chọn công nghệ qua ADR)
 
@@ -30,7 +30,7 @@ Tích hợp: **DS Smart POS/ERP**, **hoá đơn điện tử**, và (GĐ2) **c�
 |------|-------------|---------|
 | API Gateway / BFF | Xác thực, giới hạn tốc độ, định tuyến `storeId` | |
 | Dịch vụ phiên & giỏ | `ScanSession`, `CartItem`, khoá giỏ | Idempotent theo `clientEventId` để đồng bộ offline |
-| Dịch vụ sản phẩm | Tra `ProductCache`, đồng bộ DS Smart POS | Hai chế độ: real-time / định kỳ; kiểm tra lại giá khi khoá giỏ (FR-CUS-10) |
+| Dịch vụ sản phẩm | Tra `ProductCache`, đồng bộ DSmart POS | Hai chế độ: real-time / định kỳ; kiểm tra lại giá khi khoá giỏ (FR-CUS-10) |
 | **Module thanh toán** | Tạo giao dịch, chọn cách trả theo cờ chi nhánh, xác nhận thu | Xem mục 3 |
 | Dịch vụ hoá đơn | Xuất & lưu liên kết hoá đơn | Có hàng đợi, thử lại |
 | Dịch vụ cổng ra | Sinh/xác nhận QR biên nhận, bốc mẫu kiểm tra | |
@@ -61,9 +61,9 @@ Quy tắc chung cho cả hai cách tạo QR: nội dung chuyển khoản chứa 
 
 ## 5. Luồng dữ liệu then chốt
 
-1. **Đồng bộ giá/tồn kho:** DS Smart POS → `ProductCache` (xem [07](07-tich-hop-chong-that-thoat.md) mục 1).
+1. **Đồng bộ giá/tồn kho:** DSmart POS → `ProductCache` (xem [07](07-tich-hop-chong-that-thoat.md) mục 1).
 2. **Quét:** client gửi `barcode` → backend trả sản phẩm + giá tại thời điểm quét → ghi `CartItem`.
-3. **Khoá giỏ:** kiểm tra lại giá/tồn kho với dữ liệu DS Smart POS; nếu khác thì báo khách đồng ý (M15); sinh mã giỏ hàng.
+3. **Khoá giỏ:** kiểm tra lại giá/tồn kho với dữ liệu DSmart POS; nếu khác thì báo khách đồng ý (M15); sinh mã giỏ hàng.
 4. **Thu tiền (GĐ1):** nhân viên quét mã giỏ hàng → chọn cách thu → xác nhận → ghi `Payment` → phát QR biên nhận → xuất hoá đơn.
 5. **Cổng ra:** quét QR → xác nhận trạng thái, đánh dấu đã dùng → (ngẫu nhiên) kiểm tra → ghi `ExitCheck`.
 
@@ -71,7 +71,7 @@ Quy tắc chung cho cả hai cách tạo QR: nội dung chuyển khoản chứa 
 
 | Sự cố | Hành vi |
 |-------|---------|
-| DS Smart POS mất kết nối | Dùng `ProductCache`; cảnh báo nếu quá ngưỡng lệch (Q-12); banner ở A01 |
+| DSmart POS mất kết nối | Dùng `ProductCache`; cảnh báo nếu quá ngưỡng lệch (Q-12); banner ở A01 |
 | Giá/tồn kho đổi giữa lúc quét và lúc khoá giỏ | Hiện M15, khách đồng ý rồi mới tiếp tục |
 | Khách chuyển khoản sai số tiền hoặc sai nội dung | Nhân viên không tick đủ ba ô, không xác nhận; xử lý tại quầy |
 | Nhân viên bấm nhầm xác nhận | TODO: quy trình huỷ có quyền quản lý và để lại dấu vết |

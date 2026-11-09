@@ -8,14 +8,14 @@ access: all
 
 # Quy trình thanh toán tại quầy
 
-> **Luồng hiện hành là "Giỏ QR cho DS Smart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào DS Smart POS, DS Smart POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho DS Smart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối DS Smart POS".
+> **Luồng hiện hành là "Giỏ QR cho DSmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng; thu ngân quét mã vào DSmart POS, DSmart POS tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho DSmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối DSmart POS".
 
 Ở giai đoạn 1, khách **không tự thanh toán trên điện thoại**. Khách chọn cách trả, nhận mã giỏ hàng, đến **quầy Scan & Checkout**, và **thu ngân xác nhận** đã thu. Chỉ sau xác nhận đó khách mới có QR để ra cổng.
 
 ## Các bước chung
 
 1. Khách bấm **Thanh toán** trong giỏ, chọn **Tiền mặt tại quầy** hoặc **Chuyển khoản QR**, bấm **Tiếp tục**.
-2. Hệ thống kiểm tra lại giá, khuyến mãi, tồn kho với DS Smart POS (khách đồng ý nếu có thay đổi), **khoá giỏ** và sinh:
+2. Hệ thống kiểm tra lại giá, khuyến mãi, tồn kho với DSmart POS (khách đồng ý nếu có thay đổi), **khoá giỏ** và sinh:
    - **Mã giỏ hàng** dạng `GH-Q7-10003` (hiện cả dạng QR).
    - **Nội dung chuyển khoản** dạng `SG Q7 10003` (dùng khi trả bằng chuyển khoản).
 3. Khách đến quầy, đưa **mã giỏ hàng** cho thu ngân.
@@ -116,9 +116,9 @@ Khi kiểm tra ngẫu nhiên phát hiện khách còn hàng chưa quét, nhân v
 
 Xem thêm "Cổng ra và kiểm tra ngẫu nhiên".
 
-## Khi chi nhánh thu tiền qua DS Smart POS
+## Khi chi nhánh thu tiền qua DSmart POS
 
-Áp dụng cho chi nhánh được quản trị chuỗi chuyển sang **Qua DS Smart POS**. Thu ngân dùng **DS Smart POS** để thu tiền, không dùng app nhân viên của BRG.
+Áp dụng cho chi nhánh được quản trị chuỗi chuyển sang **Qua DSmart POS**. Thu ngân dùng **DSmart POS** để thu tiền, không dùng app nhân viên của BRG.
 
 ```seq
 title: Thanh toán khi thu tiền qua POS
@@ -136,29 +136,29 @@ POS -> Hệ thống BRG: Báo đã thanh toán, số tiền, cách trả
 Hệ thống BRG --> Khách: Tự xác nhận
 ```
 
-**Khách** chỉ có một lựa chọn "Thanh toán tại quầy". Trước khi khoá giỏ khách có thể nhập **email** nhận hoá đơn và, nếu cần, **thông tin hoá đơn công ty** (mã số thuế, tên, địa chỉ), để DS Smart POS xuất đúng hoá đơn ngay từ đầu. (Cách vận hành hiện nay: khách tự khai báo hoá đơn qua link nhà cung cấp sau khi thanh toán.)
+**Khách** chỉ có một lựa chọn "Thanh toán tại quầy". Trước khi khoá giỏ khách có thể nhập **email** nhận hoá đơn và, nếu cần, **thông tin hoá đơn công ty** (mã số thuế, tên, địa chỉ), để DSmart POS xuất đúng hoá đơn ngay từ đầu. (Cách vận hành hiện nay: khách tự khai báo hoá đơn qua link nhà cung cấp sau khi thanh toán.)
 
-**Thu ngân** quét mã giỏ hàng bằng máy quét của DS Smart POS. DS Smart POS nhận mặt hàng từ BRG và tạo đơn, thu ngân không gõ tay. Khi thu xong, DS Smart POS báo về BRG. Không còn bước thu ngân tick hay bấm xác nhận trong BRG, vì **DS Smart POS đã biết tiền thu thật hay chưa**.
+**Thu ngân** quét mã giỏ hàng bằng máy quét của DSmart POS. DSmart POS nhận mặt hàng từ BRG và tạo đơn, thu ngân không gõ tay. Khi thu xong, DSmart POS báo về BRG. Không còn bước thu ngân tick hay bấm xác nhận trong BRG, vì **DSmart POS đã biết tiền thu thật hay chưa**.
 
 **Trạng thái giỏ hàng** mà khách thấy trên điện thoại:
 - Chờ thu ngân quét: "Đưa mã này cho thu ngân quét vào máy tính tiền".
-- DS Smart POS đã nhận giỏ: "Đơn của bạn đã vào máy tính tiền, thanh toán tại quầy". Từ lúc này khách **không sửa được giỏ**.
-- DS Smart POS báo đã thanh toán: tự chuyển sang QR ra cổng (có bảo vệ) hoặc màn hoàn tất (không bảo vệ).
+- DSmart POS đã nhận giỏ: "Đơn của bạn đã vào máy tính tiền, thanh toán tại quầy". Từ lúc này khách **không sửa được giỏ**.
+- DSmart POS báo đã thanh toán: tự chuyển sang QR ra cổng (có bảo vệ) hoặc màn hoàn tất (không bảo vệ).
 
-**Số tiền:** DS Smart POS tự tính lại giá và khuyến mãi theo quy tắc của DS Smart POS. Số tiền DS Smart POS báo mới là **số tiền thật** và được ghi nhận. Số trên điện thoại khách lúc khoá giỏ chỉ là tạm tính. Khi hai số khác nhau, giao dịch được đánh dấu **lệch tiền** và hiện ở trang **Đơn DS Smart POS** của web quản trị để quản lý xem lại.
+**Số tiền:** DSmart POS tự tính lại giá và khuyến mãi theo quy tắc của DSmart POS. Số tiền DSmart POS báo mới là **số tiền thật** và được ghi nhận. Số trên điện thoại khách lúc khoá giỏ chỉ là tạm tính. Khi hai số khác nhau, giao dịch được đánh dấu **lệch tiền** và hiện ở trang **Đơn DSmart POS** của web quản trị để quản lý xem lại.
 
-**Huỷ đơn do DS Smart POS làm** (DS Smart POS có sẵn chức năng này):
+**Huỷ đơn do DSmart POS làm** (DSmart POS có sẵn chức năng này):
 - Huỷ **trước khi thanh toán:** giỏ được nhả về cho khách. Khách sửa giỏ rồi khoá lại sẽ có mã giỏ mới.
 - Huỷ **sau khi thanh toán** (hoàn tiền) khi khách chưa ra cổng: QR ra cổng mất hiệu lực, khoản thu không tính vào doanh thu của BRG, hoá đơn chuyển sang "yêu cầu huỷ".
 - Huỷ khi khách **đã ra:** BRG ghi nhận, loại khỏi doanh thu và để lại dấu vết; việc xử lý hàng đã ra do cửa hàng.
 
-**Khi DS Smart POS gặp sự cố:**
-- DS Smart POS nhận giỏ nhưng **không báo kết quả** (DS Smart POS sập giữa chừng): quản lý mở **Đơn DS Smart POS** và bấm **Nhả giỏ** (bắt buộc ghi lý do) để khách sửa giỏ hoặc khoá lại. Nếu DS Smart POS sau đó vẫn báo đã thanh toán cho đơn đó, BRG từ chối và cần đối soát tay với DS Smart POS.
-- DS Smart POS **ngừng hẳn** trong thời gian dài: quản trị chuỗi chuyển chi nhánh về **Tự thu trong BRG** (cần không còn giỏ chờ thu) để thu ngân dùng quy trình thủ công ở trên, rồi chuyển lại khi DS Smart POS sẵn sàng.
+**Khi DSmart POS gặp sự cố:**
+- DSmart POS nhận giỏ nhưng **không báo kết quả** (DSmart POS sập giữa chừng): quản lý mở **Đơn DSmart POS** và bấm **Nhả giỏ** (bắt buộc ghi lý do) để khách sửa giỏ hoặc khoá lại. Nếu DSmart POS sau đó vẫn báo đã thanh toán cho đơn đó, BRG từ chối và cần đối soát tay với DSmart POS.
+- DSmart POS **ngừng hẳn** trong thời gian dài: quản trị chuỗi chuyển chi nhánh về **Tự thu trong BRG** (cần không còn giỏ chờ thu) để thu ngân dùng quy trình thủ công ở trên, rồi chuyển lại khi DSmart POS sẵn sàng.
 
-> **Quan trọng:** Ở chế độ DS Smart POS không còn người xác nhận trong BRG, nên **đối soát từng giao dịch BRG với DS Smart POS** hằng ngày (trang Đơn DS Smart POS, mục lệch tiền) là bước kiểm soát chính. Xem "Quản lý, đối soát và huỷ giao dịch".
+> **Quan trọng:** Ở chế độ DSmart POS không còn người xác nhận trong BRG, nên **đối soát từng giao dịch BRG với DSmart POS** hằng ngày (trang Đơn DSmart POS, mục lệch tiền) là bước kiểm soát chính. Xem "Quản lý, đối soát và huỷ giao dịch".
 
-> **Cần xác nhận:** Hạn chờ nhận giỏ và hạn chờ thanh toán (đơn bị bỏ quên trên DS Smart POS) hiện chưa tự hết hạn. Xem "Điểm cần chốt".
+> **Cần xác nhận:** Hạn chờ nhận giỏ và hạn chờ thanh toán (đơn bị bỏ quên trên DSmart POS) hiện chưa tự hết hạn. Xem "Điểm cần chốt".
 
 ## Hoá đơn điện tử
 
@@ -166,7 +166,7 @@ Hệ thống BRG --> Khách: Tự xác nhận
 - Khách có thể **nhập email** để nhận hoá đơn, hoặc **xin hoá đơn công ty** (mã số thuế, tên, địa chỉ, email). Hoá đơn công ty **thay thế** hoá đơn bán lẻ và **chỉ xuất được trong ngày** phát sinh giao dịch.
 - Nếu nhà cung cấp hoá đơn lỗi, giao dịch **vẫn hoàn tất**, khách vẫn ra cổng. Hoá đơn ở trạng thái **đang chờ**, hệ thống tự thử lại khoảng 2 phút một lần, quản trị có nút **Thử lại hoá đơn treo**.
 
-> **Lưu ý:** Mô tả trên là cho chế độ **tự thu**. Ở chế độ **DS Smart POS**, hoá đơn **không phát hành lúc thanh toán**; khách tự khai báo qua link nhà cung cấp hoá đơn do quản trị cấu hình. BRG không tự xuất và không lưu số hoá đơn. Ở chế độ tự thu, hoá đơn điện tử của BRG hiện chạy bản giả lập; khi nối nhà cung cấp thật cần chốt bên nào xuất để không xuất trùng.
+> **Lưu ý:** Mô tả trên là cho chế độ **tự thu**. Ở chế độ **DSmart POS**, hoá đơn **không phát hành lúc thanh toán**; khách tự khai báo qua link nhà cung cấp hoá đơn do quản trị cấu hình. BRG không tự xuất và không lưu số hoá đơn. Ở chế độ tự thu, hoá đơn điện tử của BRG hiện chạy bản giả lập; khi nối nhà cung cấp thật cần chốt bên nào xuất để không xuất trùng.
 
 ## Các trạng thái và nơi xem
 

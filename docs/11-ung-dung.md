@@ -1,6 +1,6 @@
 # 11. Ứng dụng đã xây và cách gắn tích hợp thật
 
-**Trạng thái:** ứng dụng đầy đủ chức năng cho khách, thu ngân, nhân viên cổng ra và quản trị; DS Smart POS, hoá đơn điện tử và thanh toán online chạy bản giả lập hoặc chưa có. Cách chạy xem [README](../README.md).
+**Trạng thái:** ứng dụng đầy đủ chức năng cho khách, thu ngân, nhân viên cổng ra và quản trị; DSmart POS, hoá đơn điện tử và thanh toán online chạy bản giả lập hoặc chưa có. Cách chạy xem [README](../README.md).
 
 ## 1. Đã làm
 
@@ -15,7 +15,7 @@
 
 ## 2. Quy tắc nghiệp vụ chính (đã có kiểm thử)
 
-- Giá chốt lúc quét; khi khoá giỏ, hệ thống đối chiếu lại với DS Smart POS. Giá, khuyến mãi hoặc ngừng bán đổi thì khách phải đồng ý (M15) mới khoá được. **Tồn kho không bị kiểm tra** (quyết định 2026-11-05): DS Smart POS tự xử lý tồn kho khi bán.
+- Giá chốt lúc quét; khi khoá giỏ, hệ thống đối chiếu lại với DSmart POS. Giá, khuyến mãi hoặc ngừng bán đổi thì khách phải đồng ý (M15) mới khoá được. **Tồn kho không bị kiểm tra** (quyết định 2026-11-05): DSmart POS tự xử lý tồn kho khi bán.
 - Khoá giỏ sinh `GH-<chi nhánh>-<số>` (mã giỏ) và nội dung chuyển khoản `SG <chi nhánh> <số>`. Chỉ nhân viên đúng chi nhánh tra được.
 - Thu tiền cần nhân viên đã bắt đầu ca. Chuyển khoản chỉ xác nhận khi đủ 3 điều kiện (số tiền, nội dung, tiền đã vào). Tiền mặt ghi số khách đưa và tiền thừa.
 - QR biên nhận `R1.<mã>.<hạn>.<chữ ký>` chỉ hợp lệ khi đã thu tiền, chưa hết hạn, chưa dùng, chưa bị huỷ; quét thành công là đánh dấu đã dùng ngay.
@@ -23,17 +23,17 @@
 - Huỷ giao dịch đã thu: chỉ quản lý, bắt buộc lý do, chưa ra cổng; QR trở nên vô hiệu, hoá đơn đã xuất chuyển sang "yêu cầu huỷ".
 - Mọi thao tác quan trọng ghi `audit_events` (truy vết ở A07, nhật ký ở trang quản trị).
 
-## 2a. Giỏ QR cho DS Smart POS (hướng chính)
+## 2a. Giỏ QR cho DSmart POS (hướng chính)
 
-Từ 2026-11-05 chế độ mặc định của chi nhánh là **giỏ QR** (`checkout_mode = basket`). Khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng ([api-qr-gio-hang](api-qr-gio-hang.md)); DS Smart POS quét, tạo đơn, tính lại giá, thu tiền. Chế độ này bật sẵn thu tiền qua DS Smart POS và tắt bước cổng ra; luồng cũ bị khoá, không xoá: quản trị chuỗi tắt công tắc "Giỏ QR cho DS Smart POS" ở A02 để dùng lại (không còn giỏ chờ). Tồn kho không dùng. Hoá đơn điện tử do DS Smart POS và nhà cung cấp xử lý; khách khai báo ở **link của nhà cung cấp** do quản trị cấu hình (trang Tích hợp), nút hiện trên màn hình sau thanh toán, bill, lịch sử, email và PDF. **Mã điểm là khoá bảo vệ:** chi nhánh phải có mã điểm mới bật được; DS Smart POS từ chối mã QR có mã điểm sai, và API báo thanh toán bắt buộc gửi `pointCode` đúng (sai thì 409 `POINT_MISMATCH`).
+Từ 2026-11-05 chế độ mặc định của chi nhánh là **giỏ QR** (`checkout_mode = basket`). Khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR chứa mã vạch và số lượng ([api-qr-gio-hang](api-qr-gio-hang.md)); DSmart POS quét, tạo đơn, tính lại giá, thu tiền. Chế độ này bật sẵn thu tiền qua DSmart POS và tắt bước cổng ra; luồng cũ bị khoá, không xoá: quản trị chuỗi tắt công tắc "Giỏ QR cho DSmart POS" ở A02 để dùng lại (không còn giỏ chờ). Tồn kho không dùng. Hoá đơn điện tử do DSmart POS và nhà cung cấp xử lý; khách khai báo ở **link của nhà cung cấp** do quản trị cấu hình (trang Tích hợp), nút hiện trên màn hình sau thanh toán, bill, lịch sử, email và PDF. **Mã điểm là khoá bảo vệ:** chi nhánh phải có mã điểm mới bật được; DSmart POS từ chối mã QR có mã điểm sai, và API báo thanh toán bắt buộc gửi `pointCode` đúng (sai thì 409 `POINT_MISMATCH`).
 
-DS Smart POS báo thanh toán theo mã giỏ (`POST /api/pos/v1/baskets/{mã}/paid`, kèm `lines`), tự thử lại 3–4 lần tới khi thành công; khách thấy "Đã hoàn thành thanh toán", xem bill và tải PDF (`pdfkit`, phông DejaVu Sans trong `server/assets/fonts`). Chưa có kết quả từ DS Smart POS thì khách bấm "Đã thanh toán xong", giao dịch ở trạng thái `handed_off`.
+DSmart POS báo thanh toán theo mã giỏ (`POST /api/pos/v1/baskets/{mã}/paid`, kèm `lines`), tự thử lại 3–4 lần tới khi thành công; khách thấy "Đã hoàn thành thanh toán", xem bill và tải PDF (`pdfkit`, phông DejaVu Sans trong `server/assets/fonts`). Chưa có kết quả từ DSmart POS thì khách bấm "Đã thanh toán xong", giao dịch ở trạng thái `handed_off`.
 
-## 2b. Chế độ DS Smart POS và bỏ bước bảo vệ (cờ theo chi nhánh)
+## 2b. Chế độ DSmart POS và bỏ bước bảo vệ (cờ theo chi nhánh)
 
-- **`paymentSource = pos`:** DS Smart POS gọi API `/api/pos/v1` của BRG (nhận giỏ, báo thanh toán, báo huỷ), xem [api-pos.md](api-pos.md). BRG tự xác nhận khi DS Smart POS báo thanh toán; thu tiền thủ công trong BRG bị chặn ở chi nhánh này.
+- **`paymentSource = pos`:** DSmart POS gọi API `/api/pos/v1` của BRG (nhận giỏ, báo thanh toán, báo huỷ), xem [api-pos.md](api-pos.md). BRG tự xác nhận khi DSmart POS báo thanh toán; thu tiền thủ công trong BRG bị chặn ở chi nhánh này.
 - **`guardCheck = false`:** không có bước cổng ra, không bốc kiểm tra ngẫu nhiên, thanh toán xong khách ra luôn, không có QR.
-- Cả hai chỉ quản trị chuỗi đổi, có ghi nhật ký. Đây là hướng DS Smart POS gọi vào BRG, **khác** với cách BRG gọi DS Smart POS để lấy giá và tồn kho ở mục 3.
+- Cả hai chỉ quản trị chuỗi đổi, có ghi nhật ký. Đây là hướng DSmart POS gọi vào BRG, **khác** với cách BRG gọi DSmart POS để lấy giá và tồn kho ở mục 3.
 
 ## 2c. Khách mất mạng, tắt trình duyệt hoặc bị xoá dữ liệu
 
@@ -41,11 +41,11 @@ DS Smart POS báo thanh toán theo mã giỏ (`POST /api/pos/v1/baskets/{mã}/pa
 - **Tắt trình duyệt:** mở lại link cửa hàng, giỏ đang dở (kể cả giỏ đã khoá chờ thu ngân hoặc đã thanh toán chưa ra) hiện lại theo mã thiết bị.
 - **Bị xoá dữ liệu trang** (iOS xoá localStorage sau 7 ngày không dùng): máy chủ đặt thêm cookie `brgd` làm bản sao mã thiết bị; còn cookie thì giỏ vẫn tìm lại được (`GET /api/c/sessions/current`).
 - **Không còn gì** (đổi trình duyệt, ứng dụng ra màn hình chính tách riêng với Safari, chế độ riêng tư): giỏ cũ không tự khôi phục. Thu ngân vẫn xử lý được nếu khách còn mã giỏ (màn chờ nhắc chụp màn hình).
-- Giỏ bị bỏ quên quá 12 giờ (`CART_TTL_HOURS`) được dọn mỗi giờ; giỏ DS Smart POS đã nhận thì giữ.
+- Giỏ bị bỏ quên quá 12 giờ (`CART_TTL_HOURS`) được dọn mỗi giờ; giỏ DSmart POS đã nhận thì giữ.
 
-## 3. Gắn DS Smart POS thật (đọc giá và tồn kho)
+## 3. Gắn DSmart POS thật (đọc giá và tồn kho)
 
-Bản giả lập: `server/services/pos.js` (đọc bảng `pos_products`). DS Smart POS thật thay bằng một adapter cùng giao diện, chọn trong `server/app.js` (tham số `pos` của `buildApp`, hoặc đổi nơi tạo `createMockPos`).
+Bản giả lập: `server/services/pos.js` (đọc bảng `pos_products`). DSmart POS thật thay bằng một adapter cùng giao diện, chọn trong `server/app.js` (tham số `pos` của `buildApp`, hoặc đổi nơi tạo `createMockPos`).
 
 ```js
 {
@@ -60,11 +60,11 @@ Bản giả lập: `server/services/pos.js` (đọc bảng `pos_products`). DS S
 
 Mã điểm của từng chi nhánh (`stores.pos_code`, nhập ở A02/A03) là mã để adapter gọi đúng cửa hàng trong hệ thống giá; xem [api-gia-chi-nhanh](api-gia-chi-nhanh.md).
 
-Một dòng sản phẩm cần: `sku, barcode, name, price (VND, số nguyên), stock, unit, active, age_restricted, promo_min_qty, promo_off, ...`. Bảng `product_cache` là bản sao để quét nhanh; `current()` mới là nguồn để chốt giá, nên với DS Smart POS có API thời gian thực hãy gọi trực tiếp DS Smart POS trong `current()` thay vì đọc bộ nhớ đệm.
+Một dòng sản phẩm cần: `sku, barcode, name, price (VND, số nguyên), stock, unit, active, age_restricted, promo_min_qty, promo_off, ...`. Bảng `product_cache` là bản sao để quét nhanh; `current()` mới là nguồn để chốt giá, nên với DSmart POS có API thời gian thực hãy gọi trực tiếp DSmart POS trong `current()` thay vì đọc bộ nhớ đệm.
 
-Việc cần chốt với DS Smart POS (xem [07](07-tich-hop-chong-that-thoat.md)): API đọc theo chi nhánh, xác thực, giới hạn gọi, một SKU nhiều mã vạch, khuyến mãi (hiện chỉ hỗ trợ dạng "mua N giảm X"), hàng cân theo ký, hàng giới hạn độ tuổi.
+Việc cần chốt với DSmart POS (xem [07](07-tich-hop-chong-that-thoat.md)): API đọc theo chi nhánh, xác thực, giới hạn gọi, một SKU nhiều mã vạch, khuyến mãi (hiện chỉ hỗ trợ dạng "mua N giảm X"), hàng cân theo ký, hàng giới hạn độ tuổi.
 
-**Báo cáo và DS Smart POS:** báo cáo hiện lấy từ dữ liệu của chính hệ thống (A01, A04, xuất CSV). Ghi giao dịch Scan & Checkout về DS Smart POS/kế toán chưa làm (G-05); điểm gắn tự nhiên là cuối `collectPayment` trong `server/services/core.js`, sau khi ghi `payments`, kèm hàng đợi thử lại giống hoá đơn.
+**Báo cáo và DSmart POS:** báo cáo hiện lấy từ dữ liệu của chính hệ thống (A01, A04, xuất CSV). Ghi giao dịch Scan & Checkout về DSmart POS/kế toán chưa làm (G-05); điểm gắn tự nhiên là cuối `collectPayment` trong `server/services/core.js`, sau khi ghi `payments`, kèm hàng đợi thử lại giống hoá đơn.
 
 ## 4. Gắn hoá đơn điện tử thật
 
@@ -76,7 +76,7 @@ Bản giả lập: `createMockInvoicer` trong `server/services/invoice.js`. Adap
 
 `tx` là dòng giao dịch (có `items_json`, `total`, `store_id`…), `buyer` có `email`, `taxCode`, `companyName`, `address` khi khách xin hoá đơn công ty. Hàm ném lỗi thì hoá đơn ở trạng thái `pending`, vẫn cho khách ra cổng, và được thử lại mỗi 2 phút hoặc từ nút ở A03. Hoá đơn bán lẻ xuất ngay khi thu tiền; hoá đơn công ty thay thế hoá đơn bán lẻ, chỉ trong ngày phát sinh.
 
-Cần chốt: nếu DS Smart POS cũng tự xuất hoá đơn khi nhận đơn, chỉ để **một bên** xuất, tránh trùng.
+Cần chốt: nếu DSmart POS cũng tự xuất hoá đơn khi nhận đơn, chỉ để **một bên** xuất, tránh trùng.
 
 ## 5. Thêm thanh toán online
 
