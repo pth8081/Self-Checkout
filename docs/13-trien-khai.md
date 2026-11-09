@@ -214,6 +214,15 @@ Dữ liệu phát sinh giữa bản sao lưu và lúc hỏng sẽ mất (tối �
 
 Nhập `0` cho mục nào thì giữ mãi mục đó. Lưu ý: khách chỉ xem lại được lịch sử bill trong thời hạn giữ thông tin cá nhân, vì liên kết giữa khách và đơn bị xoá sau đó. **Bản sao lưu** chứa dữ liệu trước khi xoá, nên `BACKUP_KEEP` cần đủ ngắn để bản sao lưu cũ cũng bị loại theo thời hạn đã chọn.
 
+**Xoá dữ liệu theo yêu cầu của khách.** Khi khách yêu cầu xoá dữ liệu cá nhân, quản trị chuỗi vào **Tích hợp > Xoá dữ liệu theo yêu cầu của khách**, nhập email của khách rồi bấm **Tìm dữ liệu** (xem trước số bản ghi sẽ bị xoá), sau đó **Xoá dữ liệu** và xác nhận. Hệ thống:
+
+- Xoá trắng email nhận bill và thông tin xuất hoá đơn công ty (mã số thuế, tên, địa chỉ) trên các đơn có email này.
+- Gỡ mã thiết bị khỏi các đơn từ thiết bị đã xác minh email này, và xoá liên kết email đã xác minh cùng mã xác nhận đang chờ.
+- **Giữ nguyên** đơn, số tiền, dòng hàng, bill, hoàn trả và doanh thu.
+- Ghi vào nhật ký thao tác (chỉ lưu dấu vết băm của email, không lưu email) kèm ghi chú của người xử lý.
+- **Không hoàn tác được.** Bill khách đã nhận qua email và hoá đơn ở nhà cung cấp hoá đơn không bị thu hồi. Bản sao lưu cũ vẫn chứa dữ liệu trước khi xoá.
+- Nếu nhiều người dùng chung một điện thoại, các đơn từ điện thoại đó cũng bị gỡ mã thiết bị.
+
 ## 7. Giám sát và nhật ký
 
 - **Theo dõi sống còn:** cho một dịch vụ giám sát (UptimeRobot, Uptime Kuma...) gọi `https://scan.hcrc.vn/api/health` mỗi phút và báo khi lỗi. Đường dẫn này kiểm tra cả CSDL.

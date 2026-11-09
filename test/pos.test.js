@@ -991,3 +991,52 @@ test('giữ dữ liệu: xoá thông tin cá nhân quá hạn nhưng giữ đơn
   assert.equal(run.status, 200);
   await app.close();
 });
+
+test('xoá dữ liệu theo yêu cầu của khách: tìm theo email, xoá thông tin cá nhân, giữ đơn và tiền, không đụng khách khác', async () => {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const db = app.ctx.db;
+  const sua = barcodeOf(app, 'Q7', 'SUA01');
+  const mk = async (dev, ref, posRef) => {
+    const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' }, device: dev });
+    const id = s.body.session.id;
+    await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: sua }] }, device: dev });
+    const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref }, device: dev })).body.transaction;
+    await pos(app, key, 'POST', `/baskets/${ref}/paid`, { pointCode: 'SP-Q7', posOrderRef: posRef, amount: 29000, method: 'cash', lines: [{ barcode: sua, qty: 1, lineTotal: 29000 }] });
+    return tx;
+  };
+  const a = await mk('devA-1234567890abcdef', 'Q7-ERASEA234', 'P-EA');
+  const b = await mk('devB-1234567890abcdef', 'Q7-ERASEB234', 'P-EB');
+  db.prepare(`UPDATE transactions SET bill_email='Khach.A@Example.com', buyer_json='{"email":"khach.a@example.com","taxCode":"0123456789","companyName":"Cty A"}' WHERE id=?`).run(a.id);
+  db.prepare(`UPDATE transactions SET bill_email='khach.b@example.com' WHERE id=?`).run(b.id);
+  db.prepare(`INSERT INTO device_emails(device_id,email,verified_at) VALUES('devA-1234567890abcdef','khach.a@example.com',?)`).run(new Date().toISOString());
+  db.prepare(`INSERT INTO invoices(transaction_id,type,email,tax_code,company_name,address,status,created_at) VALUES(?,?,?,?,?,?,?,?)`).run(a.id, 'company', 'khach.a@example.com', '0123456789', 'Cty A', 'HN', 'issued', new Date().toISOString());
+  const before = db.prepare('SELECT COALESCE(SUM(amount),0) s FROM payments').get().s;
+
+  const pv = await call(app, 'POST', '/api/a/privacy/erase-preview', { token: admin, body: { email: 'KHACH.A@example.com' } });
+  assert.equal(pv.body.counts.transactions, 1); assert.equal(pv.body.counts.invoices, 1); assert.equal(pv.body.counts.verifiedEmails, 1);
+  assert.equal((await call(app, 'POST', '/api/a/privacy/erase-preview', { token: admin, body: { email: 'khong-hop-le' } })).body.error, 'BAD_EMAIL');
+  // phải nhập lại đúng email
+  assert.equal((await call(app, 'POST', '/api/a/privacy/erase', { token: admin, body: { email: 'khach.a@example.com', confirm: 'khac@example.com' } })).body.error, 'CONFIRM_MISMATCH');
+  assert.ok(db.prepare('SELECT bill_email FROM transactions WHERE id=?').get(a.id).bill_email);
+
+  const r = await call(app, 'POST', '/api/a/privacy/erase', { token: admin, body: { email: 'khach.a@example.com', confirm: 'Khach.A@example.com', note: 'Yêu cầu #12' } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const ta = db.prepare('SELECT bill_email, buyer_json, device_id, status, pos_amount FROM transactions WHERE id=?').get(a.id);
+  assert.equal(ta.bill_email, null); assert.equal(ta.buyer_json, null); assert.equal(ta.device_id, '-');
+  assert.equal(ta.status, 'paid'); assert.equal(ta.pos_amount, 29000); // đơn và tiền giữ nguyên
+  const inv = db.prepare('SELECT email, tax_code, company_name, address FROM invoices WHERE transaction_id=?').get(a.id);
+  assert.deepEqual(inv, { email: null, tax_code: null, company_name: null, address: null });
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM device_emails').get().n, 0);
+  // khách khác không bị đụng
+  const tb = db.prepare('SELECT bill_email, device_id FROM transactions WHERE id=?').get(b.id);
+  assert.equal(tb.bill_email, 'khach.b@example.com'); assert.notEqual(tb.device_id, '-');
+  assert.equal(db.prepare('SELECT COALESCE(SUM(amount),0) s FROM payments').get().s, before);
+  // nhật ký chỉ lưu dấu vết băm, không lưu email
+  const ev = db.prepare(`SELECT entity_id, data FROM audit_events WHERE action='privacy.erase'`).get();
+  assert.ok(ev); assert.ok(!JSON.stringify(ev).includes('khach.a')); assert.match(ev.data, /Yêu cầu #12/);
+  // không còn gì để xoá
+  assert.equal((await call(app, 'POST', '/api/a/privacy/erase-preview', { token: admin, body: { email: 'khach.a@example.com' } })).body.counts.transactions, 0);
+  await app.close();
+});

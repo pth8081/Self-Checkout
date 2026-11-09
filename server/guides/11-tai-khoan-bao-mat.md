@@ -64,6 +64,10 @@ Trang **Tích hợp > Giữ dữ liệu** (quản trị chuỗi) đặt thời h
 - **Nhật ký thao tác** (ai làm gì): mặc định **24 tháng**.
 - Nhập `0` để giữ mãi mục đó. Sau thời hạn, khách không còn xem lại được bill cũ trong lịch sử trên điện thoại. Bản sao lưu vẫn chứa dữ liệu trước khi xoá, nên cần giới hạn số bản sao lưu giữ lại.
 
+### Khách yêu cầu xoá dữ liệu
+
+Vào **Tích hợp > Xoá dữ liệu theo yêu cầu của khách** (quản trị chuỗi), nhập email của khách, bấm **Tìm dữ liệu** để xem số bản ghi, rồi **Xoá dữ liệu** và xác nhận. Hệ thống xoá email, thông tin xuất hoá đơn công ty và liên kết thiết bị của khách; đơn, số tiền, bill và doanh thu giữ nguyên. Việc này **không hoàn tác được**, bill khách đã nhận qua email và hoá đơn ở nhà cung cấp hoá đơn không bị thu hồi. Hãy ghi chú mã yêu cầu để truy vết; nhật ký chỉ lưu dấu vết băm của email.
+
 ## Thực hành tốt
 
 - Mỗi người một tài khoản, **không dùng chung**.

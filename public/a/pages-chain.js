@@ -390,6 +390,39 @@ function RetentionCard() {
       <button class="btn line sm" disabled=${busy} onClick=${runNow}>Dọn ngay</button></div></div>`;
 }
 
+// ---- Xoá dữ liệu cá nhân theo yêu cầu của khách ----
+function EraseCard() {
+  const [email, setEmail] = useState('');
+  const [note, setNote] = useState('');
+  const [found, setFound] = useState(null);
+  const [ask, setAsk] = useState(false);
+  const [done, setDone] = useState(null);
+  const [err, setErr] = useState('');
+  const [busy, run] = useBusy();
+  const c = found?.counts;
+  const total = c ? c.transactions + c.transactionsByDevice + c.invoices + c.verifiedEmails + c.pendingCodes : 0;
+  const find = () => run(async () => {
+    setErr(''); setDone(null);
+    try { setFound(await api.post('/privacy/erase-preview', { email })); } catch (x) { setFound(null); setErr(x.message); throw x; }
+  });
+  const erase = () => run(async () => {
+    try { const r = await api.post('/privacy/erase', { email, confirm: email, note: note.trim() || undefined }); setDone(r.done); setFound(null); setAsk(false); setEmail(''); setNote(''); }
+    catch (x) { setErr(x.message); setAsk(false); throw x; }
+  }, 'Đã xoá dữ liệu cá nhân của khách');
+  return html`<div class="card">
+    <div class="cardhead"><div class="ico-tile"><${Icon} name="shield"/></div><div class="grow"><h2>Xoá dữ liệu theo yêu cầu của khách</h2>
+      <div class="small muted">Khách yêu cầu xoá dữ liệu cá nhân thì nhập email của khách. Hệ thống xoá email, thông tin xuất hoá đơn công ty và liên kết thiết bị. Đơn, số tiền, bill và doanh thu giữ nguyên. Không hoàn tác được.</div></div></div>
+    <${Field} label="Email của khách"><input class="input" type="email" inputmode="email" value=${email} onInput=${(e) => { setEmail(e.target.value); setFound(null); setDone(null); }}/><//>
+    <${Field} label="Ghi chú (không bắt buộc)" hint="Ví dụ mã yêu cầu hoặc ngày khách liên hệ. Lưu vào nhật ký thao tác"><input class="input" value=${note} onInput=${(e) => setNote(e.target.value)}/><//>
+    ${err && html`<div class="errtext" role="alert">${err}</div>`}
+    ${c && html`<div class="small" style="margin-top:8px">${total ? html`Tìm thấy: <b>${c.transactions}</b> đơn có email này, <b>${c.transactionsByDevice}</b> đơn từ thiết bị đã xác minh email này, <b>${c.invoices}</b> thông tin xuất hoá đơn, <b>${c.verifiedEmails}</b> liên kết email đã xác minh.` : 'Không tìm thấy dữ liệu nào gắn với email này.'}</div>`}
+    ${done && html`<${Banner} tone="ok" icon="check">Đã xoá. ${done.transactions} đơn, ${done.transactionsByDevice} đơn theo thiết bị, ${done.invoices} thông tin xuất hoá đơn.<//>`}
+    <div class="row wrap" style="margin-top:12px;gap:8px"><button class="btn line sm" disabled=${busy || !email.trim()} onClick=${find}>Tìm dữ liệu</button>
+      <button class="btn danger-line sm" disabled=${busy || !total} onClick=${() => setAsk(true)}>Xoá dữ liệu</button></div>
+    ${ask && html`<${Confirm} title="Xoá dữ liệu cá nhân của khách này?" danger ok="Xoá vĩnh viễn" cancel="Không xoá" busy=${busy} onOk=${erase} onCancel=${() => setAsk(false)}>
+      Email <b>${email}</b> và các thông tin gắn với khách này sẽ bị xoá, không khôi phục được. Bill khách đã nhận qua email và hoá đơn ở nhà cung cấp hoá đơn không bị thu hồi.<//>`}</div>`;
+}
+
 // ---- Email: gửi mã xác nhận xem lịch sử và bill về email khách ----
 function EmailCard() {
   const st = useAsync(() => api.get('/integrations/email'), []);
@@ -454,6 +487,7 @@ export function Integrations({ stores }) {
       <${InvoicePortalCard}/>
       <${EmailCard}/>
       <${RetentionCard}/>
+      <${EraseCard}/>
       ${d.hasClassicStores && html`<div class="two"><${TransferCard} stores=${stores}/><${InvoiceCard} d=${d} reload=${st.reload}/></div>`}
       ${!d.isProd && html`<${DevTools} stores=${stores}/>`}`}<//></div>`;
 }

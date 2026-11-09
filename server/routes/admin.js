@@ -1,5 +1,6 @@
 import { config } from '../config.js';
 import { getSetting, setSetting } from '../db.js';
+import { previewErase, eraseCustomer } from '../services/privacy.js';
 import { retentionConfig, validateRetention, runRetention, RETENTION_KEY, RETENTION_DEFAULTS } from '../services/retention.js';
 import { publicSettings, saveSettings, SECURE_MODES, TLS_MODES, explainMailError } from '../services/mailer.js';
 import { PORTAL_KEY, PORTAL_PLACEHOLDERS, cartDiffOf } from '../services/bill.js';
@@ -267,6 +268,22 @@ export default async function adminRoutes(app) {
       const last = runRetention(ctx);
       audit(db, { actorType: 'admin', actorId: req.user.id, action: 'retention.run_manual', entity: 'settings', entityId: RETENTION_KEY, data: last.done });
       return { last };
+    });
+
+    // ---------------- Xoá dữ liệu cá nhân theo yêu cầu của một khách ----------------
+    s.post('/privacy/erase-preview', async (req) => {
+      chainOnly(req);
+      const r = previewErase(ctx, req.body?.email);
+      if (r.error) throw bad('BAD_EMAIL', r.error);
+      return r;
+    });
+    s.post('/privacy/erase', async (req) => {
+      chainOnly(req);
+      const email = String(req.body?.email ?? '').trim().toLowerCase();
+      if (String(req.body?.confirm ?? '').trim().toLowerCase() !== email) throw bad('CONFIRM_MISMATCH', 'Nhập lại đúng email để xác nhận xoá');
+      const r = eraseCustomer(ctx, email, { actor: req.user.id, note: req.body?.note });
+      if (r.error) throw bad('BAD_EMAIL', r.error);
+      return r;
     });
 
     // ---------------- Link khai báo hoá đơn điện tử của nhà cung cấp ----------------
