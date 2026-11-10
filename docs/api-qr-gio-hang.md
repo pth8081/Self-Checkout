@@ -1,9 +1,10 @@
 # Tài liệu tích hợp Dsmart POS: mã QR giỏ hàng và báo thanh toán
 
-Tài liệu này gửi cho đơn vị làm phần mềm Dsmart POS. Có hai việc Dsmart POS cần làm:
+Tài liệu này gửi cho đơn vị làm phần mềm Dsmart POS. Có ba việc Dsmart POS cần làm:
 
-1. **Đọc mã QR** trên điện thoại khách để tạo đơn hàng và tính tiền (mục 2 và 3).
-2. **Gọi API của BRG Scan & Checkout** để báo thanh toán thành công (mục 4 và 5). BRG Scan & Checkout trả lại kết quả cho khách và lưu bill.
+1. **Quét mã QR** trên điện thoại khách để lấy **mã điểm** và **mã giỏ** (mục 2).
+2. **Gọi API lấy danh sách mặt hàng** theo mã giỏ (mã vạch, số lượng), rồi tạo đơn hàng và tính tiền (mục 2 và 3).
+3. **Gọi API báo thanh toán thành công** về BRG Scan & Checkout (mục 4 và 5). BRG Scan & Checkout trả lại kết quả cho khách và lưu bill.
 
 ## Hoá đơn điện tử: không có lúc thanh toán
 
@@ -304,7 +305,7 @@ Ví dụ: khách quét 6 hộp sữa và 4 gói mì (10 mặt hàng), ở quầy
 
 ### 6.1b Khách lấy thêm mặt hàng so với mã QR, điện thoại báo thế nào
 
-Khi khách lấy **thêm** (hoặc đổi số lượng) ở quầy, đơn Dsmart POS nhiều hơn giỏ trong mã QR. Dsmart POS **không cần làm gì đặc biệt để thu tiền**, nhưng nên báo cho điện thoại khách biết để khách kiểm tra. Có hai thời điểm:
+Khi khách lấy **thêm** (hoặc đổi số lượng) ở quầy, đơn Dsmart POS nhiều hơn giỏ khách đã quét. Dsmart POS **không cần làm gì đặc biệt để thu tiền**, nhưng nên báo cho điện thoại khách biết để khách kiểm tra. Có hai thời điểm:
 
 **a) Trước khi thanh toán: lệnh cập nhật đơn đang tính** (không bắt buộc, nên có)
 
@@ -338,7 +339,7 @@ Dsmart POS báo `paid` với **đủ các dòng thực mua** (kể cả mặt h�
 
 ### 6.1c Khách quét 8, lấy thực tế 10 (hai mặt hàng không quét)
 
-Đây là trường hợp khách **lấy thừa so với số đã quét**: hai mặt hàng nằm trong túi nhưng không có trong mã QR (quên quét, cố ý không quét, hoặc nhặt thêm sau khi tạo mã).
+Đây là trường hợp khách **lấy thừa so với số đã quét**: hai mặt hàng nằm trong túi nhưng không có trong giỏ khách đã quét (quên quét, cố ý không quét, hoặc nhặt thêm sau khi tạo mã).
 
 **Phân tích: ai phát hiện được?**
 
