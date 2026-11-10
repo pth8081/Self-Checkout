@@ -27,7 +27,7 @@ export function Welcome({ store, onStart, busy, error }) {
       ${store.basket && !store.pointCode && html`<${Banner} tone="warn" icon="alert" title="Cửa hàng chưa sẵn sàng">Cửa hàng chưa được gán Mã điểm nên chưa thanh toán được. Hãy báo nhân viên.<//>`}
       ${error && html`<${ErrorBox} error=${error}/>`}
       <div class="stack" style="margin-top:4px">
-        ${[['scan', 'Quét mã vạch từng mặt hàng bằng camera'], ['cash', store.basket ? 'Thu ngân quét một mã QR là có đủ mặt hàng, không quét từng mặt hàng' : store.payment?.pos ? 'Thanh toán tại quầy, thu ngân quét mã giỏ hàng' : 'Trả tiền mặt hoặc chuyển khoản tại quầy'], ['qr', store.basket ? 'Mã QR lưu trên điện thoại, mất mạng vẫn dùng được' : store.guardCheck === false ? 'Thanh toán xong là ra về' : 'Nhận mã QR để ra cổng']].map(([ic, t]) => html`
+        ${[['scan', 'Quét mã vạch từng mặt hàng bằng camera'], ['cash', store.basket ? 'Thu ngân quét một mã QR là có đủ mặt hàng, không quét từng mặt hàng' : store.payment?.pos ? 'Thanh toán tại quầy, thu ngân quét mã giỏ hàng' : 'Trả tiền mặt hoặc chuyển khoản tại quầy'], ['qr', store.basket ? 'Mã QR hiện khi giỏ đã gửi lên hệ thống, cần có mạng' : store.guardCheck === false ? 'Thanh toán xong là ra về' : 'Nhận mã QR để ra cổng']].map(([ic, t]) => html`
           <div class="row"><div class="ico-tile" style="width:40px;height:40px;border-radius:14px"><${Icon} name=${ic}/></div><div>${t}</div></div>`)}
       </div>
       <div class="row wrap" style="justify-content:center;gap:4px">
@@ -45,7 +45,7 @@ export function Welcome({ store, onStart, busy, error }) {
 const STEPS = [
   { icon: 'barcode', title: 'Quét mã vạch từng mặt hàng', text: 'Đưa mã vạch trên sản phẩm vào khung camera. Mặt hàng được thêm vào giỏ ngay.' },
   { icon: 'bag', title: 'Kiểm tra giỏ hàng', text: 'Xem lại mặt hàng, số lượng và tổng tiền. Sửa hoặc bỏ mặt hàng trước khi thanh toán.' },
-  { icon: 'qr', title: 'Thanh toán và ra cổng', text: 'Trả tiền tại quầy, rồi ra về theo hướng dẫn trên màn hình (có thể là mã QR đưa nhân viên ở cổng).' }
+  { icon: 'qr', title: 'Thanh toán tại quầy', text: 'Bấm Thanh toán, đưa mã QR cho thu ngân quét rồi trả tiền. Muốn lấy thêm hàng thì bấm Tiếp tục mua sắm.' }
 ];
 export function Guide({ onDone }) {
   const [i, setI] = useState(0);
