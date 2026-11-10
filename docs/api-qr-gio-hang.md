@@ -97,7 +97,7 @@ Gọi ngay sau khi quét và kiểm tra mã điểm. `pointCode` là mã điểm
   "status": "awaiting_counter",
   "createdAt": "2026-11-05T08:30:00.000Z",
   "itemCount": 3,
-  "total": 60800,
+  "total": 70500,
   "items": [
     { "barcode": "8936036123456", "name": "Sữa tươi 1L", "qty": 2, "unitPrice": 29000 },
     { "barcode": "8934567890123", "name": "Mì ly hải sản", "qty": 1, "unitPrice": 12500 }
@@ -120,7 +120,7 @@ Nếu lúc khách bấm Thanh toán mà điện thoại chưa gửi được gi�
 BRG1|<mã điểm>|<mã giỏ>|<giờ>|<mã vạch>*<số lượng>,<mã vạch>*<số lượng>,...|T<tạm tính>|<CRC16>
 ```
 
-Ví dụ: `BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T60800|1E1A` (file mẫu `docs/mau/qr-gio-hang-mau-du-phong-brg1.txt` và ảnh `.svg`)
+Ví dụ: `BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T70500|F61A` (file mẫu `docs/mau/qr-gio-hang-mau-du-phong-brg1.txt` và ảnh `.svg`)
 
 - Mỗi mặt hàng chiếm khoảng 16 ký tự; ứng dụng giới hạn **tối đa 60 mặt hàng khác nhau mỗi giỏ** (biến `MAX_CART_ITEMS`), mã dài khoảng 1.000 ký tự. Vì vậy mã này chỉ dùng làm dự phòng.
 - Với mã `BRG1`, Dsmart POS dựng đơn từ danh sách trong mã, không cần gọi lệnh lấy hàng. Các lệnh báo thanh toán, huỷ, hoàn trả dùng như bình thường (nếu máy chủ chưa nhận giỏ thì trả `404`, Dsmart POS thử lại theo mục 5).
@@ -139,7 +139,7 @@ def crc16(s: str) -> str:
             crc = ((crc << 1) ^ 0x1021) & 0xFFFF if crc & 0x8000 else (crc << 1) & 0xFFFF
     return f"{crc:04X}"
 
-text = "BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T60800|1E1A"   # áp dụng cho cả BRG1 và BRG2
+text = "BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2,8934567890123*1|T70500|F61A"   # áp dụng cho cả BRG1 và BRG2
 body, _, check = text.rpartition("|")
 assert crc16(body) == check   # đúng thì mã chưa bị sửa hoặc đọc sai
 ```
