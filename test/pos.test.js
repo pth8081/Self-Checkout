@@ -628,38 +628,60 @@ test('email: quản trị lưu chứng chỉ qua API, xem được vân tay và 
   await app.close();
 });
 
-test('link khai báo hoá đơn điện tử: quản trị cấu hình, thay ký hiệu theo giao dịch, hiện trong bill, email, PDF và màn khách; sai link bị từ chối', async () => {
+test('link hoá đơn điện tử và link giao dịch do Dsmart POS gửi kèm: hiện ở màn khách, bill, email, PDF; gửi bổ sung sau; link sai bị bỏ qua', async () => {
   const { createMailer } = await import('../server/services/mailer.js');
   const fm = fakeMail();
   const app = await makeApp({ basket: true });
   app.ctx.mailer = createMailer(app.ctx.db, fm.opts);
   const admin = (await adminLogin(app)).body.token;
-  const q7 = (await adminLogin(app, 'QT0007')).body.token;
   await configureMail(app, admin);
-  const put = (body, token = admin) => call(app, 'PUT', '/api/a/integrations/invoice-portal', { token, body });
-  assert.equal((await put({ url: 'x' }, q7)).status, 403);
-  assert.equal((await put({ url: 'http://khong-https.vn' })).status, 400);
-  assert.equal((await put({ url: 'javascript:alert(1)' })).status, 400);
-  assert.equal((await put({ url: 'https://hd.vn/kb?a={khongco}' })).body.error, 'BAD_PLACEHOLDER');
-  assert.equal((await put({ url: 'https://hoadon.nhacungcap.vn/khai-bao?ma={code}&so={posOrderRef}&tien={amount}&cn={storeCode}&diem={posCode}' })).status, 200);
+  // cấu hình link khai báo của quản trị không còn
+  assert.equal((await call(app, 'PUT', '/api/a/integrations/invoice-portal', { token: admin, body: { url: 'https://x.vn' } })).status, 404);
   const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
-  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
-  const id = s.body.session.id;
-  await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }] } });
-  const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-PORTAL23', email: 'k@example.com' } })).body.transaction;
-  assert.equal(tx.invoicePortalUrl, null); // chưa thanh toán thì chưa có
-  await pos(app, key, 'POST', '/baskets/Q7-PORTAL23/paid', { pointCode: 'SP-Q7', posOrderRef: 'P PORTAL/1', amount: tx.total, method: 'cash' });
+  const mk = async (ref, email) => {
+    const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' }, device: `dev-${ref}-1234567890abcdef` });
+    const id = s.body.session.id;
+    await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }] }, device: `dev-${ref}-1234567890abcdef` });
+    return { id, dev: `dev-${ref}-1234567890abcdef`, tx: (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref, email }, device: `dev-${ref}-1234567890abcdef` })).body.transaction };
+  };
+  const inv = 'https://hoadon.dsmart.vn/tra-cuu/ABC123', trn = 'https://dsmart.vn/gd/POS-1';
+  const a = await mk('Q7-LINKS2345', 'k@example.com');
+  assert.equal(a.tx.invoiceUrl, null); assert.equal(a.tx.transactionUrl, null); // chưa thanh toán thì chưa có
+  const paid = await pos(app, key, 'POST', '/baskets/Q7-LINKS2345/paid', { pointCode: 'SP-Q7', posOrderRef: 'POS-1', amount: a.tx.total, method: 'cash', invoiceUrl: inv, transactionUrl: trn });
+  assert.equal(paid.status, 200, JSON.stringify(paid.body)); assert.equal(paid.body.warnings, undefined);
   await Promise.all([...app.ctx.bg]);
-  const want = `https://hoadon.nhacungcap.vn/khai-bao?ma=Q7-PORTAL23&so=${encodeURIComponent('P PORTAL/1')}&tien=${tx.total}&cn=Q7&diem=SP-Q7`;
-  const bill = (await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill;
-  assert.equal(bill.invoicePortalUrl, want);
-  assert.equal((await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.transaction.invoicePortalUrl, want);
-  assert.ok(fm.sent[0].html.includes('Khai báo hoá đơn điện tử') && fm.sent[0].text.includes(want));
-  const pdf = await app.inject({ method: 'GET', url: `/api/c/transactions/${tx.id}/bill.pdf`, headers: { 'x-device-id': DEVICE } });
+  const bill = (await call(app, 'GET', `/api/c/transactions/${a.tx.id}/bill`, { device: a.dev })).body.bill;
+  assert.equal(bill.invoiceUrl, inv); assert.equal(bill.transactionUrl, trn);
+  const t = (await call(app, 'GET', `/api/c/sessions/${a.id}`, { device: a.dev })).body.session.transaction;
+  assert.equal(t.invoiceUrl, inv); assert.equal(t.transactionUrl, trn);
+  assert.ok(fm.sent[0].html.includes('Xem hoá đơn điện tử') && fm.sent[0].text.includes(inv) && fm.sent[0].text.includes(trn));
+  const pdf = await app.inject({ method: 'GET', url: `/api/c/transactions/${a.tx.id}/bill.pdf`, headers: { 'x-device-id': a.dev } });
   assert.equal(pdf.statusCode, 200);
-  // xoá link thì nút biến mất
-  assert.equal((await put({ url: '' })).status, 200);
-  assert.equal((await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill.invoicePortalUrl, null);
+  // admin thấy link trong chi tiết giao dịch
+  assert.equal((await call(app, 'GET', `/api/a/transactions/${a.tx.id}`, { token: admin })).body.transaction.invoiceUrl, inv);
+
+  // link sai (không https) không chặn thanh toán, chỉ cảnh báo
+  const b = await mk('Q7-LINKS3456');
+  const bad = await pos(app, key, 'POST', '/baskets/Q7-LINKS3456/paid', { pointCode: 'SP-Q7', posOrderRef: 'POS-2', amount: b.tx.total, method: 'cash', invoiceUrl: 'http://khong-https.vn', transactionUrl: 'javascript:alert(1)' });
+  assert.equal(bad.status, 200); assert.equal(bad.body.warnings.length, 2);
+  assert.equal((await call(app, 'GET', `/api/c/transactions/${b.tx.id}/bill`, { device: b.dev })).body.bill.invoiceUrl, null);
+  // hoá đơn phát hành chậm: gửi bổ sung sau bằng lệnh /invoice (bắt buộc đúng mã điểm, mã đơn; chỉ nhận https)
+  const inv2 = 'https://hoadon.dsmart.vn/tra-cuu/XYZ789';
+  const later = (body) => pos(app, key, 'POST', '/baskets/Q7-LINKS3456/invoice', { pointCode: 'SP-Q7', posOrderRef: 'POS-2', ...body });
+  assert.equal((await later({ invoiceUrl: 'http://x.vn' })).body.error, 'BAD_URL');
+  assert.equal((await later({})).body.error, 'LINK_REQUIRED');
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-LINKS3456/invoice', { pointCode: 'SP-9999', posOrderRef: 'POS-2', invoiceUrl: inv2 })).body.error, 'POINT_MISMATCH');
+  const ok = await later({ invoiceUrl: inv2 });
+  assert.equal(ok.status, 200); assert.equal(ok.body.invoiceUrl, inv2);
+  assert.equal((await call(app, 'GET', `/api/c/transactions/${b.tx.id}/bill`, { device: b.dev })).body.bill.invoiceUrl, inv2);
+  // báo thanh toán lại kèm link mới (gửi trùng) cũng cập nhật link, không ghi thu hai lần
+  const dup = await pos(app, key, 'POST', '/baskets/Q7-LINKS3456/paid', { pointCode: 'SP-Q7', posOrderRef: 'POS-2', amount: b.tx.total, method: 'cash', transactionUrl: trn });
+  assert.equal(dup.body.duplicate, true);
+  assert.equal((await call(app, 'GET', `/api/c/transactions/${b.tx.id}/bill`, { device: b.dev })).body.bill.transactionUrl, trn);
+  assert.equal(app.ctx.db.prepare('SELECT COUNT(*) n FROM payments WHERE transaction_id = ?').get(b.tx.id).n, 1);
+  // đơn chưa thanh toán thì không nhận /invoice
+  const c = await mk('Q7-LINKS4567');
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-LINKS4567/invoice', { pointCode: 'SP-Q7', posOrderRef: 'POS-3', invoiceUrl: inv })).body.error, 'NOT_PAID');
   await app.close();
 });
 

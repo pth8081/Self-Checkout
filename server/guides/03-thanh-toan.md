@@ -166,7 +166,7 @@ Hệ thống BRG --> Khách: Tự xác nhận
 - Khách có thể **nhập email** để nhận hoá đơn, hoặc **xin hoá đơn công ty** (mã số thuế, tên, địa chỉ, email). Hoá đơn công ty **thay thế** hoá đơn bán lẻ và **chỉ xuất được trong ngày** phát sinh giao dịch.
 - Nếu nhà cung cấp hoá đơn lỗi, giao dịch **vẫn hoàn tất**, khách vẫn ra cổng. Hoá đơn ở trạng thái **đang chờ**, hệ thống tự thử lại khoảng 2 phút một lần, quản trị có nút **Thử lại hoá đơn treo**.
 
-> **Lưu ý:** Mô tả trên là cho chế độ **tự thu**. Ở chế độ **Dsmart POS**, hoá đơn **không phát hành lúc thanh toán**; khách tự khai báo qua link nhà cung cấp hoá đơn do quản trị cấu hình. BRG không tự xuất và không lưu số hoá đơn. Ở chế độ tự thu, hoá đơn điện tử của BRG hiện chạy bản giả lập; khi nối nhà cung cấp thật cần chốt bên nào xuất để không xuất trùng.
+> **Lưu ý:** Mô tả trên là cho chế độ **tự thu**. Ở chế độ **Dsmart POS**, hoá đơn điện tử do **Dsmart POS phát hành** và gửi link kèm khi báo thanh toán; BRG chỉ hiện nút **Xem hoá đơn điện tử** và **Xem chi tiết giao dịch** cho khách, không tự xuất hoá đơn và không cần cấu hình link khai báo. Ở chế độ tự thu, hoá đơn điện tử của BRG hiện chạy bản giả lập; khi nối nhà cung cấp thật cần chốt bên nào xuất để không xuất trùng.
 
 ## Các trạng thái và nơi xem
 

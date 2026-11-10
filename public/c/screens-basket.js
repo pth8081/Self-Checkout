@@ -71,7 +71,8 @@ export function Basket({ s, store }) {
           : html`<${Pill} tone="warn"><span class="dot"></span>Chờ thu ngân quét mã<//><h1>Đưa mã này cho thu ngân quét vào máy tính tiền</h1>`}
       </div>
       ${paid && html`<div class="stack" style="gap:8px"><button class="btn primary" onClick=${() => go(`/bill/${tx.id}`)}><${Icon} name="receipt"/>Xem bill</button>
-        ${tx.invoicePortalUrl && html`<a class="btn" href=${tx.invoicePortalUrl} target="_blank" rel="noopener"><${Icon} name="mail"/>Khai báo hoá đơn điện tử</a>`}
+        ${tx.invoiceUrl && html`<a class="btn" href=${tx.invoiceUrl} target="_blank" rel="noopener"><${Icon} name="receipt"/>Xem hoá đơn điện tử</a>`}
+        ${tx.transactionUrl && html`<a class="btn line" href=${tx.transactionUrl} target="_blank" rel="noopener"><${Icon} name="link"/>Xem chi tiết giao dịch</a>`}
         <button class="btn line" disabled=${!!busy} onClick=${act('pdf', () => downloadBillPdf(tx.id, tx.code))}>${busy === 'pdf' ? html`<${Spinner} sm/>` : html`<${Icon} name="download"/>Tải bill PDF`}</button></div>`}
       ${!paid && !voided && tx?.posDraft && html`<${DiffNotice} diff=${tx.posDraft.diff} title="Thu ngân đã cập nhật đơn tại quầy" footer=${html`Đơn tại quầy: ${tx.posDraft.itemCount} mặt hàng, tạm tính <span style="font-weight:700">${fmt.money(tx.posDraft.total)}</span>. Số tiền cuối cùng theo máy tính tiền.`}/>`}
       ${!paid && !voided && html`<div class="qrbox">${qrText ? html`<${QR} text=${qrText} ecc=${long ? 'L' : 'M'} label="Mã QR giỏ hàng"/>` : html`<div class="row" style="justify-content:center;min-height:200px;gap:8px"><${Spinner}/><span class="muted">Đang tạo mã…</span></div>`}<div class="code">${b.ref}</div></div>`}
@@ -118,7 +119,8 @@ export function Bill({ id, token }) {
         ${b.refundTotal > 0 && html`<div><span class="muted">Đã hoàn trả</span><span style="color:var(--ok)">−${fmt.money(b.refundTotal)}</span></div><div class="tot"><span>Thực thanh toán</span><span>${fmt.money(b.netTotal)}</span></div>`}</div></div>
       ${b.refunds?.length > 0 && html`<div class="card" style="padding:8px 16px"><div class="small b" style="padding:8px 0">Mặt hàng đã hoàn trả</div><div class="list">${b.refunds.flatMap((r) => (r.lines.length ? r.lines : [{ name: r.reason || 'Hoàn trả', qty: '', amount: r.amount }])).map((l, i) => html`<div class="item" key=${i}><div class="grow"><div class="name">${l.name}</div>${l.qty ? html`<div class="small muted num">× ${l.qty}</div>` : null}</div><b class="num">−${fmt.money(l.amount)}</b></div>`)}</div></div>`}
       <div class="small muted">Mã giỏ ${b.code}${b.cashier ? ` · Thu ngân ${b.cashier}` : ''}</div>
-      ${b.invoicePortalUrl && html`<a class="btn primary" href=${b.invoicePortalUrl} target="_blank" rel="noopener"><${Icon} name="receipt"/>Khai báo hoá đơn điện tử</a>`}
+      ${b.invoiceUrl && html`<a class="btn primary" href=${b.invoiceUrl} target="_blank" rel="noopener"><${Icon} name="receipt"/>Xem hoá đơn điện tử</a>`}
+      ${b.transactionUrl && html`<a class="btn line" href=${b.transactionUrl} target="_blank" rel="noopener"><${Icon} name="link"/>Xem chi tiết giao dịch</a>`}
     </div>
     <div class="bar-bottom"><div class="in"><button class="btn primary" disabled=${busy} onClick=${async () => { setBusy(true); try { await (token ? downloadPublicBillPdf(token, b.code) : downloadBillPdf(b.id, b.code)); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } }}>${busy ? html`<${Spinner} sm/>` : html`<${Icon} name="download"/>Tải bill PDF`}</button></div></div></div>`;
 }

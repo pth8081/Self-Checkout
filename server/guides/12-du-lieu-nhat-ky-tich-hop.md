@@ -8,11 +8,11 @@ access: chain
 
 # Dữ liệu, nhật ký và tích hợp
 
-## Link khai báo hoá đơn điện tử
+## Link hoá đơn điện tử và link giao dịch
 
-Lúc thanh toán **chưa có hoá đơn điện tử và chưa có số hoá đơn**. Khách tự khai báo thông tin xuất hoá đơn trên trang của **nhà cung cấp hoá đơn điện tử**, không nhập trong ứng dụng này. Bạn cấu hình link đó một lần ở trang **Tích hợp**, thẻ **Link khai báo hoá đơn điện tử** (chỉ quản trị chuỗi). Từ đó nút **Khai báo hoá đơn điện tử** tự hiện ở: màn hình sau thanh toán, màn bill, đơn trong lịch sử, email bill và bill PDF, và mở đúng link bạn nhập. Để trống link thì nút không hiện.
+**Dsmart POS phát hành hoá đơn điện tử** và gửi link về cùng lúc báo thanh toán: link **hoá đơn điện tử** và link **chi tiết giao dịch** của khách. Bạn **không cần cấu hình gì** ở trang này. Từ đó hai nút **Xem hoá đơn điện tử** và **Xem chi tiết giao dịch** tự hiện ở: màn hình sau thanh toán, màn bill, đơn trong lịch sử, email bill và bill PDF. Giao dịch nào Dsmart POS chưa gửi link thì nút chưa hiện; khi Dsmart POS gửi bổ sung (hoá đơn phát hành chậm) nút tự xuất hiện.
 
-Link phải bắt đầu bằng `https://`. Nếu trang nhà cung cấp cần mã tra cứu, chèn các ký hiệu sau, hệ thống thay bằng thông tin của từng giao dịch: `{code}` mã giỏ hàng, `{posOrderRef}` mã đơn (mã bill) trên Dsmart POS, `{amount}` tổng tiền, `{storeCode}` mã chi nhánh, `{posCode}` mã điểm. Ví dụ `https://hoadon.nhacungcap.vn/khai-bao?ma={code}&so={posOrderRef}`. Trang hiện ví dụ link thật để bạn bấm thử trước khi lưu.
+Quản trị xem hai link trong **chi tiết giao dịch** (thẻ "Hoá đơn điện tử và giao dịch"). Link sai (không phải `https://`) bị bỏ qua nhưng vẫn ghi nhận thanh toán; nếu khách báo không thấy nút, hãy nhờ đơn vị Dsmart POS kiểm tra link họ gửi.
 
 ## Email gửi cho khách
 
@@ -42,7 +42,7 @@ Chưa cấu hình email thì khách vẫn thanh toán và xem bill trong ứng d
 - Hoá đơn lỗi **không chặn** khách. Trạng thái **đang chờ**, hệ thống tự thử lại. Tổng quan hiện số hoá đơn treo; nút **Thử lại hoá đơn treo** ở mục Tích hợp.
 - Giao dịch bị huỷ làm hoá đơn chuyển sang **yêu cầu huỷ**: cần xử lý với nhà cung cấp hoá đơn.
 
-> **Lưu ý:** Ở chế độ Giỏ QR cho Dsmart POS, ứng dụng **không phát hành hoá đơn điện tử**. Dsmart POS và nhà cung cấp hoá đơn phát hành; khách khai báo ở link bạn cấu hình ở trang Tích hợp.
+> **Lưu ý:** Ở chế độ Giỏ QR cho Dsmart POS, ứng dụng **không phát hành hoá đơn điện tử**. Dsmart POS phát hành và gửi link kèm khi báo thanh toán.
 
 ## Dsmart POS gọi vào BRG
 

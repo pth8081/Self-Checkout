@@ -3,7 +3,7 @@ import { getSetting, setSetting } from '../db.js';
 import { previewErase, eraseCustomer } from '../services/privacy.js';
 import { retentionConfig, validateRetention, runRetention, RETENTION_KEY, RETENTION_DEFAULTS } from '../services/retention.js';
 import { publicSettings, saveSettings, SECURE_MODES, TLS_MODES, explainMailError } from '../services/mailer.js';
-import { PORTAL_KEY, PORTAL_PLACEHOLDERS, cartDiffOf } from '../services/bill.js';
+import { cartDiffOf } from '../services/bill.js';
 import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, sqlLocalDate, money, normCode, unauthorized } from '../util.js';
 import { authenticate, sign, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager } from '../auth.js';
 import { verifyTotp, randomSecret, otpauthUri } from '../services/totp.js';
@@ -284,23 +284,6 @@ export default async function adminRoutes(app) {
       const r = eraseCustomer(ctx, email, { actor: req.user.id, note: req.body?.note });
       if (r.error) throw bad('BAD_EMAIL', r.error);
       return r;
-    });
-
-    // ---------------- Link khai báo hoá đơn điện tử của nhà cung cấp ----------------
-    s.get('/integrations/invoice-portal', async (req) => { chainOnly(req); return { url: getSetting(db, PORTAL_KEY, {}).url || '', placeholders: PORTAL_PLACEHOLDERS }; });
-    s.put('/integrations/invoice-portal', async (req) => {
-      chainOnly(req);
-      const url = String(req.body?.url ?? '').trim();
-      if (url) {
-        if (url.length > 600 || !/^https:\/\/[^\s]+$/.test(url)) throw bad('BAD_URL', 'Link phải bắt đầu bằng https:// và không có khoảng trắng');
-        const sample = Object.keys(PORTAL_PLACEHOLDERS).reduce((u, k) => u.split(k).join('X'), url);
-        try { new URL(sample); } catch { throw bad('BAD_URL', 'Link không hợp lệ'); }
-        const unknown = (url.match(/\{[^}]*\}/g) || []).filter((k) => !PORTAL_PLACEHOLDERS[k]);
-        if (unknown.length) throw bad('BAD_PLACEHOLDER', `Ký hiệu không có: ${unknown.join(' ')}. Chỉ dùng ${Object.keys(PORTAL_PLACEHOLDERS).join(' ')}`);
-      }
-      setSetting(db, PORTAL_KEY, { url });
-      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'invoice_portal.saved', entity: 'settings', entityId: PORTAL_KEY, data: { url } });
-      return { url };
     });
 
     // ---------------- Email (gửi mã xác nhận và bill cho khách) ----------------

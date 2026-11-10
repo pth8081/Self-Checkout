@@ -9,7 +9,7 @@ import { nowIso, bad, notFound, conflict, forbidden, money } from '../util.js';
 import { audit } from './audit.js';
 import { getStoreConfig, txView, markExited } from './core.js';
 import { sendBillEmailBg } from './bill-email.js';
-import { extraOf } from './bill.js';
+import { extraOf, linksOf } from './bill.js';
 
 export const hashKey = (k) => crypto.createHash('sha256').update(k).digest('hex');
 export function newKey() {
@@ -104,12 +104,35 @@ function cleanBill(body, db, tx) {
   return { lines };
 }
 
+
+/** Link hoá đơn điện tử và link giao dịch Dsmart POS gửi kèm. Chỉ nhận https, tối đa 600 ký tự, không khoảng trắng. */
+const LINK_RE = /^https:\/\/[^\s]{1,590}$/;
+function cleanLinks(body, strict = false) {
+  const out = {}; const warnings = [];
+  for (const k of ['invoiceUrl', 'transactionUrl']) {
+    const v = body?.[k];
+    if (v === undefined || v === null || v === '') continue;
+    const u = String(v).trim();
+    if (LINK_RE.test(u) && u.length <= 600) out[k] = u;
+    else if (strict) throw bad('BAD_URL', `${k} phải bắt đầu bằng https://, không có khoảng trắng, tối đa 600 ký tự`);
+    else warnings.push(`${k} bị bỏ qua: phải bắt đầu bằng https://, không có khoảng trắng, tối đa 600 ký tự`);
+  }
+  return { links: out, warnings };
+}
+function saveLinks(db, txId, links) {
+  const sets = []; const vals = [];
+  if (links.invoiceUrl) { sets.push('pos_invoice_url = ?'); vals.push(links.invoiceUrl); }
+  if (links.transactionUrl) { sets.push('pos_transaction_url = ?'); vals.push(links.transactionUrl); }
+  if (sets.length) db.prepare(`UPDATE transactions SET ${sets.join(', ')} WHERE id = ?`).run(...vals, txId);
+}
+
 export function orderPaid(ctx, scope, ref, body = {}) {
   const { db } = ctx;
   const tx = byRef(db, ref);
   if (!tx) throw notFound('ORDER_NOT_FOUND', 'Chưa nhận đơn Dsmart POS này. Hãy gọi "nhận giỏ hàng" trước');
   inScope(scope, tx);
-  const result = (dup) => ({ ok: true, duplicate: dup, transactionId: tx.id, status: 'paid', guardCheck: !tx.guard_skipped,
+  const { links, warnings } = cleanLinks(body);
+  const result = (dup) => ({ ok: true, duplicate: dup, ...(warnings.length ? { warnings } : {}), transactionId: tx.id, status: 'paid', guardCheck: !tx.guard_skipped,
     exitStatus: db.prepare('SELECT exit_status FROM transactions WHERE id = ?').get(tx.id).exit_status, amountMatches: money(tx.pos_amount) === tx.total });
   if (tx.status === 'paid') {
     // Báo lại: không tạo thêm khoản thu, nhưng nhận bill nếu lần trước chưa gửi.
@@ -118,6 +141,7 @@ export function orderPaid(ctx, scope, ref, body = {}) {
       const x = extraOf(JSON.parse(tx.items_json), lines);
       db.prepare('UPDATE transactions SET pos_bill_json = ?, extra_qty = ?, extra_value = ?, less_qty = ? WHERE id = ?').run(JSON.stringify(lines), x.extraQty, x.extraValue, x.lessQty, tx.id);
     }
+    saveLinks(db, tx.id, links); // báo lại kèm link (hoặc link mới hơn): cập nhật
     return result(true);
   }
   // Khách có thể sửa giỏ (giỏ bị huỷ phía điện thoại) trong lúc Dsmart POS đã quét mã QR cũ và thu tiền. Tiền đã thu là thật nên vẫn ghi nhận.
@@ -141,6 +165,7 @@ export function orderPaid(ctx, scope, ref, body = {}) {
       JSON.stringify({ paidAt: body.paidAt || null, terminal: body.terminal || tx.pos_terminal || null, note: body.note || null }));
     db.prepare(`UPDATE transactions SET status='paid', method=?, paid_at=?, receipt_expires_at=?, extra_due=0, pos_status='paid', pos_amount=?,
       pos_invoice_no=?, pos_cashier=?, pos_bill_json=?, extra_qty=?, extra_value=?, less_qty=? WHERE id=?`).run(body.method, ts, exp, amount, invoiceNo, cashier || null, lines ? JSON.stringify(lines) : null, xtra.extraQty, xtra.extraValue, xtra.lessQty, tx.id);
+    saveLinks(db, tx.id, links);
     if (!late) db.prepare(`UPDATE scan_sessions SET status='paid', ended_at=? WHERE id=?`).run(ts, tx.session_id); // giỏ đã bị khách sửa: phiên có thể đang giữ giỏ mới, không đụng tới
     if (late) audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `Dsmart POS:${scope.name}`, action: 'pos.paid_after_cancel', entity: 'transaction', entityId: tx.id, data: { amount, posOrderRef: ref } });
     if (invoiceNo) {
@@ -233,6 +258,18 @@ function basketByCode(ctx, scope, code, body) {
       .run(ref, nowIso(), body.cashier ? String(body.cashier).slice(0, 40) : null, body.terminal ? String(body.terminal).slice(0, 40) : null, tx.id);
   }
   return ref;
+}
+/** Gửi bổ sung (hoặc cập nhật) link hoá đơn điện tử và link giao dịch sau khi đã báo thanh toán, vì hoá đơn có thể phát hành chậm hơn. */
+export function basketInvoice(ctx, scope, code, body = {}) {
+  const { db } = ctx;
+  const ref = basketByCode(ctx, scope, code, body);
+  const tx = byRef(db, ref);
+  if (tx.status !== 'paid') throw conflict('NOT_PAID', 'Đơn chưa thanh toán. Hãy báo thanh toán (paid) trước, hoặc gửi kèm link trong lệnh paid');
+  const { links } = cleanLinks(body, true);
+  if (!links.invoiceUrl && !links.transactionUrl) throw bad('LINK_REQUIRED', 'Cần ít nhất một trong invoiceUrl, transactionUrl');
+  saveLinks(db, tx.id, links);
+  audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `Dsmart POS:${scope.name}`, action: 'pos.links', entity: 'transaction', entityId: tx.id, data: { invoice: !!links.invoiceUrl, transaction: !!links.transactionUrl } });
+  return { ok: true, status: 'paid', ...linksOf(db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.id)) };
 }
 export const basketPaid = (ctx, scope, code, body = {}) => orderPaid(ctx, scope, basketByCode(ctx, scope, code, body), body);
 export function basketCancelled(ctx, scope, code, body = {}) {

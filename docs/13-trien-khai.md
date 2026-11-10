@@ -157,7 +157,6 @@ sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 2. **Chi nhánh:** thêm từng chi nhánh, nhập **Mã điểm** (mã siêu thị trong hệ thống giá và Dsmart POS).
 3. **Sản phẩm và giá:** khi chưa có API giá thật, nhập từ file CSV:
    `npm run import-products -- docs/mau/san-pham-mau.csv` (xem file mẫu để biết các cột; thêm `--replace` để thay toàn bộ sản phẩm của chi nhánh). Khi API giá thật có, bước này không còn dùng.
-3a. **Link khai báo hoá đơn điện tử:** ở mục **Tích hợp**, thẻ "Link khai báo hoá đơn điện tử", nhập link của nhà cung cấp hoá đơn (có thể chèn `{code}`, `{posOrderRef}`, `{amount}`, `{storeCode}`, `{posCode}`). Nút "Khai báo hoá đơn điện tử" của khách sẽ mở đúng link này.
 3b. **Email:** ở mục **Tích hợp**, thẻ "Email gửi cho khách", nhập máy chủ SMTP của công ty (máy chủ, cổng, kiểu bảo mật, tài khoản, mật khẩu, địa chỉ người gửi), bấm Lưu rồi "Gửi thử". Dùng để gửi mã xác nhận xem lịch sử trên máy khác và gửi bill về email khách. Máy chủ email dùng chứng chỉ tự ký hoặc CA nội bộ: chọn "Chứng chỉ tự ký hoặc CA nội bộ" ở mục kiểm tra chứng chỉ và nạp tệp chứng chỉ (kiểu bảo mật SSL/TLS cổng 465 vẫn giữ nguyên, không bị đổi). Mật khẩu được mã hoá khi lưu, không hiện lại.
 4. Mục **Tích hợp:** bấm "Đồng bộ ngay" cho từng chi nhánh, tạo **khoá API cho Dsmart POS** (chỉ hiện một lần, lưu lại), gửi cho đơn vị Dsmart POS cùng `docs/api-qr-gio-hang.md`.
 5. Trang **Chi nhánh:** bật Scan & Checkout cho chi nhánh. Mặc định chi nhánh dùng chế độ **Giỏ QR cho Dsmart POS**.

@@ -19,7 +19,6 @@ const smtp=net.createServer(sock=>{let data=false,buf='';sock.write('220 sink ES
  const POSH={authorization:'Bearer '+(await api('POST','/api/a/pos/keys',{name:'POS e2e 0'},AH)).body.key};
  await api('PUT','/api/a/stores/Q7',{posCode:'SP-0107'},AH);
  const cfgMail=await api('PUT','/api/a/integrations/email',{host:'127.0.0.1',port:2525,secure:'none',from:'no-reply@congty.vn',fromName:'BRG Scan & Checkout'},AH);ok('cấu hình email',cfgMail.status===200);
- const portal=await api('PUT','/api/a/integrations/invoice-portal',{url:'https://hoadon.nhacungcap.vn/khai-bao?ma={code}&so={posOrderRef}'},AH);ok('cấu hình link khai báo hoá đơn',portal.status===200);
  const tmail=await api('POST','/api/a/integrations/email/test',{to:'it@congty.vn'},AH);ok('gửi email thử qua SMTP giả',tmail.status===200&&mails.length===1);
  const prods=(await api('GET','/api/a/dev/pos-products?storeId=Q7',null,AH)).body.products;
  const P=n=>prods.find(x=>x.name.startsWith(n));
@@ -62,12 +61,14 @@ const smtp=net.createServer(sock=>{let data=false,buf='';sock.write('220 sink ES
  const key=(await api('POST','/api/a/pos/keys',{name:'POS e2e'},AH)).body.key;const code=await p.innerText('.code');
  await sleep(1500); // chờ giỏ đồng bộ lên máy chủ
  const total=await p.evaluate(()=>JSON.parse(localStorage.getItem('brg.c.v1')).basket.total);
- const paid=await api('POST',`/api/pos/v1/baskets/${code}/paid`,{posOrderRef:'POS-E2E-1',pointCode:'SP-0107',amount:total,method:'cash',cashier:'Lan',lines:[{name:'Sữa tươi 1L',qty:2,unitPrice:Math.round(total/2),discount:0,lineTotal:total}]},{authorization:'Bearer '+key});
+ const paid=await api('POST',`/api/pos/v1/baskets/${code}/paid`,{posOrderRef:'POS-E2E-1',pointCode:'SP-0107',amount:total,method:'cash',cashier:'Lan',lines:[{name:'Sữa tươi 1L',qty:2,unitPrice:Math.round(total/2),discount:0,lineTotal:total}],invoiceUrl:'https://hoadon.dsmart.vn/tra-cuu/E2E123',transactionUrl:'https://dsmart.vn/gd/POS-E2E-1'},{'x-api-key':key});
  ok('POS báo thanh toán thành công',paid.status===200);
  await p.waitForSelector('text=Đã hoàn thành thanh toán',{timeout:15000}).catch(()=>{});
  ok('khách thấy "Đã hoàn thành thanh toán"',await p.isVisible('text=Đã hoàn thành thanh toán'));
- const lk=await p.getAttribute('a:has-text("Khai báo hoá đơn điện tử")','href');
- ok('nút khai báo hoá đơn mở đúng link đã cấu hình',!!lk&&lk.startsWith('https://hoadon.nhacungcap.vn/khai-bao?ma=Q7-')&&lk.includes('so=POS-E2E-1'));
+ const lk=await p.getAttribute('a:has-text("Xem hoá đơn điện tử")','href');
+ ok('nút Xem hoá đơn điện tử mở đúng link Dsmart POS gửi',lk==='https://hoadon.dsmart.vn/tra-cuu/E2E123');
+ const lt=await p.getAttribute('a:has-text("Xem chi tiết giao dịch")','href');
+ ok('nút Xem chi tiết giao dịch mở đúng link Dsmart POS gửi',lt==='https://dsmart.vn/gd/POS-E2E-1');
  for(let i=0;i<20&&mails.length<2;i++)await sleep(500);
  ok('bill được gửi về email khách (có PDF)',mails.length>=2&&/khach@example\.com/.test(mails[1])&&/application\/pdf/.test(mails[1]));
  const rawMail=(mails[1]||'').replace(/=\r\n/g,'').replace(/=3D/g,'=');
@@ -75,9 +76,9 @@ const smtp=net.createServer(sock=>{let data=false,buf='';sock.write('220 sink ES
  ok('email có link xem bill',!!linkM);
  if(linkM){const c2=await b.newContext({viewport:{width:390,height:800}});const q=await c2.newPage();await q.goto(linkM[1]);await sleep(1800);
   ok('mở link bill từ email (máy lạ, không đăng nhập)',(await q.innerText('body')).includes('Sữa tươi 1L'));await c2.close();}
- ok('email có link khai báo hoá đơn',(mails[1]||'').replace(/=\r\n/g,'').replace(/=3D/g,'=').includes('hoadon.nhacungcap.vn/khai-bao'));
+ ok('email có link hoá đơn điện tử',(mails[1]||'').replace(/=\r\n/g,'').replace(/=3D/g,'=').includes('hoadon.dsmart.vn/tra-cuu/E2E123'));
  await p.click('text=Xem bill');await p.waitForURL(/#\/bill\//);await sleep(800);
- ok('bill có nút khai báo hoá đơn',await p.isVisible('a:has-text("Khai báo hoá đơn điện tử")'));
+ ok('bill có nút Xem hoá đơn điện tử',await p.isVisible('a:has-text("Xem hoá đơn điện tử")'));
  ok('bill hiện dòng và tổng',(await p.innerText('body')).includes('Sữa tươi 1L')&&(await p.innerText('body')).includes('Bill từ máy tính tiền'));
  const [dl]=await Promise.all([p.waitForEvent('download',{timeout:8000}).catch(()=>null),p.click('text=Tải bill PDF')]);
  ok('tải được bill PDF',!!dl&&/\.pdf$/.test(dl.suggestedFilename()));

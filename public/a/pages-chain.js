@@ -332,32 +332,6 @@ function DevTools({ stores }) {
     ${cur && html`<div class="hint">Mã vạch ${cur.barcode} · mã hàng ${cur.sku}</div>`}</div><${PosSimCard}/></div>`;
 }
 
-// ---- Link khai báo hoá đơn điện tử của nhà cung cấp ----
-function InvoicePortalCard() {
-  const st = useAsync(() => api.get('/integrations/invoice-portal'), []);
-  const [url, setUrl] = useState(null);
-  const [busy, run] = useBusy();
-  const [err, setErr] = useState('');
-  const d = st.data;
-  useEffect(() => { if (d && url === null) setUrl(d.url); }, [d]);
-  if (!d || url === null) return html`<div class="card"><${Spinner}/></div>`;
-  const save = () => run(async () => {
-    setErr('');
-    try { await api.put('/integrations/invoice-portal', { url }); await st.reload(); }
-    catch (x) { setErr(x.message); throw x; }
-  }, url ? 'Đã lưu link khai báo hoá đơn' : 'Đã xoá link');
-  const sample = url && Object.keys(d.placeholders).reduce((u, k) => u.split(k).join({ '{code}': 'Q7-ABC123', '{posOrderRef}': 'POS-20261108-000123', '{amount}': '133500', '{storeCode}': 'Q7', '{posCode}': 'SP-0107' }[k]), url);
-  return html`<div class="card">
-    <div class="cardhead"><div class="ico-tile"><${Icon} name="receipt"/></div><div class="grow"><h2>Link khai báo hoá đơn điện tử</h2>
-      <div class="small muted">Khách bấm nút "Khai báo hoá đơn điện tử" trên màn hình sau thanh toán, trên bill, trong email và trong bill PDF để mở đúng link này.</div></div>
-      ${d.url ? html`<${Pill} tone="ok"><span class="dot"></span>Đã cấu hình<//>` : html`<${Pill} tone="warn">Chưa có link<//>`}</div>
-    <${Field} label="Link của nhà cung cấp hoá đơn" hint="Bắt đầu bằng https://. Để trống thì nút này không hiện"><input id="portal-url" class="input" value=${url} onInput=${(e) => setUrl(e.target.value)} placeholder="https://hoadon.nhacungcap.vn/khai-bao" aria-label="Link khai báo hoá đơn điện tử"/><//>
-    <div class="small muted" style="margin:6px 0">Nếu link cần mã tra cứu, chèn các ký hiệu sau, hệ thống tự thay bằng thông tin của từng giao dịch:
-      ${Object.entries(d.placeholders).map(([k, v]) => html`<span key=${k} style="display:inline-block;margin:2px 8px 2px 0"><code>${k}</code> ${v}</span>`)}</div>
-    ${sample && html`<div class="small" style="margin-top:6px">Ví dụ link khách sẽ mở: <a href=${sample} target="_blank" rel="noopener" style="word-break:break-all">${sample}</a></div>`}
-    ${err && html`<div class="errtext" role="alert">${err}</div>`}
-    <div class="row wrap" style="margin-top:12px;gap:8px"><button class="btn primary sm" disabled=${busy || url === d.url} onClick=${save}>Lưu link</button></div></div>`;
-}
 
 // ---- Giữ dữ liệu: xoá thông tin cá nhân và nhật ký cũ ----
 function RetentionCard() {
@@ -484,7 +458,6 @@ export function Integrations({ stores }) {
       ${d.note && html`<${Banner} tone=${d.isProd ? 'warn' : 'info'} icon="info" title=${d.isProd ? 'Nguồn giá: file CSV' : 'Đang chạy bản giả lập'}>${d.note}<//>`}
       <${PosCard} d=${d} reload=${st.reload}/>
       <${PosApiCard} d=${d} stores=${stores} reload=${st.reload}/>
-      <${InvoicePortalCard}/>
       <${EmailCard}/>
       <${RetentionCard}/>
       <${EraseCard}/>

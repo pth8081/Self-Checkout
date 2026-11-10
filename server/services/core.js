@@ -8,7 +8,7 @@ import { normalizeBarcode } from './barcode.js';
 import { vietQrPayload, makeReceiptToken, parseReceiptToken } from './qr.js';
 import { audit } from './audit.js';
 import { issueInvoice } from './invoice.js';
-import { portalUrl, cartDiffOf, diffLines } from './bill.js';
+import { linksOf, cartDiffOf, diffLines } from './bill.js';
 import { canCash, canGate, isManager } from '../auth.js';
 import { encodeBasketShort, makeBasketRef } from '../../public/shared/basket.js';
 
@@ -237,7 +237,7 @@ export function txView(ctx, tx, { staff = false } = {}) {
     posStatus: tx.pos_status, posOrderRef: tx.pos_order_ref, posAmount: tx.pos_amount, posInvoiceNo: tx.pos_invoice_no,
     posClaimedAt: tx.pos_claimed_at, posCashier: tx.pos_cashier, posTerminal: tx.pos_terminal,
     buyer: tx.buyer_json ? JSON.parse(tx.buyer_json) : null,
-    invoicePortalUrl: tx.status === 'paid' ? portalUrl(db, tx) : null,
+    ...(tx.status === 'paid' ? linksOf(tx) : { invoiceUrl: null, transactionUrl: null }),
     // Đơn Dsmart POS thực mua (sau khi thanh toán) và đơn Dsmart POS đang tính (trước khi thanh toán) so với giỏ khách quét
     cartDiff: tx.status === 'paid' ? cartDiffOf(tx) : null,
     posItemCount: tx.status === 'paid' && tx.pos_bill_json ? JSON.parse(tx.pos_bill_json).reduce((a, l) => a + l.qty, 0) : null,

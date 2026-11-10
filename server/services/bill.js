@@ -8,16 +8,8 @@ const font = (n) => fs.readFileSync(new URL(n, FONT));
 
 const METHOD = { cash: 'Tiền mặt', qr_transfer: 'Chuyển khoản', card: 'Thẻ', ewallet: 'Ví điện tử', pos: 'Tại quầy', basket: 'Tại quầy' };
 
-/** Link khai báo hoá đơn điện tử của nhà cung cấp, do quản trị cấu hình. Thay các ký hiệu {code} {posOrderRef} {amount} {storeCode} {posCode}. Lúc thanh toán chưa có hoá đơn điện tử: khách tự khai báo ở link này, nên không có số hoá đơn. */
-export const PORTAL_KEY = 'invoice_portal';
-export const PORTAL_PLACEHOLDERS = { '{code}': 'mã giỏ hàng', '{posOrderRef}': 'mã đơn (mã bill) trên Dsmart POS', '{amount}': 'tổng tiền thanh toán', '{storeCode}': 'mã chi nhánh', '{posCode}': 'mã điểm' };
-export function portalUrl(db, tx) {
-  const url = getSetting(db, PORTAL_KEY, {}).url;
-  if (!url) return null;
-  const store = db.prepare('SELECT pos_code FROM stores WHERE id = ?').get(tx.store_id);
-  const vals = { '{code}': tx.cart_code, '{posOrderRef}': tx.pos_order_ref || '', '{amount}': String(tx.pos_amount ?? tx.total), '{storeCode}': tx.store_id, '{posCode}': store?.pos_code || '' };
-  return Object.entries(vals).reduce((u, [k, v]) => u.split(k).join(encodeURIComponent(v)), url);
-}
+/** Link hoá đơn điện tử và link giao dịch do Dsmart POS gửi kèm khi báo thanh toán (hoặc gửi bổ sung sau). */
+export const linksOf = (tx) => ({ invoiceUrl: tx.pos_invoice_url || null, transactionUrl: tx.pos_transaction_url || null });
 
 /** So giỏ khách quét với các dòng Dsmart POS: mặt hàng bớt đi, thêm vào hoặc đổi số lượng. */
 export function diffLines(cartItems, posLines) {
@@ -62,7 +54,7 @@ export function billOf(ctx, tx) {
     id: tx.id, code: tx.cart_code, storeName: store?.name || tx.store_id, storeAddress: store?.address || '',
     paidAt: tx.paid_at, method: tx.method, methodLabel: METHOD[tx.method] || tx.method, cashier: tx.pos_cashier || null,
     refunds, refundTotal, netTotal: total - refundTotal, lines: items, discount: items.reduce((a, l) => a + (l.discount || 0), 0), adjustment, total,
-    posOrderRef: tx.pos_order_ref || null, invoicePortalUrl: portalUrl(db, tx),
+    posOrderRef: tx.pos_order_ref || null, ...linksOf(tx),
     provisional: !posLines // true: chưa có bill thật từ Dsmart POS, đây là tạm tính của BRG
   };
 }
@@ -73,7 +65,7 @@ const when = (iso) => (iso ? new Date(iso).toLocaleString('vi-VN', { timeZone: '
 /** Vẽ bill thành PDF khổ hẹp (như phiếu in), trả về Buffer. */
 export function billPdf(b) {
   const W = 300, M = 18;
-  const height = 250 + b.lines.length * 34 + (b.refundTotal ? 70 + b.refunds.reduce((a, r) => a + Math.max(1, r.lines.length), 0) * 24 : 0) + (b.invoicePortalUrl ? 40 : 0) + (b.provisional ? 30 : 0);
+  const height = 250 + b.lines.length * 34 + (b.refundTotal ? 70 + b.refunds.reduce((a, r) => a + Math.max(1, r.lines.length), 0) * 24 : 0) + (b.invoiceUrl ? 40 : 0) + (b.transactionUrl ? 40 : 0) + (b.provisional ? 30 : 0);
   const doc = new PDFDocument({ size: [W, height], margin: M, info: { Title: `Bill ${b.code}`, Author: 'BRG Scan & Checkout' } });
   doc.registerFont('r', font('DejaVuSans.ttf')); doc.registerFont('b', font('DejaVuSans-Bold.ttf'));
   const chunks = [];
@@ -106,7 +98,8 @@ export function billPdf(b) {
     doc.fontSize(11); row('Thực thanh toán', vnd(b.netTotal), true);
   }
   doc.moveDown(0.8);
-  if (b.invoicePortalUrl) { doc.fontSize(7.5).font('b').fillColor('#000').text('Khai báo hoá đơn điện tử:', M, doc.y, { width: inner }); doc.font('r').fillColor('#1c5fa8').text(b.invoicePortalUrl, M, doc.y, { width: inner, link: b.invoicePortalUrl }); doc.fillColor('#000'); doc.moveDown(0.4); }
+  if (b.invoiceUrl) { doc.fontSize(7.5).font('b').fillColor('#000').text('Hoá đơn điện tử:', M, doc.y, { width: inner }); doc.font('r').fillColor('#1c5fa8').text(b.invoiceUrl, M, doc.y, { width: inner, link: b.invoiceUrl }); doc.moveDown(0.3); }
+  if (b.transactionUrl) { doc.fontSize(7.5).font('b').fillColor('#000').text('Chi tiết giao dịch:', M, doc.y, { width: inner }); doc.font('r').fillColor('#1c5fa8').text(b.transactionUrl, M, doc.y, { width: inner, link: b.transactionUrl }); doc.moveDown(0.3); }
   if (b.provisional) doc.fontSize(7.5).font('r').fillColor('#9a5b00').text('Đây là tạm tính của ứng dụng, chưa có bill chính thức từ máy tính tiền. Số tiền thực trả theo hoá đơn của cửa hàng.', M, doc.y, { width: inner }).fillColor('#000');
   doc.moveDown(0.4).fontSize(8).font('r').text('Cảm ơn quý khách', { align: 'center' });
   doc.end();

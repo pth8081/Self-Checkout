@@ -6,11 +6,16 @@ Tài liệu này gửi cho đơn vị làm phần mềm Dsmart POS. Có ba việ
 2. **Gọi API lấy danh sách mặt hàng** theo mã giỏ (mã vạch, số lượng), rồi tạo đơn hàng và tính tiền (mục 2 và 3).
 3. **Gọi API báo thanh toán thành công** về BRG Scan & Checkout (mục 4 và 5). BRG Scan & Checkout trả lại kết quả cho khách và lưu bill.
 
-## Hoá đơn điện tử: không có lúc thanh toán
+## Hoá đơn điện tử và link giao dịch: do Dsmart POS gửi kèm
 
-**Lúc thanh toán chưa có hoá đơn điện tử và chưa có số hoá đơn.** Dsmart POS thu tiền xong chỉ báo cho BRG Scan & Checkout: mã hàng, số lượng, thành tiền, tổng tiền và cách thanh toán. Dsmart POS **không gửi số hoá đơn hay link hoá đơn**.
+**Dsmart POS phát hành hoá đơn điện tử và gửi link về cho BRG Scan & Checkout.** Khi báo thanh toán, Dsmart POS gửi kèm hai link (không bắt buộc, nên có):
 
-Hoá đơn điện tử được phát hành **sau đó**, khi khách tự khai báo thông tin xuất hoá đơn ở trang của nhà cung cấp hoá đơn. BRG Scan & Checkout chỉ hiện cho khách nút **Khai báo hoá đơn điện tử** mở link của nhà cung cấp (link do quản trị cấu hình, có thể gắn mã giỏ hoặc mã đơn Dsmart POS vào link). Nếu nhà cung cấp cho khách khai báo bằng mã bill, mã đó là **mã đơn Dsmart POS** (`posOrderRef`), nên hãy dùng mã mà khách đọc được trên bill của Dsmart POS.
+- `invoiceUrl`: link **hoá đơn điện tử** của khách.
+- `transactionUrl`: link **chi tiết giao dịch** của khách trên hệ thống Dsmart POS.
+
+BRG Scan & Checkout hiện cho khách hai nút **Xem hoá đơn điện tử** và **Xem chi tiết giao dịch** ở màn hình sau thanh toán, trên bill, trong email và trong bill PDF. BRG Scan & Checkout **không phát hành hoá đơn** và **không cần cấu hình link khai báo hoá đơn** nữa; khách không phải tự khai báo ở trang của nhà cung cấp.
+
+Nếu hoá đơn điện tử phát hành **chậm hơn** lúc thu tiền, Dsmart POS báo thanh toán trước (không kèm link), rồi gửi link bổ sung bằng lệnh `POST /api/pos/v1/baskets/{mã giỏ}/invoice` (mục 4). Link phải bắt đầu bằng `https://`.
 
 ## 1. Quy trình tổng thể
 
@@ -35,7 +40,7 @@ sequenceDiagram
 | 1 | Khách và BRG Scan & Checkout | Khách quét mặt hàng bằng điện thoại. Điện thoại hiện **tạm tính**, chỉ để tham khảo |
 | 2 | BRG Scan & Checkout | Khi khách bấm Thanh toán, điện thoại gửi giỏ lên máy chủ rồi hiện mã QR **ngắn**, chỉ chứa **mã điểm và mã giỏ** |
 | 3 | Dsmart POS | Thu ngân quét mã QR. Dsmart POS đọc mã điểm, mã giỏ, kiểm tra mã điểm, rồi **gọi API lấy danh sách mặt hàng** (mã vạch, số lượng) và **tạo đơn** |
-| 4 | Dsmart POS | Tính giá và khuyến mãi **theo hệ thống của Dsmart POS**, thu tiền (tiền mặt, QR, thẻ). Chưa có hoá đơn điện tử lúc này |
+| 4 | Dsmart POS | Tính giá và khuyến mãi **theo hệ thống của Dsmart POS**, thu tiền (tiền mặt, QR, thẻ), phát hành hoá đơn điện tử |
 | 5 | Dsmart POS | **Báo thanh toán về BRG Scan & Checkout** bằng API ở mục 4. Số tiền trong báo cáo này là số tiền thật |
 | 6 | BRG Scan & Checkout | Ghi nhận, màn hình khách hiện hoàn thành, khách xem và tải bill |
 
@@ -209,6 +214,8 @@ Xác thực: mọi lệnh gọi đều gửi khoá API trong header `X-Api-Key: 
 | `method` | **Có** | `cash`, `qr_transfer`, `card`, `ewallet` |
 | `lines` | Nên có | Các dòng bill Dsmart POS với giá và khuyến mãi thật. Có thì khách thấy đúng bill Dsmart POS. Không có thì khách thấy bản tạm tính, ghi rõ "chưa có bill chính thức" |
 | `cashier`, `terminal` | Không | Hiện trên bill và báo cáo |
+| `invoiceUrl` | Không, nên có | Link **hoá đơn điện tử** của khách (https). Hiện thành nút "Xem hoá đơn điện tử" cho khách |
+| `transactionUrl` | Không, nên có | Link **chi tiết giao dịch** của khách (https). Hiện thành nút "Xem chi tiết giao dịch" |
 
 Mỗi dòng của `lines`:
 - **Bắt buộc:** `barcode` (mã hàng; hoặc `name` nếu không có mã), `qty` (số lượng), `lineTotal` (thành tiền của dòng, số nguyên đồng).
@@ -230,11 +237,31 @@ Vì vậy Dsmart POS chỉ cần gửi **mã hàng, số lượng, thành tiền
 
 `duplicate: true` nghĩa là BRG Scan & Checkout đã nhận trước đó (không ghi lần hai). `amountMatches: false` nghĩa là số tiền Dsmart POS thu khác tạm tính của BRG Scan & Checkout. Việc này **bình thường** (khuyến mãi khác), BRG Scan & Checkout vẫn lấy số của Dsmart POS.
 
+### Gửi bổ sung link hoá đơn điện tử
+
+Dùng khi hoá đơn phát hành sau lúc báo thanh toán, hoặc muốn đổi link. Chỉ nhận cho đơn **đã thanh toán**; gửi lại nhiều lần an toàn, link mới thay link cũ.
+
+`POST /api/pos/v1/baskets/{mã giỏ}/invoice`
+
+```json
+{
+  "pointCode": "SP-0107",
+  "posOrderRef": "POS-20261105-000123",
+  "invoiceUrl": "https://hoadon.dsmart.vn/tra-cuu/ABC123",
+  "transactionUrl": "https://dsmart.vn/giao-dich/POS-20261105-000123"
+}
+```
+
+- Cần `pointCode`, `posOrderRef` và ít nhất một trong `invoiceUrl`, `transactionUrl`.
+- Link không bắt đầu bằng `https://`, có khoảng trắng hoặc dài quá 600 ký tự thì trả `400 BAD_URL`. Thiếu cả hai link thì `400 LINK_REQUIRED`. Đơn chưa thanh toán thì `409 NOT_PAID`.
+- Khi **kèm link trong lệnh `paid`** mà link không hợp lệ, BRG vẫn **ghi nhận thanh toán** và bỏ qua link đó, kèm `warnings` trong phản hồi, để lỗi link không làm hỏng việc thu tiền. Dsmart POS sửa link rồi gửi lại bằng lệnh `/invoice` ở trên.
+
 ### Các lệnh khác
 
 | Lệnh | Dùng để |
 |------|---------|
-| `GET /api/pos/v1/baskets/{mã giỏ}` | Xem trạng thái giỏ (đã thanh toán chưa, đã lưu bill chưa) |
+| `GET /api/pos/v1/baskets/{mã giỏ}?pointCode=...` | **Lấy danh sách mặt hàng** của giỏ sau khi quét mã QR (mục 2), kèm trạng thái giỏ |
+| `POST /api/pos/v1/baskets/{mã giỏ}/invoice` | Gửi bổ sung link hoá đơn điện tử và link giao dịch sau khi đã báo thanh toán |
 | `POST /api/pos/v1/baskets/{mã giỏ}/update` | Báo đơn đang tính ở quầy khi thu ngân thêm, bớt hàng (mục 6.1b) |
 | `POST /api/pos/v1/baskets/{mã giỏ}/cancelled` | Dsmart POS huỷ đơn (mục 6.2, 6.4) |
 | `POST /api/pos/v1/baskets/{mã giỏ}/refund` | Hoàn trả một phần sau thanh toán (mục 6.3) |
@@ -466,7 +493,7 @@ Khách có thể quét rồi bỏ đi, hoặc bấm Thanh toán nhưng không ra
 
 - Khách xem bill ngay trong ứng dụng web và tải bản **PDF**. Bill lưu trên điện thoại để xem lại khi mất mạng; tải PDF cần mạng.
 - Nội dung bill lấy từ `lines` và `amount` Dsmart POS gửi, kèm mã đơn Dsmart POS. Không in giấy.
-- Bill có nút **Khai báo hoá đơn điện tử** (link nhà cung cấp do quản trị cấu hình).
+- Bill có nút **Xem hoá đơn điện tử** và **Xem chi tiết giao dịch** (link Dsmart POS gửi kèm). Cũng có trong màn hình sau thanh toán, email và bill PDF.
 
 ## 8. Danh sách kiểm tra khi tích hợp
 
