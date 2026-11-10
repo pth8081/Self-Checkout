@@ -52,7 +52,7 @@ const smtp=net.createServer(sock=>{let data=false,buf='';sock.write('220 sink ES
  ok('xoá localStorage: QR khôi phục từ máy chủ',await p.isVisible('.qrbox'));
  ok('QR khôi phục giống bản đầu',(await qrText(p))===qr);
  // 4. sửa giỏ rồi thanh toán lại: mã giỏ mới
- await p.click('text=Sửa giỏ hàng');await p.waitForURL(/#\/cart/);await sleep(500);
+ await p.click('button:has-text("Tiếp tục mua sắm")');await sleep(400);ok('có hộp xác nhận trước khi rời mã QR',await p.isVisible('text=Mã QR hiện tại sẽ không còn dùng được'));await p.click('.sheet button.primary, [role=dialog] button.primary');await p.waitForURL(/#\/scan/);ok('về màn quét, giỏ còn nguyên',true);await p.evaluate(()=>{location.hash='#/cart'});await sleep(600);
  await p.click('.bar-bottom .btn.primary');await p.waitForURL(/#\/basket/);await sleep(800);
  ok('mã giỏ mới sau khi sửa',(await p.innerText('.code'))!==qr.split('|')[2]);
  // 4b. khách để lại email nhận bill

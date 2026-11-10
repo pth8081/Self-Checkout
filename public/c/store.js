@@ -240,8 +240,15 @@ export const setBasket = (basket) => setState({ basket });
 /** Sửa giỏ: bỏ mã QR hiện tại, mở khoá giỏ trên máy chủ nếu có thể. */
 export async function editBasket() {
   const synced = state.basket?.synced;
+  if (synced && state.session) {
+    try { await unlock(); }
+    catch (e) {
+      // Thu ngân đã nhận đơn, đã thanh toán hoặc quản lý đang xử lý: không rời màn hình QR được, giữ nguyên mã.
+      if (['CLAIMED', 'ALREADY_PAID', 'HELD'].includes(e.code)) throw new Error(e.code === 'CLAIMED' ? 'Thu ngân đang xử lý đơn này trên máy tính tiền nên chưa tiếp tục mua sắm được. Hãy báo thu ngân huỷ đơn rồi thử lại' : e.message);
+      /* lỗi mạng: sẽ mở khoá khi có mạng */
+    }
+  }
   setState({ basket: null });
-  if (synced && state.session) { try { await unlock(); } catch { /* sẽ mở khoá khi có mạng */ } }
 }
 
 /** Đã thanh toán xong: kết thúc giỏ. */

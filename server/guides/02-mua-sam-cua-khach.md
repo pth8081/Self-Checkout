@@ -8,7 +8,7 @@ access: all
 
 # Quy trình mua sắm của khách
 
-> **Bước thanh toán hiện nay:** khách bấm **Thanh toán** là thấy ngay mã QR để đưa thu ngân (không chọn cách trả, không nhập thông tin). Có thể **Sửa giỏ hàng** để quét thêm, mã QR cũ sẽ không còn dùng. Sau khi Dsmart POS báo xong, màn hình hiện "Đã hoàn thành thanh toán" kèm **Xem bill** và **Tải bill PDF**; bill xem lại được ở Lịch sử. Nếu Dsmart POS chậm báo, khách bấm "Đã thanh toán xong" để kết thúc.
+> **Bước thanh toán hiện nay:** khách bấm **Thanh toán** là thấy ngay mã QR để đưa thu ngân (không chọn cách trả, không nhập thông tin). Muốn lấy thêm hàng, khách bấm **Tiếp tục mua sắm** (có hỏi xác nhận) để quay lại quét; giỏ giữ nguyên, mã QR cũ không còn dùng, bấm Thanh toán lại để lấy mã mới. Nếu thu ngân đã nhận đơn trên máy tính tiền thì chưa tiếp tục được, cần thu ngân huỷ đơn trước. Sau khi Dsmart POS báo xong, màn hình hiện "Đã hoàn thành thanh toán" kèm **Xem bill** và **Tải bill PDF**; bill xem lại được ở Lịch sử. Nếu Dsmart POS chậm báo, khách bấm "Đã thanh toán xong" để kết thúc.
 
 ## Các bước
 

@@ -1,6 +1,6 @@
 // Chế độ giỏ QR: khách bấm Thanh toán, điện thoại hiện mã QR ngắn (mã điểm và mã giỏ), Dsmart POS lấy danh sách mặt hàng bằng API, để thu ngân quét vào Dsmart POS.
 // Mã QR được tạo và lưu ngay trên máy nên vẫn hiện khi mất mạng, tắt điện thoại hoặc tắt trình duyệt.
-import { html, useState, useEffect, Header, Icon, QR, Banner, Pill, Spinner, ErrorBox, Loading, go, fmt, toast, useAsync } from '/shared/lib.js';
+import { html, useState, useEffect, Header, Icon, QR, Banner, Pill, Spinner, ErrorBox, Loading, Confirm, go, fmt, toast, useAsync } from '/shared/lib.js';
 import { setBasket, editBasket, finishBasket, syncBasket, refreshSession, loadBill, cachedBill, downloadBillPdf, setBillEmail, loadPublicBill, downloadPublicBillPdf, local, EMAIL_RE } from './store.js';
 
 /** Thông báo khác biệt giữa giỏ khách đã quét và đơn thu ngân tính ở quầy (thêm, bớt, đổi số lượng). */
@@ -42,6 +42,7 @@ export function Basket({ s, store }) {
   // Mã QR chuẩn là dạng ngắn (mã điểm + mã giỏ), dùng được khi máy chủ đã nhận giỏ. Chưa gửi được (mất mạng, mạng quá chậm) thì
   // hiện dạng đầy đủ có sẵn danh sách hàng để thu ngân vẫn quét được.
   const [late, setLate] = useState(false);
+  const [askMore, setAskMore] = useState(false);
   useEffect(() => { setLate(false); if (!b || b.synced) return undefined; const t = setTimeout(() => setLate(true), 4000); return () => clearTimeout(t); }, [b?.ref, !!b?.synced]);
   // Tự hỏi máy chủ vài giây một lần (nếu Dsmart POS báo đã thanh toán thì hiện), và gửi lại khi có mạng.
   useEffect(() => {
@@ -89,8 +90,12 @@ export function Basket({ s, store }) {
     </div>
     <div class="bar-bottom"><div class="in">
       <button class="btn primary" disabled=${!!busy} onClick=${act('done', async () => { await finishBasket(); go('/', true); })}>${busy === 'done' ? html`<${Spinner} sm/>` : paid || voided ? 'Xong' : 'Đã thanh toán xong'}</button>
-      ${!paid && !voided && html`<button class="btn line" disabled=${!!busy} onClick=${act('edit', async () => { await editBasket(); go('/cart', true); })}>${busy === 'edit' ? html`<${Spinner} sm/>` : 'Sửa giỏ hàng'}</button>`}
-    </div></div></div>`;
+      ${!paid && !voided && html`<button class="btn line" disabled=${!!busy} onClick=${() => setAskMore(true)}><${Icon} name="bag"/>Tiếp tục mua sắm</button>`}
+    </div></div>
+    ${askMore && html`<${Confirm} title="Tiếp tục mua sắm?" ok="Tiếp tục mua sắm" cancel="Ở lại màn hình thanh toán" busy=${busy === 'edit'}
+      onOk=${act('edit', async () => { try { await editBasket(); setAskMore(false); go('/scan', true); } catch (e) { setAskMore(false); throw e; } })} onCancel=${() => setAskMore(false)}>
+      <p class="muted small">Giỏ hàng của bạn được giữ nguyên, bạn quét thêm rồi bấm Thanh toán lại để lấy mã QR mới. Mã QR hiện tại sẽ không còn dùng được. Nếu thu ngân đã quét mã này, hãy báo thu ngân huỷ đơn trên máy tính tiền.</p><//>`}
+    </div>`;
 }
 
 /** Màn hình bill: bill thật từ Dsmart POS (nếu Dsmart POS đã gửi) hoặc tạm tính của BRG, kèm tải PDF. */

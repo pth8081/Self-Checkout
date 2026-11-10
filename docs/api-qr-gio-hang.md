@@ -430,7 +430,9 @@ Gọi lệnh `cancelled` như 6.2 (hoặc `refund` đủ số tiền đã thu). 
 
 ### 6.5 Các trường hợp khác
 
-- **Khách bấm "Sửa giỏ hàng" trên điện thoại** trong lúc Dsmart POS đang xử lý mã QR cũ: Dsmart POS cứ xử lý và báo thanh toán bình thường. BRG vẫn ghi nhận khoản thu (tiền đã thu là thật) và không ảnh hưởng giỏ mới của khách.
+- **Khách bấm "Tiếp tục mua sắm" trên điện thoại** (đã bấm Thanh toán nhưng muốn lấy thêm hàng): điện thoại hỏi xác nhận, rồi huỷ mã QR hiện tại và trả khách về màn quét, giỏ hàng giữ nguyên. Khách quét thêm rồi bấm Thanh toán lại để có **mã giỏ mới**.
+  - Nếu Dsmart POS **mới chỉ quét mã** (chưa gửi lệnh nào về BRG): khách vẫn tiếp tục được. Mã QR cũ thành `cancelled`. Nếu thu ngân vẫn thu tiền theo mã cũ và báo `paid`, BRG **vẫn nhận** (tiền đã thu là thật), không ảnh hưởng giỏ mới của khách.
+  - Nếu Dsmart POS **đã gửi lệnh cập nhật đơn** (mục 6.1b) hoặc đã báo thanh toán: BRG chặn, điện thoại báo "Thu ngân đang xử lý đơn này, chưa tiếp tục mua sắm được. Hãy báo thu ngân huỷ đơn rồi thử lại". Muốn cho khách tiếp tục, Dsmart POS gọi lệnh `cancelled` (mục 6.2) rồi khách bấm lại.
 - **Dsmart POS huỷ hoặc hoàn trả đơn mà điện thoại khách chưa gửi giỏ lên** (khách đang mất mạng): lệnh huỷ trả `200` kèm `"status": "unknown"` (không có gì để huỷ, Dsmart POS không cần thử lại). Lệnh hoàn trả thì trả `404 BASKET_NOT_FOUND`, Dsmart POS thử lại sau.
 - **Đổi hàng:** xử lý như hoàn trả phần đổi, rồi khách quét giỏ mới cho hàng mới.
 - Sau khi Dsmart POS đã huỷ một đơn mà còn báo thanh toán cho chính đơn đó thì BRG từ chối (`ORDER_CANCELLED`). Muốn thu lại, khách khoá giỏ với mã giỏ mới.
