@@ -8,18 +8,18 @@ access: all
 
 # Vai trò và trách nhiệm
 
-> **Luồng hiện hành là "Giỏ QR cho Dsmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR ngắn (mã điểm và mã giỏ); thu ngân quét mã vào Dsmart POS, Dsmart POS lấy danh sách mặt hàng bằng API, tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho Dsmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối Dsmart POS".
+> **Luồng hiện hành là "Giỏ QR cho Dsmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR ngắn (mã điểm và mã giỏ); thu ngân quét mã vào Dsmart POS, Dsmart POS lấy danh sách mặt hàng bằng API, tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khóa và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho Dsmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối Dsmart POS".
 
 ## Ai làm được gì
 
 | Việc | Khách | Thu ngân | Cổng ra | Quản lý chi nhánh | Quản trị chuỗi |
 |------|:----:|:--------:|:-------:|:-----------------:|:--------------:|
-| Quét mặt hàng, khoá giỏ, xem lịch sử của mình | ✓ | | | | |
+| Quét mặt hàng, khóa giỏ, xem lịch sử của mình | ✓ | | | | |
 | Thu tiền, xác nhận chuyển khoản | | ✓ | | | |
-| Huỷ giỏ chờ thu | | ✓ | | | |
+| Hủy giỏ chờ thu | | ✓ | | | |
 | Quét QR ra cổng, kiểm tra ngẫu nhiên, ghi chênh lệch | | | ✓ | | |
 | Cho qua hoặc từ chối ca bị giữ | | | | ✓ | ✓ |
-| Huỷ giao dịch đã thu | | | | ✓ | ✓ |
+| Hủy giao dịch đã thu | | | | ✓ | ✓ |
 | Xem báo cáo, giao dịch, đối soát của chi nhánh | | | | ✓ | ✓ |
 | Xếp ca, tài khoản nhân viên chi nhánh | | | | ✓ | ✓ |
 | Đặt tỷ lệ kiểm tra ngẫu nhiên | | | | ✓ | ✓ |
@@ -29,17 +29,17 @@ access: all
 
 Nhân viên có vai trò **thu ngân + cổng ra** làm được cả hai cột.
 
-Ở chi nhánh **thu tiền qua Dsmart POS**, công việc của thu ngân diễn ra trên **Dsmart POS** (do nhà cung cấp Dsmart POS phân quyền), không phải trong BRG; app nhân viên của BRG chỉ còn việc ở cổng ra và của quản lý. Ở chi nhánh **không có bảo vệ**, không có việc ở cổng ra. Chỉ **quản trị chuỗi** đổi được cách thu tiền, bật hoặc tắt bước bảo vệ, tạo và thu hồi **khoá API cho Dsmart POS**. Khoá API cho phép Dsmart POS xác nhận thanh toán thay thu ngân, nên **giữ bí mật như mật khẩu** và thu hồi ngay khi nghi lộ. Quản lý đăng nhập app nhân viên bằng PIN cũng làm được các việc của thu ngân, cổng ra và quản lý.
+Ở chi nhánh **thu tiền qua Dsmart POS**, công việc của thu ngân diễn ra trên **Dsmart POS** (do nhà cung cấp Dsmart POS phân quyền), không phải trong BRG; app nhân viên của BRG chỉ còn việc ở cổng ra và của quản lý. Ở chi nhánh **không có bảo vệ**, không có việc ở cổng ra. Chỉ **quản trị chuỗi** đổi được cách thu tiền, bật hoặc tắt bước bảo vệ, tạo và thu hồi **khóa API cho Dsmart POS**. Khóa API cho phép Dsmart POS xác nhận thanh toán thay thu ngân, nên **giữ bí mật như mật khẩu** và thu hồi ngay khi nghi lộ. Quản lý đăng nhập app nhân viên bằng PIN cũng làm được các việc của thu ngân, cổng ra và quản lý.
 
 ## Tách biệt nhiệm vụ
 
 Các nguyên tắc kiểm soát nội bộ mà ứng dụng hỗ trợ:
 
-- **Người thu tiền không phải người huỷ.** Thu ngân thu và xác nhận; chỉ quản lý huỷ giao dịch đã thu.
+- **Người thu tiền không phải người hủy.** Thu ngân thu và xác nhận; chỉ quản lý hủy giao dịch đã thu.
 - **Người kiểm tra không phải người thu** (khi có đủ người): nhân viên cổng ra kiểm tra hàng, thu ngân thu tiền.
 - **Người đối soát không phải người thu.** Quản lý đối soát tiền mặt và chuyển khoản, không phải thu ngân tự đối soát cho mình.
 - **Kiểm tra ngẫu nhiên do hệ thống chọn**, không ai chọn hoặc bỏ qua được.
-- **Mọi thao tác có tên người làm** (mã nhân viên), giờ, và được ghi nhật ký không sửa xoá.
+- **Mọi thao tác có tên người làm** (mã nhân viên), giờ, và được ghi nhật ký không sửa xóa.
 
 > **Cần xác nhận:** Với chi nhánh ít người (một nhân viên vừa thu vừa kiểm tra), nguyên tắc "người kiểm tra không phải người thu" không đạt được. Cần quy định bù (ví dụ quản lý đối soát chặt hơn, tăng tỷ lệ kiểm tra).
 
@@ -47,7 +47,7 @@ Các nguyên tắc kiểm soát nội bộ mà ứng dụng hỗ trợ:
 
 | Bước | Người chịu trách nhiệm | Cách kiểm soát |
 |------|------------------------|----------------|
-| Giá và tồn kho đúng | Bộ phận Dsmart POS và hàng hoá | Cảnh báo Dsmart POS chậm, đối chiếu lại giá lúc khoá giỏ, danh sách mã không tìm thấy |
+| Giá và tồn kho đúng | Bộ phận Dsmart POS và hàng hóa | Cảnh báo Dsmart POS chậm, đối chiếu lại giá lúc khóa giỏ, danh sách mã không tìm thấy |
 | Giỏ hàng khớp hàng thật | Nhân viên cổng ra (và thu ngân khi đối chiếu sớm) | Kiểm tra ngẫu nhiên, nhật ký chênh lệch |
 | Tiền mặt thu đủ | Thu ngân | Số khách đưa, tiền thừa, đối soát cuối ca |
 | Tiền chuyển khoản đã vào | Thu ngân xác nhận, quản lý đối soát | 3 ô tick, đối soát sao kê hằng ngày |
@@ -60,4 +60,4 @@ Các nguyên tắc kiểm soát nội bộ mà ứng dụng hỗ trợ:
 - Mỗi người dùng **tài khoản và PIN của riêng mình**. Không cho mượn, không ghi PIN ở nơi người khác thấy.
 - Đăng xuất khi rời máy.
 - Báo ngay cho quản lý khi nghi PIN bị lộ.
-- Sai PIN 5 lần liên tiếp, tài khoản bị khoá tạm 15 phút. Quản lý có thể mở khoá và đặt lại PIN.
+- Sai PIN 5 lần liên tiếp, tài khoản bị khóa tạm 15 phút. Quản lý có thể mở khóa và đặt lại PIN.

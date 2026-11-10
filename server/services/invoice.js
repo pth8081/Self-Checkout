@@ -1,4 +1,4 @@
-// Adapter hoá đơn điện tử. Bản giả lập luôn thành công (trừ khi bật failNext để thử lỗi).
+// Adapter hóa đơn điện tử. Bản giả lập luôn thành công (trừ khi bật failNext để thử lỗi).
 // Khi nối nhà cung cấp thật: viết adapter có hàm issue(tx, buyer) trả { number } hoặc ném lỗi.
 import { nowIso, localDate } from '../util.js';
 import { nextCounter, getSetting, setSetting } from '../db.js';
@@ -9,14 +9,14 @@ export function createMockInvoicer(db) {
     name: 'mock',
     async issue(tx, buyer) {
       const cfg = getSetting(db, 'einvoice', {});
-      if (cfg.failNext) { setSetting(db, 'einvoice', { ...cfg, failNext: false }); throw new Error('Nhà cung cấp hoá đơn không phản hồi (giả lập)'); }
+      if (cfg.failNext) { setSetting(db, 'einvoice', { ...cfg, failNext: false }); throw new Error('Nhà cung cấp hóa đơn không phản hồi (giả lập)'); }
       const seq = nextCounter(db, tx.store_id, 'invoice');
       return { number: `HD${localDate().replace(/-/g, '')}-${tx.store_id}-${String(seq).padStart(5, '0')}` };
     }
   };
 }
 
-/** Xuất hoá đơn cho giao dịch; lỗi thì giữ trạng thái pending để thử lại. */
+/** Xuất hóa đơn cho giao dịch; lỗi thì giữ trạng thái pending để thử lại. */
 export async function issueInvoice(db, invoicer, tx, buyer = {}) {
   const type = buyer.taxCode ? 'company' : 'retail';
   const info = db.prepare(`INSERT INTO invoices(transaction_id,type,email,tax_code,company_name,address,status,created_at)
@@ -34,10 +34,10 @@ export async function issueInvoice(db, invoicer, tx, buyer = {}) {
   return db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
 }
 
-/** Thử lại các hoá đơn còn pending. */
+/** Thử lại các hóa đơn còn pending. */
 export async function retryPendingInvoices(db, invoicer) {
-  // Chỉ lấy hoá đơn treo đã quá 30 giây (không chen vào hoá đơn đang xuất) và "nhận việc" bằng cập nhật
-  // nguyên tử, để hai tiến trình chạy cùng lúc không xuất trùng một hoá đơn.
+  // Chỉ lấy hóa đơn treo đã quá 30 giây (không chen vào hóa đơn đang xuất) và "nhận việc" bằng cập nhật
+  // nguyên tử, để hai tiến trình chạy cùng lúc không xuất trùng một hóa đơn.
   const cutoff = new Date(Date.now() - 30_000).toISOString();
   const rows = db.prepare(`SELECT i.*, t.store_id FROM invoices i JOIN transactions t ON t.id = i.transaction_id WHERE i.status='pending' AND i.created_at < ?`).all(cutoff);
   let ok = 0;

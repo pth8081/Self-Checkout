@@ -1,6 +1,6 @@
 # 06. Mô hình dữ liệu
 
-**Trạng thái:** Nháp. `storeId` là khoá phân vùng xuyên suốt; mọi truy vấn lọc theo chi nhánh.
+**Trạng thái:** Nháp. `storeId` là khóa phân vùng xuyên suốt; mọi truy vấn lọc theo chi nhánh.
 
 ## 1. Thực thể chính
 
@@ -11,14 +11,14 @@
 | ProductCache | Bản sao giá/tồn kho từ Dsmart POS | `sku`, `barcode`, `storeId`, tên, giá, tồn kho, `lastSyncedAt` | Thuộc 1 Store; nguồn gốc là Dsmart POS |
 | ScanSession | Một lượt mua sắm | `sessionId`, `storeId`, `startedAt`, `endedAt`, trạng thái, `lockedAt` | Thuộc 1 Store; nhiều CartItem |
 | CartItem | Sản phẩm được quét | `sessionId`, `barcode`, số lượng, giá tại thời điểm quét | Thuộc 1 ScanSession |
-| Transaction | Giao dịch | `transactionId`, `sessionId`, `storeId`, tổng tiền, trạng thái, `cartCode` (mã giỏ hàng), mã QR biên nhận, link hoá đơn | 1-1 ScanSession |
+| Transaction | Giao dịch | `transactionId`, `sessionId`, `storeId`, tổng tiền, trạng thái, `cartCode` (mã giỏ hàng), mã QR biên nhận, link hóa đơn | 1-1 ScanSession |
 | Payment | Một lần thu tiền | `paymentId`, `transactionId`, `method` (cash/qr_transfer/online), `amount`, `cashReceived`, `change`, `collectedBy` (StaffUser), `collectedAt`, `provider`, `providerRef` | Thuộc 1 Transaction |
 | ExitCheck | Log mỗi lượt kiểm tra tại cổng | `checkId`, `transactionId`, nhân viên, kết quả (khớp/chênh lệch), loại và số tiền chênh lệch, hướng xử lý, ghi chú | Thuộc 1 Transaction |
 | Shift | Ca làm việc | `shiftId`, `storeId`, `userId`, loại ca, tiền mặt hệ thống, tiền mặt đếm thực tế, lý do lệch | Thuộc 1 Store, 1 StaffUser |
-| Invoice | Hoá đơn điện tử | `invoiceId`, `transactionId`, loại (bán lẻ/công ty), MST, trạng thái, số hoá đơn | Thuộc 1 Transaction |
+| Invoice | Hóa đơn điện tử | `invoiceId`, `transactionId`, loại (bán lẻ/công ty), MST, trạng thái, số hóa đơn | Thuộc 1 Transaction |
 | StaffUser | Tài khoản nhân viên và quản trị | `userId`, `storeId` (null nếu là quản trị chuỗi), vai trò, trạng thái, PIN (băm) | Thuộc 1 Store (trừ quản trị chuỗi) |
 | AuditEvent | Nhật ký bất biến | `eventId`, `storeId`, thời điểm, tác nhân, hành động, đối tượng, dữ liệu trước/sau | Tham chiếu mọi thực thể |
-| ScanEvent | Sự kiện quét/xoá/lỗi | `sessionId`, loại sự kiện, `barcode`, thời điểm | Thuộc 1 ScanSession |
+| ScanEvent | Sự kiện quét/xóa/lỗi | `sessionId`, loại sự kiện, `barcode`, thời điểm | Thuộc 1 ScanSession |
 
 ```mermaid
 erDiagram
@@ -43,7 +43,7 @@ erDiagram
 | Thực thể | Lý do |
 |----------|-------|
 | Promotion | Giá khuyến mãi từ Dsmart POS (G-03); giỏ hàng M12 đang giả định có dòng khuyến mãi |
-| Customer (tuỳ chọn) | Nếu cần lịch sử đơn hoặc tự điền hoá đơn (G-04, G-06) |
+| Customer (tùy chọn) | Nếu cần lịch sử đơn hoặc tự điền hóa đơn (G-04, G-06) |
 | Gate | Nếu có nhiều cổng ra mỗi chi nhánh và cần báo cáo theo cổng |
 
 ## 3. Trạng thái
@@ -55,9 +55,9 @@ erDiagram
 
 ## 4. Quy tắc dữ liệu
 
-1. Giá trong `CartItem` **chốt tại lúc quét**; khi khoá giỏ, hệ thống kiểm tra lại với dữ liệu Dsmart POS, nếu khác thì khách phải đồng ý (FR-CUS-10).
+1. Giá trong `CartItem` **chốt tại lúc quét**; khi khóa giỏ, hệ thống kiểm tra lại với dữ liệu Dsmart POS, nếu khác thì khách phải đồng ý (FR-CUS-10).
 2. `ProductCache` không bao giờ là nơi nhập liệu; chỉ ghi qua đồng bộ Dsmart POS.
-3. `Payment` và `AuditEvent` chỉ thêm, không sửa, không xoá. Sửa sai bằng bản ghi bù/huỷ có người duyệt.
+3. `Payment` và `AuditEvent` chỉ thêm, không sửa, không xóa. Sửa sai bằng bản ghi bù/hủy có người duyệt.
 4. Dữ liệu cá nhân (nếu có) tách riêng, có thời hạn lưu (Q-06, NFR-09). Không lưu ảnh từ camera.
 5. Tiền tệ lưu bằng số nguyên theo đơn vị nhỏ nhất (VND không có phần lẻ), không dùng số thực.
 6. Mã giao dịch (nội dung chuyển khoản) và `cartCode` phải duy nhất trong phạm vi chi nhánh và đủ ngắn để nhập tay; không thể đoán ra mã của khách khác.

@@ -78,7 +78,7 @@ export function CameraBlocked({ onRetry, onManual }) {
   const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const steps = ios
     ? ['Chạm biểu tượng aA ở thanh địa chỉ Safari.', 'Chọn Cài đặt trang web, rồi Camera.', 'Chọn Cho phép và tải lại trang.']
-    : ['Chạm biểu tượng khoá cạnh thanh địa chỉ.', 'Chọn Quyền, rồi Camera.', 'Chọn Cho phép và tải lại trang.'];
+    : ['Chạm biểu tượng khóa cạnh thanh địa chỉ.', 'Chọn Quyền, rồi Camera.', 'Chọn Cho phép và tải lại trang.'];
   return html`<div style="display:flex;flex-direction:column;flex:1">
     <${Header} onBack=${() => go('/cart')} title="Camera đang bị chặn"/>
     <div class="page">

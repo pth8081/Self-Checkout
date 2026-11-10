@@ -21,7 +21,7 @@
 
    Một khách đang mua sắm chỉ gửi vài yêu cầu mỗi chục giây, nên một tiến trình phục vụ được **hàng nghìn khách cùng lúc**. Chạy `npm run loadtest` (xem mục 8) trên máy chủ thật để có số của riêng bạn, trước khi mở rộng.
 2. **Cluster hầu như không tăng thêm sức chịu tải.** Dữ liệu nằm trong một file SQLite, mọi lần ghi phải xếp hàng, nên thêm tiến trình chỉ tăng khoảng 25% trong phép đo trên (điểm nghẽn là việc ghi, không phải CPU Node).
-3. **Cluster thêm rủi ro:** công việc nền (đồng bộ Dsmart POS mỗi phút, thử lại hoá đơn) sẽ chạy ở **mọi** tiến trình. Ứng dụng đã được làm an toàn khi chạy trùng (hoá đơn được "nhận việc" nguyên tử nên không xuất trùng; giao dịch CSDL dùng khoá ghi ngay từ đầu), nhưng vẫn là việc thừa và khó theo dõi.
+3. **Cluster thêm rủi ro:** công việc nền (đồng bộ Dsmart POS mỗi phút, thử lại hóa đơn) sẽ chạy ở **mọi** tiến trình. Ứng dụng đã được làm an toàn khi chạy trùng (hóa đơn được "nhận việc" nguyên tử nên không xuất trùng; giao dịch CSDL dùng khóa ghi ngay từ đầu), nhưng vẫn là việc thừa và khó theo dõi.
 4. **Đơn giản hơn để vận hành:** một tiến trình, một nhật ký, một nơi để khởi động lại.
 
 Khi nào cân nhắc nhiều tiến trình hoặc nhiều máy: xem mục 9.
@@ -35,7 +35,7 @@ Khách, nhân viên, quản trị
    Nginx  ── chứng chỉ Let's Encrypt, nén, giới hạn tần suất đăng nhập
         │  http://127.0.0.1:3000
         ▼
-   Node.js (PM2, fork, 1 tiến trình)  ── công việc nền: đồng bộ POS, thử lại hoá đơn
+   Node.js (PM2, fork, 1 tiến trình)  ── công việc nền: đồng bộ POS, thử lại hóa đơn
         │
         ▼
    File SQLite (/var/lib/brg/brg.db)  ── sao lưu hằng giờ + đẩy ra máy khác mỗi đêm
@@ -48,7 +48,7 @@ Cấu hình tối thiểu cho một chuỗi vài chục chi nhánh thí điểm:
 - Máy chủ Linux (Ubuntu 22.04 trở lên hoặc tương đương), có quyền `sudo`.
 - **Node.js 20.6 trở lên** (đã thử trên 22). Thư viện SQLite dùng bản dựng sẵn cho các nền tảng phổ biến; nếu không có bản dựng sẵn, cài thêm `build-essential` và `python3`.
 - Một **tên miền** trỏ về máy chủ (ví dụ `scan.hcrc.vn`) và cổng 80, 443 mở. **Bắt buộc HTTPS** vì trình duyệt chỉ cho dùng camera trên HTTPS.
-- Tài khoản ngân hàng nhận tiền, nhà cung cấp Dsmart POS và hoá đơn (có thể gắn sau, xem [11](11-ung-dung.md)).
+- Tài khoản ngân hàng nhận tiền, nhà cung cấp Dsmart POS và hóa đơn (có thể gắn sau, xem [11](11-ung-dung.md)).
 
 ## 4. Cài đặt từng bước
 
@@ -86,15 +86,15 @@ Bảng biến môi trường:
 | Biến | Mặc định | Ý nghĩa |
 |------|----------|---------|
 | `NODE_ENV` | | Đặt `production`. Khi đó **`APP_SECRET` bắt buộc**, công cụ thử nghiệm bị tắt, không chạy được `seed` |
-| `APP_SECRET` | | Khoá ký đăng nhập và QR biên nhận. Giữ bí mật, sao lưu riêng. Đổi khoá làm mọi QR chưa dùng mất hiệu lực và mọi người phải đăng nhập lại |
+| `APP_SECRET` | | Khóa ký đăng nhập và QR biên nhận. Giữ bí mật, sao lưu riêng. Đổi khóa làm mọi QR chưa dùng mất hiệu lực và mọi người phải đăng nhập lại |
 | `PORT`, `HOST` | `3000`, `0.0.0.0` | Đặt `HOST=127.0.0.1` để chỉ Nginx truy cập được |
 | `TRUST_PROXY` | | `1` khi chạy sau Nginx |
 | `DB_FILE` | `data/brg.db` | Đường dẫn file CSDL. Đặt ngoài thư mục mã nguồn, ví dụ `/var/lib/brg/brg.db` |
 | `RECEIPT_TTL_MIN` | `180` | Thời hạn QR biên nhận (phút). Chỉ dùng ở luồng cũ có bảo vệ cổng ra |
 | `PUBLIC_URL` | | Địa chỉ công khai, ví dụ `https://scan.hcrc.vn`. Dùng làm link xem bill trong email. Không đặt thì email vẫn gửi (kèm PDF) nhưng không có link |
-| `MAX_CART_ITEMS` | `60` | Số mặt hàng khác nhau tối đa mỗi giỏ. Chỉ ảnh hưởng mã đầy đủ dự phòng khi mất mạng (mã chuẩn luôn ngắn) |
+| `MAX_CART_ITEMS` | `200` | Số mặt hàng khác nhau tối đa mỗi giỏ (mã QR luôn ngắn nên không phụ thuộc số này) |
 | `CART_TTL_HOURS` | `3` | Giỏ đang quét (chưa bấm Thanh toán) quá số giờ này không thao tác thì đóng |
-| `LOCKED_TTL_MINUTES` | `30` | Giỏ đã bấm Thanh toán quá số phút này chưa thanh toán thì huỷ đơn, mã QR hết hạn (giỏ hàng vẫn giữ để tạo mã mới) |
+| `LOCKED_TTL_MINUTES` | `30` | Giỏ đã bấm Thanh toán quá số phút này chưa thanh toán thì hủy đơn, mã QR hết hạn (giỏ hàng vẫn giữ để tạo mã mới) |
 | `POS_SYNC_SECONDS` | `60` | Chu kỳ đồng bộ Dsmart POS |
 | `RUN_JOBS` | bật | `0` để tắt công việc nền ở một tiến trình (chỉ khi chạy nhiều tiến trình) |
 | `LOG_LEVEL` | `info` | `warn` để giảm nhật ký |
@@ -135,7 +135,7 @@ sudo certbot --nginx -d scan.hcrc.vn           # cấp chứng chỉ và tự gi
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Cấu hình mẫu gồm: chuyển HTTP sang HTTPS, `Permissions-Policy: camera=(self)`, nén, giới hạn khoảng 10 lần đăng nhập mỗi phút cho mỗi IP (chống dò PIN và mật khẩu; ứng dụng còn khoá tài khoản 15 phút sau 5 lần sai).
+Cấu hình mẫu gồm: chuyển HTTP sang HTTPS, `Permissions-Policy: camera=(self)`, nén, giới hạn khoảng 10 lần đăng nhập mỗi phút cho mỗi IP (chống dò PIN và mật khẩu; ứng dụng còn khóa tài khoản 15 phút sau 5 lần sai).
 
 Tường lửa chỉ mở 22, 80, 443:
 
@@ -148,17 +148,17 @@ sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 1. `https://scan.hcrc.vn/api/health` trả `{"ok":true}`.
 2. Mở `https://scan.hcrc.vn/a/`, đăng nhập quản trị, thấy Tổng quan.
 3. Trong Chi nhánh và tính năng, bấm **Mã QR dán cổng vào** của một chi nhánh, quét bằng điện thoại: mở được trang khách bằng HTTPS và hỏi quyền camera.
-4. Làm tiếp mục 4.8 (nhập chi nhánh, mã điểm, sản phẩm, khoá Dsmart POS), rồi thử trọn quy trình: khách quét, bấm Thanh toán, Dsmart POS quét mã QR và báo thanh toán.
+4. Làm tiếp mục 4.8 (nhập chi nhánh, mã điểm, sản phẩm, khóa Dsmart POS), rồi thử trọn quy trình: khách quét, bấm Thanh toán, Dsmart POS quét mã QR và báo thanh toán.
 5. Chạy `npm run backup` và kiểm tra có file mới trong `BACKUP_DIR`.
 
-### 4.8 Nhập chi nhánh, sản phẩm và khoá cho Dsmart POS (lần đầu)
+### 4.8 Nhập chi nhánh, sản phẩm và khóa cho Dsmart POS (lần đầu)
 
 1. Đăng nhập `/a/` bằng tài khoản vừa tạo, bật xác thực 2 bước.
 2. **Chi nhánh:** thêm từng chi nhánh, nhập **Mã điểm** (mã siêu thị trong hệ thống giá và Dsmart POS).
 3. **Sản phẩm và giá:** khi chưa có API giá thật, nhập từ file CSV:
    `npm run import-products -- docs/mau/san-pham-mau.csv` (xem file mẫu để biết các cột; thêm `--replace` để thay toàn bộ sản phẩm của chi nhánh). Khi API giá thật có, bước này không còn dùng.
-3b. **Email:** ở mục **Tích hợp**, thẻ "Email gửi cho khách", nhập máy chủ SMTP của công ty (máy chủ, cổng, kiểu bảo mật, tài khoản, mật khẩu, địa chỉ người gửi), bấm Lưu rồi "Gửi thử". Dùng để gửi mã xác nhận xem lịch sử trên máy khác và gửi bill về email khách. Máy chủ email dùng chứng chỉ tự ký hoặc CA nội bộ: chọn "Chứng chỉ tự ký hoặc CA nội bộ" ở mục kiểm tra chứng chỉ và nạp tệp chứng chỉ (kiểu bảo mật SSL/TLS cổng 465 vẫn giữ nguyên, không bị đổi). Mật khẩu được mã hoá khi lưu, không hiện lại.
-4. Mục **Tích hợp:** bấm "Đồng bộ ngay" cho từng chi nhánh, tạo **khoá API cho Dsmart POS** (chỉ hiện một lần, lưu lại), gửi cho đơn vị Dsmart POS cùng `docs/api-qr-gio-hang.md`.
+3b. **Email:** ở mục **Tích hợp**, thẻ "Email gửi cho khách", nhập máy chủ SMTP của công ty (máy chủ, cổng, kiểu bảo mật, tài khoản, mật khẩu, địa chỉ người gửi), bấm Lưu rồi "Gửi thử". Dùng để gửi mã xác nhận xem lịch sử trên máy khác và gửi bill về email khách. Máy chủ email dùng chứng chỉ tự ký hoặc CA nội bộ: chọn "Chứng chỉ tự ký hoặc CA nội bộ" ở mục kiểm tra chứng chỉ và nạp tệp chứng chỉ (kiểu bảo mật SSL/TLS cổng 465 vẫn giữ nguyên, không bị đổi). Mật khẩu được mã hóa khi lưu, không hiện lại.
+4. Mục **Tích hợp:** bấm "Đồng bộ ngay" cho từng chi nhánh, tạo **khóa API cho Dsmart POS** (chỉ hiện một lần, lưu lại), gửi cho đơn vị Dsmart POS cùng `docs/api-qr-gio-hang.md`.
 5. Trang **Chi nhánh:** bật Scan & Checkout cho chi nhánh. Mặc định chi nhánh dùng chế độ **Giỏ QR cho Dsmart POS**.
 6. Dùng điện thoại quét mã QR cổng vào (nút "Mã QR dán cổng vào"), quét thử vài mặt hàng, bấm Thanh toán và để Dsmart POS quét thử.
 
@@ -175,12 +175,12 @@ Script này: sao lưu CSDL, `git pull --ff-only`, `npm ci --omit=dev`, tạo l�
 
 - Khi khởi động lại, ứng dụng **tắt gọn**: ngừng nhận yêu cầu mới, chờ yêu cầu đang chạy xong rồi thoát (tối đa 8 giây), PM2 bật lại ngay. Gián đoạn khoảng 1 đến 2 giây. Khách đang quét không mất giỏ (giỏ lưu trên điện thoại và gửi lại được); nhân viên thao tác lại nếu đúng lúc đó gặp lỗi mạng.
 - Nên cập nhật ngoài giờ bán hàng đông.
-- **Cấu trúc CSDL:** khi khởi động, ứng dụng tự tạo bảng còn thiếu và tự **thêm cột mới** vào bảng đang có (không xoá hay đổi dữ liệu cũ). Vẫn luôn sao lưu trước khi cập nhật (script đã làm).
+- **Cấu trúc CSDL:** khi khởi động, ứng dụng tự tạo bảng còn thiếu và tự **thêm cột mới** vào bảng đang có (không xóa hay đổi dữ liệu cũ). Vẫn luôn sao lưu trước khi cập nhật (script đã làm).
 - **Quay lại bản cũ:** `git checkout <bản-cũ>`, `npm ci --omit=dev`, `npm run build:sw`, `pm2 restart brg-self-checkout`. Nếu bản mới đã đổi cấu trúc CSDL thì khôi phục thêm bản sao lưu (mục 6).
 
 ## 6. Sao lưu và khôi phục
 
-**Dữ liệu cần giữ:** file CSDL (giao dịch, thanh toán, nhật ký, tài khoản) và file `.env` (đặc biệt `APP_SECRET`). Bản sao lưu CSDL chứa **dữ liệu cá nhân** (email khách, nhật ký), cần bảo vệ và mã hoá khi chép ra ngoài.
+**Dữ liệu cần giữ:** file CSDL (giao dịch, thanh toán, nhật ký, tài khoản) và file `.env` (đặc biệt `APP_SECRET`). Bản sao lưu CSDL chứa **dữ liệu cá nhân** (email khách, nhật ký), cần bảo vệ và mã hóa khi chép ra ngoài.
 
 **Sao lưu tự động** (không cần dừng ứng dụng):
 
@@ -188,7 +188,7 @@ Script này: sao lưu CSDL, `git pull --ff-only`, `npm ci --omit=dev`, tạo l�
 crontab -e     # dán nội dung từ deploy/backup.cron.example
 ```
 
-`npm run backup` dùng cơ chế sao lưu trực tuyến của SQLite, kiểm tra toàn vẹn bản sao, giữ `BACKUP_KEEP` bản mới nhất. Mỗi bản là một file duy nhất `brg-YYYYMMDD-HHMM.db`. Khuyến nghị: **mỗi giờ** trên máy, **mỗi đêm** chép sang máy khác (ví dụ `rsync`, hoặc dịch vụ lưu trữ đám mây có mã hoá).
+`npm run backup` dùng cơ chế sao lưu trực tuyến của SQLite, kiểm tra toàn vẹn bản sao, giữ `BACKUP_KEEP` bản mới nhất. Mỗi bản là một file duy nhất `brg-YYYYMMDD-HHMM.db`. Khuyến nghị: **mỗi giờ** trên máy, **mỗi đêm** chép sang máy khác (ví dụ `rsync`, hoặc dịch vụ lưu trữ đám mây có mã hóa).
 
 **Khôi phục:**
 
@@ -203,30 +203,30 @@ curl http://127.0.0.1:3000/api/health
 
 Dữ liệu phát sinh giữa bản sao lưu và lúc hỏng sẽ mất (tối đa 1 giờ nếu sao lưu hằng giờ). Giao dịch trong khoảng đó cần đối chiếu thủ công bằng sao kê ngân hàng và sổ tiền mặt. **Hãy thử khôi phục thật định kỳ** (mỗi quý) trên một máy khác để chắc bản sao lưu dùng được.
 
-**Giữ dữ liệu và dữ liệu cá nhân.** Hệ thống tự xoá thông tin cá nhân của khách và nhật ký cũ, chạy lúc khởi động rồi mỗi 6 giờ. Quản trị chuỗi chỉnh thời hạn ở trang **Tích hợp > Giữ dữ liệu** (có nút "Dọn ngay"):
+**Giữ dữ liệu và dữ liệu cá nhân.** Hệ thống tự xóa thông tin cá nhân của khách và nhật ký cũ, chạy lúc khởi động rồi mỗi 6 giờ. Quản trị chuỗi chỉnh thời hạn ở trang **Tích hợp > Giữ dữ liệu** (có nút "Dọn ngay"):
 
 | Loại dữ liệu | Mặc định | Cách xử lý khi quá hạn |
 |--------------|----------|------------------------|
-| Thông tin cá nhân của khách: email nhận bill, thông tin xuất hoá đơn công ty (mã số thuế, tên, địa chỉ), email đã xác minh của thiết bị, mã thiết bị gắn với đơn | 12 tháng kể từ lúc thanh toán | Xoá trắng các trường này. **Đơn, số tiền, dòng hàng, bill, hoàn trả giữ nguyên** nên doanh thu và đối soát không đổi |
-| Nhật ký kỹ thuật: nhật ký quét, chi tiết giỏ đã kết thúc, hàng chờ đồng bộ, lần quét ở cổng | 90 ngày | Xoá |
-| Nhật ký thao tác (ai làm gì, lúc nào) | 24 tháng | Xoá |
+| Thông tin cá nhân của khách: email nhận bill, thông tin xuất hóa đơn công ty (mã số thuế, tên, địa chỉ), email đã xác minh của thiết bị, mã thiết bị gắn với đơn | 12 tháng kể từ lúc thanh toán | Xóa trắng các trường này. **Đơn, số tiền, dòng hàng, bill, hoàn trả giữ nguyên** nên doanh thu và đối soát không đổi |
+| Nhật ký kỹ thuật: nhật ký quét, chi tiết giỏ đã kết thúc, hàng chờ đồng bộ, lần quét ở cổng | 90 ngày | Xóa |
+| Nhật ký thao tác (ai làm gì, lúc nào) | 24 tháng | Xóa |
 
-Nhập `0` cho mục nào thì giữ mãi mục đó. Lưu ý: khách chỉ xem lại được lịch sử bill trong thời hạn giữ thông tin cá nhân, vì liên kết giữa khách và đơn bị xoá sau đó. **Bản sao lưu** chứa dữ liệu trước khi xoá, nên `BACKUP_KEEP` cần đủ ngắn để bản sao lưu cũ cũng bị loại theo thời hạn đã chọn.
+Nhập `0` cho mục nào thì giữ mãi mục đó. Lưu ý: khách chỉ xem lại được lịch sử bill trong thời hạn giữ thông tin cá nhân, vì liên kết giữa khách và đơn bị xóa sau đó. **Bản sao lưu** chứa dữ liệu trước khi xóa, nên `BACKUP_KEEP` cần đủ ngắn để bản sao lưu cũ cũng bị loại theo thời hạn đã chọn.
 
-**Xoá dữ liệu theo yêu cầu của khách.** Khi khách yêu cầu xoá dữ liệu cá nhân, quản trị chuỗi vào **Tích hợp > Xoá dữ liệu theo yêu cầu của khách**, nhập email của khách rồi bấm **Tìm dữ liệu** (xem trước số bản ghi sẽ bị xoá), sau đó **Xoá dữ liệu** và xác nhận. Hệ thống:
+**Xóa dữ liệu theo yêu cầu của khách.** Khi khách yêu cầu xóa dữ liệu cá nhân, quản trị chuỗi vào **Tích hợp > Xóa dữ liệu theo yêu cầu của khách**, nhập email của khách rồi bấm **Tìm dữ liệu** (xem trước số bản ghi sẽ bị xóa), sau đó **Xóa dữ liệu** và xác nhận. Hệ thống:
 
-- Xoá trắng email nhận bill và thông tin xuất hoá đơn công ty (mã số thuế, tên, địa chỉ) trên các đơn có email này.
-- Gỡ mã thiết bị khỏi các đơn từ thiết bị đã xác minh email này, và xoá liên kết email đã xác minh cùng mã xác nhận đang chờ.
+- Xóa trắng email nhận bill và thông tin xuất hóa đơn công ty (mã số thuế, tên, địa chỉ) trên các đơn có email này.
+- Gỡ mã thiết bị khỏi các đơn từ thiết bị đã xác minh email này, và xóa liên kết email đã xác minh cùng mã xác nhận đang chờ.
 - **Giữ nguyên** đơn, số tiền, dòng hàng, bill, hoàn trả và doanh thu.
 - Ghi vào nhật ký thao tác (chỉ lưu dấu vết băm của email, không lưu email) kèm ghi chú của người xử lý.
-- **Không hoàn tác được.** Bill khách đã nhận qua email và hoá đơn ở nhà cung cấp hoá đơn không bị thu hồi. Bản sao lưu cũ vẫn chứa dữ liệu trước khi xoá.
+- **Không hoàn tác được.** Bill khách đã nhận qua email và hóa đơn ở nhà cung cấp hóa đơn không bị thu hồi. Bản sao lưu cũ vẫn chứa dữ liệu trước khi xóa.
 - Nếu nhiều người dùng chung một điện thoại, các đơn từ điện thoại đó cũng bị gỡ mã thiết bị.
 
 ## 7. Giám sát và nhật ký
 
 - **Theo dõi sống còn:** cho một dịch vụ giám sát (UptimeRobot, Uptime Kuma...) gọi `https://scan.hcrc.vn/api/health` mỗi phút và báo khi lỗi. Đường dẫn này kiểm tra cả CSDL.
 - **Nhật ký ứng dụng:** `pm2 logs brg-self-checkout`, mỗi dòng là JSON. Dòng `"level":50` là lỗi.
-- **Cảnh báo nghiệp vụ** nằm sẵn trong web quản trị: Dsmart POS đồng bộ chậm, hoá đơn treo, ca chờ quản lý (trang Tổng quan).
+- **Cảnh báo nghiệp vụ** nằm sẵn trong web quản trị: Dsmart POS đồng bộ chậm, hóa đơn treo, ca chờ quản lý (trang Tổng quan).
 - **Ổ đĩa:** theo dõi dung lượng trống của `/var/lib/brg`, `/var/backups/brg` và nhật ký.
 - Ghi nhớ thay đổi cấu hình và tài khoản đã có sẵn trong **Nhật ký** của web quản trị.
 
@@ -250,7 +250,7 @@ Các mức, từ nhẹ đến nặng:
 
 1. **Nâng cấu hình máy** (thêm CPU). Đơn giản nhất và thường đủ.
 2. **Thêm tiến trình trên cùng một máy dùng chung file SQLite** (đã thử chạy được, 0 lỗi, tăng khoảng 25%): chạy tiến trình phụ với `RUN_JOBS=0` và cổng khác, để Nginx chia tải qua `upstream`. Không dùng cluster của PM2 cho việc này vì mọi tiến trình đều bật công việc nền.
-3. **Nhiều máy** (chịu lỗi, tải rất lớn): **không dùng được SQLite** vì file nằm trên một máy. Cần chuyển CSDL sang **PostgreSQL**, đặt công việc nền ở một tiến trình riêng (hoặc có cơ chế chọn tiến trình chủ), rồi đặt nhiều bản ứng dụng sau bộ chia tải. Ứng dụng đã được thiết kế không lưu trạng thái trong bộ nhớ (phiên khách, khoá đăng nhập đều nằm trong CSDL), nên bước này chủ yếu là chuyển lớp CSDL (`server/db.js` và các câu lệnh SQL trong `server/services`). Đây là một đợt công việc riêng, chưa làm.
+3. **Nhiều máy** (chịu lỗi, tải rất lớn): **không dùng được SQLite** vì file nằm trên một máy. Cần chuyển CSDL sang **PostgreSQL**, đặt công việc nền ở một tiến trình riêng (hoặc có cơ chế chọn tiến trình chủ), rồi đặt nhiều bản ứng dụng sau bộ chia tải. Ứng dụng đã được thiết kế không lưu trạng thái trong bộ nhớ (phiên khách, khóa đăng nhập đều nằm trong CSDL), nên bước này chủ yếu là chuyển lớp CSDL (`server/db.js` và các câu lệnh SQL trong `server/services`). Đây là một đợt công việc riêng, chưa làm.
 4. **Dự phòng nóng** cho SQLite (sao chép liên tục sang máy phụ, ví dụ bằng Litestream): có thể là bước trung gian, nhưng **chưa được thử** ở dự án này.
 
 ## 10. Danh sách kiểm tra trước khi mở cho khách
@@ -272,14 +272,14 @@ Các mức, từ nhẹ đến nặng:
 
 | Hiện tượng | Nguyên nhân thường gặp | Cách xử lý |
 |-----------|------------------------|------------|
-| Máy chủ không khởi động, báo thiếu `APP_SECRET` | Chạy production mà chưa đặt khoá | Thêm `APP_SECRET` vào `.env`, khởi động lại với `pm2 restart ... --update-env` |
+| Máy chủ không khởi động, báo thiếu `APP_SECRET` | Chạy production mà chưa đặt khóa | Thêm `APP_SECRET` vào `.env`, khởi động lại với `pm2 restart ... --update-env` |
 | 502 Bad Gateway từ Nginx | Ứng dụng đang tắt hoặc sai cổng | `pm2 status`, `pm2 logs`; kiểm tra `PORT` khớp với `upstream` |
 | Camera không bật trên điện thoại | Trang không dùng HTTPS, hoặc mở trong trình duyệt của Zalo hoặc Facebook | Kiểm tra chứng chỉ; hướng dẫn khách mở bằng Safari hoặc Chrome |
 | Khách báo "không kết nối được" nhưng `/api/health` ổn | Nginx hoặc DNS | Xem nhật ký Nginx, kiểm tra tên miền |
-| Lỗi `database is locked` trong nhật ký | Có tiến trình khác giữ khoá ghi quá lâu (ví dụ sao lưu thủ công bằng `cp` lên file đang ghi) | Dùng `npm run backup`, không chép file đang chạy |
+| Lỗi `database is locked` trong nhật ký | Có tiến trình khác giữ khóa ghi quá lâu (ví dụ sao lưu thủ công bằng `cp` lên file đang ghi) | Dùng `npm run backup`, không chép file đang chạy |
 | Đĩa đầy | Nhật ký hoặc sao lưu quá nhiều | Giảm `BACKUP_KEEP`, bật `pm2-logrotate`, dọn bản cũ |
 | Quên mật khẩu quản trị chuỗi duy nhất | | Quản trị chuỗi khác đặt lại; nếu không còn ai, tạo tài khoản mới bằng `npm run create-admin` với mã khác |
-| Mọi QR chưa dùng báo không hợp lệ sau khi cập nhật | `APP_SECRET` bị đổi | Đặt lại đúng khoá cũ; nếu đã mất, khách cần được cấp lại QR (xem "Điểm cần chốt") |
+| Mọi QR chưa dùng báo không hợp lệ sau khi cập nhật | `APP_SECRET` bị đổi | Đặt lại đúng khóa cũ; nếu đã mất, khách cần được cấp lại QR (xem "Điểm cần chốt") |
 | Đổi giờ máy chủ làm QR hết hạn sai | Đồng hồ máy chủ lệch | Bật đồng bộ giờ (`timedatectl set-ntp true`) |
 
 ## 12. Chưa có
@@ -287,4 +287,4 @@ Các mức, từ nhẹ đến nặng:
 - Dockerfile và cấu hình container (chưa được thử).
 - Chế độ chịu lỗi nhiều máy (cần PostgreSQL).
 - Cơ chế di chuyển cấu trúc CSDL tự động.
-- Mã hoá bản sao lưu tự động (hãy mã hoá khi chép ra ngoài).
+- Mã hóa bản sao lưu tự động (hãy mã hóa khi chép ra ngoài).

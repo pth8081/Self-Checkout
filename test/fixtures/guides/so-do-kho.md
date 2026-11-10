@@ -8,9 +8,9 @@ access: all
 ## Tuần tự nhiều cột, nhãn dài
 
 ```seq
-title: Thu tiền, xuất hoá đơn và đối soát cuối ngày
+title: Thu tiền, xuất hóa đơn và đối soát cuối ngày
 actors: Khách hàng | Thu ngân kiêm kiểm soát cổng | Máy chủ BRG | Hệ thống POS của chi nhánh | Ngân hàng
-Khách hàng -> Máy chủ BRG: Quét từng mã vạch hàng hoá, hệ thống trả về tên, đơn giá và tổng tiền tạm tính của giỏ hàng
+Khách hàng -> Máy chủ BRG: Quét từng mã vạch hàng hóa, hệ thống trả về tên, đơn giá và tổng tiền tạm tính của giỏ hàng
 Máy chủ BRG -> Hệ thống POS của chi nhánh: Tra cứu giá và tồn kho
 Hệ thống POS của chi nhánh --> Máy chủ BRG: Trả về giá hiện hành
 Khách hàng -> Thu ngân kiêm kiểm soát cổng: Đưa mã giỏ hàng
@@ -26,13 +26,13 @@ note over Khách hàng, Ngân hàng: Mọi chênh lệch được ghi lại đ�
 ## Lưu đồ nhiều chu trình
 
 ```flow
-title: Đăng nhập và khoá tài khoản
+title: Đăng nhập và khóa tài khoản
 start([Bắt đầu]) --> a[Nhập tài khoản và mật khẩu] --> b{Đúng mật khẩu?}
 b -- Đúng --> c{Đã bật xác thực hai bước?}
 b -- Sai --> d[Ghi nhận một lần sai]
 d --> e{Đã sai năm lần liên tiếp?}
 e -- Chưa --> a
-e -- Rồi --> f[Khoá tạm mười lăm phút]
+e -- Rồi --> f[Khóa tạm mười lăm phút]
 f --> a
 c -- Có --> g[Nhập mã sáu số]
 c -- Không --> h([Vào hệ thống])

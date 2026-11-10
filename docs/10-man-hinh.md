@@ -29,7 +29,7 @@ Tổng cộng **52 màn hình**: 26 khách (M), 14 nhân viên (N), 12 quản tr
 | M19 | QR biên nhận | FR-CUS-07, PWA-06 |
 | M20 | Kiểm tra ngẫu nhiên (phía khách) | FR-GATE-03 |
 | M21 | Hoàn tất & đánh giá | FR-CUS-08, FR-CUS-13 |
-| M22 | Hoá đơn điện tử | FR-CUS-08 |
+| M22 | Hóa đơn điện tử | FR-CUS-08 |
 | M23 | Đang xử lý thanh toán online (GĐ2, tắt ở GĐ1) | FR-PAY-09 |
 | M24 | Thanh toán online thất bại (GĐ2, tắt ở GĐ1) | FR-PAY-09 |
 | M25 | Lịch sử mua sắm | FR-CUS-14 |
@@ -60,7 +60,7 @@ Tổng cộng **52 màn hình**: 26 khách (M), 14 nhân viên (N), 12 quản tr
 |----|----------|---------|---------|
 | A01 | Tổng quan chuỗi | Chuỗi | FR-ADM-02 |
 | A02 | Bật/tắt chi nhánh & cách thanh toán | Chuỗi | FR-ADM-01, FR-PAY-08 |
-| A03 | Cấu hình tích hợp (Dsmart POS, chuyển khoản QR, hoá đơn) | Chuỗi | FR-ADM-03, FR-ADM-11 |
+| A03 | Cấu hình tích hợp (Dsmart POS, chuyển khoản QR, hóa đơn) | Chuỗi | FR-ADM-03, FR-ADM-11 |
 | A04 | Báo cáo tổng hợp | Chuỗi | FR-ADM-02 |
 | A05 | Tài khoản & phân quyền | Chuỗi | FR-ADM-07 |
 | A06 | Trong ngày của chi nhánh | Chi nhánh | FR-ADM-04 |
@@ -78,7 +78,7 @@ Menu bên và màn "Hàng đợi", "Giao dịch gần đây", "Chờ quản lý"
 ## 5. Chưa có thiết kế
 
 - Quên mật khẩu / đặt lại; quên mã PIN của nhân viên.
-- Huỷ giao dịch từ app nhân viên và hoàn tiền (G-07). Quản trị đã huỷ được ở trang chi tiết giao dịch.
+- Hủy giao dịch từ app nhân viên và hoàn tiền (G-07). Quản trị đã hủy được ở trang chi tiết giao dịch.
 - Xác minh email để xem lịch sử trên máy khác (phụ thuộc G-04).
 - Màn hình hướng dẫn riêng cho hàng cân, hàng giới hạn độ tuổi (G-01, G-02).
 - Giao diện quản trị trên điện thoại (hiện vẽ cho màn hình máy tính).

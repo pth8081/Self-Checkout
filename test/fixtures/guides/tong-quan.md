@@ -36,7 +36,7 @@ Cổng ra --> Khách: Cho qua
 ### Các bước chính
 
 1. Khách quét hàng.
-2. Khách khoá giỏ hàng.
+2. Khách khóa giỏ hàng.
    - Có thể mở lại giỏ để sửa.
    - Sau khi thu tiền thì không sửa được.
 3. Thu ngân thu tiền.
@@ -90,11 +90,11 @@ hold -- Từ chối --> deny
 ```flow
 direction: right
 title: Vòng đời giỏ hàng
-a([Đang mua]) --> b([Đã khoá giỏ])
+a([Đang mua]) --> b([Đã khóa giỏ])
 b --> c([Đã thu tiền])
 c --> d([Đã ra cổng])
 b -- Mở lại để sửa --> a
-b -.-> e((Huỷ))
+b -.-> e((Hủy))
 ```
 
 ## Nhóm chú thích
@@ -144,7 +144,7 @@ a --> zzz
 |:--|:-:|--:|
 | Thu ngân | Thu tiền | Tại quầy |
 | Cổng | Quét QR | Kiểm tra ngẫu nhiên |
-| Quản lý | Huỷ giao dịch | Cần lý do khá dài để kiểm tra việc cuộn ngang trên màn hình hẹp của điện thoại |
+| Quản lý | Hủy giao dịch | Cần lý do khá dài để kiểm tra việc cuộn ngang trên màn hình hẹp của điện thoại |
 
 ---
 

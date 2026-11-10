@@ -1,13 +1,10 @@
 // Định dạng mã QR "giỏ hàng" đưa cho phần mềm Dsmart POS quét. Dùng chung cho điện thoại khách và máy chủ.
 //
-// BRG2 (dạng chuẩn, rất ngắn): chỉ có mã điểm và mã giỏ. Dsmart POS gọi API lấy danh sách mặt hàng theo mã giỏ.
+// Mã QR rất ngắn, chỉ có mã điểm và mã giỏ. Danh sách mặt hàng (mã vạch, số lượng) KHÔNG nằm trong mã QR:
+// Dsmart POS lấy bằng API GET /api/pos/v1/baskets/<mã giỏ>?pointCode=<mã điểm>.
 //   BRG2|<mã điểm>|<mã giỏ>|<giờ unix giây>|<CRC16>
 //
-// BRG1 (dạng đầy đủ, chỉ dùng khi điện thoại khách chưa gửi được giỏ lên máy chủ, ví dụ mất mạng): có luôn danh sách mặt hàng.
-//   BRG1|<mã điểm>|<mã giỏ>|<giờ unix giây>|<mã vạch>*<số lượng>,<mã vạch>*<số lượng>...|T<tạm tính>|<CRC16>
-//
 // CRC16 (CCITT-FALSE, hex hoa 4 ký tự) tính trên toàn bộ chuỗi đứng trước dấu | cuối cùng.
-// Dsmart POS chỉ cần mã vạch và số lượng để dựng đơn rồi tính giá theo hệ thống của Dsmart POS. Phần T chỉ để đối chiếu.
 
 export function crc16(str) {
   let crc = 0xffff;
@@ -18,7 +15,6 @@ export function crc16(str) {
   return crc.toString(16).toUpperCase().padStart(4, '0');
 }
 
-export const BASKET_PREFIX = 'BRG1';
 export const BASKET_PREFIX_SHORT = 'BRG2';
 
 /** Mã giỏ do điện thoại tự sinh nên tạo được cả khi mất mạng. Ví dụ Q7-LM3K2AB. */
@@ -28,26 +24,13 @@ export function makeBasketRef(storeId, now = Date.now(), rnd = Math.random) {
   return `${String(storeId).toUpperCase()}-${t}${r}`;
 }
 
-/** Dạng ngắn: chỉ mã điểm, mã giỏ và giờ tạo. */
+/** Mã QR: chỉ mã điểm, mã giỏ và giờ tạo. */
 export function encodeBasketShort({ point, ref, at = Date.now() }) {
   const body = `${BASKET_PREFIX_SHORT}|${point}|${ref}|${Math.floor(at / 1000)}`;
   return `${body}|${crc16(body)}`;
 }
 
-/** items: [{ barcode, qty }]. Gộp dòng trùng mã vạch. */
-export function encodeBasket({ point, ref, at = Date.now(), items, total = 0 }) {
-  const merged = new Map();
-  for (const it of items) {
-    const q = Math.floor(Number(it.qty));
-    if (!it.barcode || !(q > 0)) continue;
-    merged.set(String(it.barcode), (merged.get(String(it.barcode)) || 0) + q);
-  }
-  const lines = [...merged].map(([b, q]) => `${b}*${q}`).join(',');
-  const body = `${BASKET_PREFIX}|${point}|${ref}|${Math.floor(at / 1000)}|${lines}|T${Math.max(0, Math.round(total))}`;
-  return `${body}|${crc16(body)}`;
-}
-
-/** Trả { ok, kind: 'short'|'full', point, ref, at, items (null nếu dạng ngắn), total } hoặc { ok:false, error }. Dsmart POS dùng cùng quy tắc này. */
+/** Trả { ok, point, ref, at } hoặc { ok:false, error }. Dsmart POS dùng cùng quy tắc này. */
 export function decodeBasket(text) {
   const s = String(text || '').trim();
   const cut = s.lastIndexOf('|');
@@ -55,19 +38,7 @@ export function decodeBasket(text) {
   const body = s.slice(0, cut);
   if (crc16(body) !== s.slice(cut + 1).toUpperCase()) return { ok: false, error: 'CRC' };
   const parts = body.split('|');
-  if (parts[0] === BASKET_PREFIX_SHORT) {
-    const [, point, ref, at] = parts;
-    if (parts.length !== 4 || !point || !ref || !/^\d+$/.test(at || '')) return { ok: false, error: 'FORMAT' };
-    return { ok: true, kind: 'short', point, ref, at: Number(at) * 1000, items: null, total: null };
-  }
-  const [prefix, point, ref, at, lines, t] = parts;
-  if (prefix !== BASKET_PREFIX || !point || !ref || !/^T\d+$/.test(t || '')) return { ok: false, error: 'FORMAT' };
-  const items = [];
-  for (const part of (lines || '').split(',')) {
-    const m = /^(\d{6,14})\*(\d{1,3})$/.exec(part);
-    if (!m) return { ok: false, error: 'ITEM' };
-    items.push({ barcode: m[1], qty: Number(m[2]) });
-  }
-  if (!items.length) return { ok: false, error: 'EMPTY' };
-  return { ok: true, kind: 'full', point, ref, at: Number(at) * 1000, items, total: Number(t.slice(1)) };
+  const [prefix, point, ref, at] = parts;
+  if (prefix !== BASKET_PREFIX_SHORT || parts.length !== 4 || !point || !ref || !/^\d+$/.test(at || '')) return { ok: false, error: 'FORMAT' };
+  return { ok: true, point, ref, at: Number(at) * 1000 };
 }

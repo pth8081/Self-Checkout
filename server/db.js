@@ -180,7 +180,7 @@ export function openDb(file) {
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
   migrate(db);
-  // Mọi giao dịch CSDL bắt đầu bằng khoá ghi (BEGIN IMMEDIATE). Giao dịch "trì hoãn" mặc định đọc trước rồi mới xin khoá ghi,
+  // Mọi giao dịch CSDL bắt đầu bằng khóa ghi (BEGIN IMMEDIATE). Giao dịch "trì hoãn" mặc định đọc trước rồi mới xin khóa ghi,
   // nên khi có tiến trình khác vừa ghi xong sẽ báo "database is locked" ngay, không chờ busy_timeout.
   const txn = db.transaction.bind(db);
   db.transaction = (fn) => { const t = txn(fn); const f = (...a) => t.immediate(...a); f.immediate = t.immediate; return f; };

@@ -1,7 +1,7 @@
 // Trạng thái PWA khách: mã thiết bị, phiên mua sắm, hàng đợi thao tác khi mất mạng, đồng bộ.
 // Giỏ hàng luôn lưu trên máy (localStorage) và đồng bộ lên máy chủ khi có mạng.
 import { createApi, useState, useEffect, toast } from '/shared/lib.js';
-import { encodeBasket, makeBasketRef } from '/shared/basket.js';
+import { makeBasketRef } from '/shared/basket.js';
 
 // ---------- Lưu trữ cục bộ (có thể bị chặn, nên luôn bọc try/catch) ----------
 const LS = {
@@ -13,7 +13,7 @@ export const local = LS;
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 32);
 
-// Mã thiết bị: bí mật ngẫu nhiên, đóng vai "chìa khoá" cho phiên và lịch sử của khách.
+// Mã thiết bị: bí mật ngẫu nhiên, đóng vai "chìa khóa" cho phiên và lịch sử của khách.
 export const deviceId = (() => {
   let id = LS.get('brg.device');
   if (!id || !/^[A-Za-z0-9_-]{16,64}$/.test(id)) { id = uid() + uid().slice(0, 8); LS.set('brg.device', id); }
@@ -56,7 +56,7 @@ export function useStore() {
 // ---------- Tính giỏ hàng (cộng thao tác đang chờ đồng bộ) ----------
 const lineDiscount = (it) => (it.promoMin && it.promoOff ? Math.floor(it.qty / it.promoMin) * it.promoOff : 0);
 
-/** Giỏ hàng để hiển thị: bản từ máy chủ + thao tác chưa gửi (đổi số lượng, xoá) + mặt hàng quét khi mất mạng. */
+/** Giỏ hàng để hiển thị: bản từ máy chủ + thao tác chưa gửi (đổi số lượng, xóa) + mặt hàng quét khi mất mạng. */
 export function cartView(s) {
   const server = s.session?.items || [];
   const over = new Map(); // itemId -> qty mới
@@ -107,7 +107,7 @@ export function resetSession() { setState({ session: null, queue: [], issues: []
 
 export async function refreshSession() {
   if (!state.session) {
-    // Mất dữ liệu trang (iOS xoá bộ nhớ, đổi trình duyệt cùng cookie): hỏi máy chủ xem còn giỏ đang dở không.
+    // Mất dữ liệu trang (iOS xóa bộ nhớ, đổi trình duyệt cùng cookie): hỏi máy chủ xem còn giỏ đang dở không.
     if (!state.storeCode) return null;
     try {
       const r = await api.get(`/sessions/current?storeId=${encodeURIComponent(state.storeCode)}`);
@@ -155,12 +155,12 @@ export function basketItems(st) {
   return [...m].map(([barcode, qty]) => ({ barcode, qty }));
 }
 
-/** Máy chủ đã có giỏ khoá (mở lại trên trình duyệt khác, mất dữ liệu trang): lấy lại QR từ máy chủ. */
+/** Máy chủ đã có giỏ khóa (mở lại trên trình duyệt khác, mất dữ liệu trang): lấy lại QR từ máy chủ. */
 function adoptBasket(session) {
   const tx = session?.transaction;
   if (tx?.method === 'basket' && tx.basketQr && (tx.status === 'awaiting_counter' || tx.status === 'paid')) {
     const b = state.basket;
-    if (!b || b.ref !== tx.code) setState({ basket: { ref: tx.code, qr: '', qrShort: tx.basketQr, total: tx.total, count: tx.itemCount, pending: 0, synced: true, at: Date.parse(tx.createdAt) } });
+    if (!b || b.ref !== tx.code) setState({ basket: { ref: tx.code, qrShort: tx.basketQr, total: tx.total, count: tx.itemCount, pending: 0, synced: true, at: Date.parse(tx.createdAt) } });
     else if (!b.synced || b.total !== tx.total) setState({ basket: { ...b, qrShort: tx.basketQr, total: tx.total, count: tx.itemCount, pending: 0, synced: true } });
   }
 }
@@ -176,9 +176,7 @@ export function makeBasket() {
   const point = state.store?.pointCode;
   if (!point) throw new Error('Cửa hàng chưa có Mã điểm nên chưa thanh toán được. Hãy báo nhân viên');
   const ref = makeBasketRef(state.storeCode);
-  const qr = encodeBasket({ point, ref, items, total: v.total }); // dạng đầy đủ: chỉ hiện khi chưa gửi được giỏ lên máy chủ (mất mạng)
-  // Dạng chuẩn (ngắn) do máy chủ cấp sau khi nhận giỏ: qrShort
-  setState({ basket: { ref, qr, total: v.total, count: v.itemCount + v.pendingCount, pending: v.pendingCount, synced: false, at: Date.now(), error: null, email: state.store?.emailEnabled && EMAIL_RE.test(rememberedMail) ? rememberedMail : '' } });
+  setState({ basket: { ref, qrShort: null, total: v.total, count: v.itemCount + v.pendingCount, pending: v.pendingCount, synced: false, at: Date.now(), error: null, email: state.store?.emailEnabled && EMAIL_RE.test(rememberedMail) ? rememberedMail : '' } });
   syncBasket();
 }
 
@@ -237,15 +235,15 @@ export async function downloadBillPdf(id, code) {
 
 export const setBasket = (basket) => setState({ basket });
 
-/** Sửa giỏ: bỏ mã QR hiện tại, mở khoá giỏ trên máy chủ nếu có thể. */
+/** Sửa giỏ: bỏ mã QR hiện tại, mở khóa giỏ trên máy chủ nếu có thể. */
 export async function editBasket() {
   const synced = state.basket?.synced;
   if (synced && state.session) {
     try { await unlock(); }
     catch (e) {
       // Thu ngân đã nhận đơn, đã thanh toán hoặc quản lý đang xử lý: không rời màn hình QR được, giữ nguyên mã.
-      if (['CLAIMED', 'ALREADY_PAID', 'HELD'].includes(e.code)) throw new Error(e.code === 'CLAIMED' ? 'Thu ngân đang xử lý đơn này trên máy tính tiền nên chưa tiếp tục mua sắm được. Hãy báo thu ngân huỷ đơn rồi thử lại' : e.message);
-      /* lỗi mạng: sẽ mở khoá khi có mạng */
+      if (['CLAIMED', 'ALREADY_PAID', 'HELD'].includes(e.code)) throw new Error(e.code === 'CLAIMED' ? 'Thu ngân đang xử lý đơn này trên máy tính tiền nên chưa tiếp tục mua sắm được. Hãy báo thu ngân hủy đơn rồi thử lại' : e.message);
+      /* lỗi mạng: sẽ mở khóa khi có mạng */
     }
   }
   setState({ basket: null });
@@ -297,7 +295,7 @@ async function flushOnce(immediate) {
     } catch (e) {
       setState({ syncing: false });
       if (e.status === 0) { setState({ online: false }); return null; }
-      if (e.code === 'SESSION_LOCKED' && !state.basket && !flushRetry) return 'LOCKED'; // khách đã sửa giỏ nhưng máy chủ còn khoá
+      if (e.code === 'SESSION_LOCKED' && !state.basket && !flushRetry) return 'LOCKED'; // khách đã sửa giỏ nhưng máy chủ còn khóa
       if (e.code === 'SESSION_LOCKED' || e.code === 'SESSION_NOT_FOUND') {
         setState({ queue: [] });
         await refreshSession();
@@ -329,14 +327,14 @@ export const removeItem = (itemId) => setQty(itemId, 0);
 
 export function dismissIssue(id) { setState({ issues: state.issues.filter((i) => i.id !== id) }); }
 
-// ---------- Khoá giỏ & thanh toán ----------
+// ---------- Khóa giỏ & thanh toán ----------
 export async function lock(method, acceptChanges = false, buyer = undefined) {
   if (state.queue.length) { const m = await flush(); if (m === null) throw new Error('Cần có mạng để thanh toán'); }
   const r = await api.post(`/sessions/${state.session.id}/lock`, { method, acceptChanges, buyer });
   setState({ session: r.session });
   return r.transaction;
 }
-/** Thời điểm khách tự mở khoá giỏ (để phân biệt với việc thu ngân huỷ đơn bên Dsmart POS). */
+/** Thời điểm khách tự mở khóa giỏ (để phân biệt với việc thu ngân hủy đơn bên Dsmart POS). */
 export let lastUnlockAt = 0;
 export async function unlock() {
   lastUnlockAt = Date.now();

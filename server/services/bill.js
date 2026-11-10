@@ -1,4 +1,4 @@
-// Bill (hoá đơn bán hàng) cho khách xem và tải PDF. Bill thật lấy từ Dsmart POS; chưa có thì dùng tạm tính của BRG và ghi rõ.
+// Bill (hóa đơn bán hàng) cho khách xem và tải PDF. Bill thật lấy từ Dsmart POS; chưa có thì dùng tạm tính của BRG và ghi rõ.
 import fs from 'node:fs';
 import PDFDocument from 'pdfkit';
 import { getSetting } from '../db.js';
@@ -8,7 +8,7 @@ const font = (n) => fs.readFileSync(new URL(n, FONT));
 
 const METHOD = { cash: 'Tiền mặt', qr_transfer: 'Chuyển khoản', card: 'Thẻ', ewallet: 'Ví điện tử', pos: 'Tại quầy', basket: 'Tại quầy' };
 
-/** Link hoá đơn điện tử và link giao dịch do Dsmart POS gửi kèm khi báo thanh toán (hoặc gửi bổ sung sau). */
+/** Link hóa đơn điện tử và link giao dịch do Dsmart POS gửi kèm khi báo thanh toán (hoặc gửi bổ sung sau). */
 export const linksOf = (tx) => ({ invoiceUrl: tx.pos_invoice_url || null, transactionUrl: tx.pos_transaction_url || null });
 
 /** So giỏ khách quét với các dòng Dsmart POS: mặt hàng bớt đi, thêm vào hoặc đổi số lượng. */
@@ -46,7 +46,7 @@ export function billOf(ctx, tx) {
   const posLines = tx.pos_bill_json ? JSON.parse(tx.pos_bill_json) : null;
   const items = posLines || JSON.parse(tx.items_json).map((i) => ({ barcode: i.barcode, name: i.name, qty: i.qty, unitPrice: i.price, discount: i.discount || 0, lineTotal: i.price * i.qty - (i.discount || 0) }));
   const total = tx.pos_amount ?? tx.total;
-  // Dsmart POS có thể giảm ở cấp hoá đơn (voucher, làm tròn...) nên tổng tiền khác tổng các dòng: hiện phần chênh để bill cộng đúng.
+  // Dsmart POS có thể giảm ở cấp hóa đơn (voucher, làm tròn...) nên tổng tiền khác tổng các dòng: hiện phần chênh để bill cộng đúng.
   const refunds = db.prepare('SELECT * FROM refunds WHERE transaction_id = ? ORDER BY id').all(tx.id).map((r) => ({ amount: r.amount, reason: r.reason, at: r.created_at, lines: r.lines_json ? JSON.parse(r.lines_json) : [] }));
   const refundTotal = refunds.reduce((a, r) => a + r.amount, 0);
   const adjustment = posLines ? total - items.reduce((a, l) => a + l.lineTotal, 0) : 0;
@@ -90,7 +90,7 @@ export function billPdf(b) {
   rule();
   doc.fontSize(9);
   if (b.discount) { row('Khuyến mãi', `−${vnd(b.discount)}`); doc.moveDown(0.3); }
-  if (b.adjustment) { row('Điều chỉnh theo hoá đơn', `${b.adjustment < 0 ? '−' : '+'}${vnd(Math.abs(b.adjustment))}`); doc.moveDown(0.3); }
+  if (b.adjustment) { row('Điều chỉnh theo hóa đơn', `${b.adjustment < 0 ? '−' : '+'}${vnd(Math.abs(b.adjustment))}`); doc.moveDown(0.3); }
   doc.fontSize(11); row('Tổng thanh toán', vnd(b.total), true);
   if (b.refundTotal) {
     doc.moveDown(0.5); doc.fontSize(9).font('b').text('Đã hoàn trả', M, doc.y);
@@ -98,9 +98,9 @@ export function billPdf(b) {
     doc.fontSize(11); row('Thực thanh toán', vnd(b.netTotal), true);
   }
   doc.moveDown(0.8);
-  if (b.invoiceUrl) { doc.fontSize(7.5).font('b').fillColor('#000').text('Hoá đơn điện tử:', M, doc.y, { width: inner }); doc.font('r').fillColor('#1c5fa8').text(b.invoiceUrl, M, doc.y, { width: inner, link: b.invoiceUrl }); doc.moveDown(0.3); }
+  if (b.invoiceUrl) { doc.fontSize(7.5).font('b').fillColor('#000').text('Hóa đơn điện tử:', M, doc.y, { width: inner }); doc.font('r').fillColor('#1c5fa8').text(b.invoiceUrl, M, doc.y, { width: inner, link: b.invoiceUrl }); doc.moveDown(0.3); }
   if (b.transactionUrl) { doc.fontSize(7.5).font('b').fillColor('#000').text('Chi tiết giao dịch:', M, doc.y, { width: inner }); doc.font('r').fillColor('#1c5fa8').text(b.transactionUrl, M, doc.y, { width: inner, link: b.transactionUrl }); doc.moveDown(0.3); }
-  if (b.provisional) doc.fontSize(7.5).font('r').fillColor('#9a5b00').text('Đây là tạm tính của ứng dụng, chưa có bill chính thức từ máy tính tiền. Số tiền thực trả theo hoá đơn của cửa hàng.', M, doc.y, { width: inner }).fillColor('#000');
+  if (b.provisional) doc.fontSize(7.5).font('r').fillColor('#9a5b00').text('Đây là tạm tính của ứng dụng, chưa có bill chính thức từ máy tính tiền. Số tiền thực trả theo hóa đơn của cửa hàng.', M, doc.y, { width: inner }).fillColor('#000');
   doc.moveDown(0.4).fontSize(8).font('r').text('Cảm ơn quý khách', { align: 'center' });
   doc.end();
   return done;

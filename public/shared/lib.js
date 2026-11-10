@@ -259,7 +259,7 @@ export const OfflineBar = () => (useOnline() ? null : html`<div class="offline-b
 /** Bàn phím số cho PIN và số tiền. */
 export function Keypad({ onKey }) {
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
-  return html`<div class="keypad">${keys.map((k) => k ? html`<button type="button" onClick=${() => onKey(k)} aria-label=${k === '⌫' ? 'Xoá' : k}>${k}</button>` : html`<span></span>`)}</div>`;
+  return html`<div class="keypad">${keys.map((k) => k ? html`<button type="button" onClick=${() => onKey(k)} aria-label=${k === '⌫' ? 'Xóa' : k}>${k}</button>` : html`<span></span>`)}</div>`;
 }
 
 /** Tải một file ra máy (dùng với blob từ api.download). */

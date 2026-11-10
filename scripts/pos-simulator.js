@@ -11,7 +11,7 @@
 //   basket-status <mã giỏ> --point <mã điểm>   (trạng thái và danh sách mặt hàng; mã giỏ và mã điểm đọc từ mã QR BRG2)
 //   basket-paid <mã giỏ> --point <mã điểm> --ref <mã đơn Dsmart POS> --amount 112800 --method cash|qr_transfer|card|ewallet
 //                         [--cashier thu01] [--terminal Q1]
-//   basket-invoice <mã giỏ> --point <mã điểm> --ref <mã đơn Dsmart POS> [--invoice-url https://...] [--transaction-url https://...]   (gửi bổ sung link hoá đơn)
+//   basket-invoice <mã giỏ> --point <mã điểm> --ref <mã đơn Dsmart POS> [--invoice-url https://...] [--transaction-url https://...]   (gửi bổ sung link hóa đơn)
 //   basket-cancelled <mã giỏ> --point <mã điểm> --ref <mã đơn Dsmart POS> [--reason "Khách đổi ý"]
 // Biến môi trường thay cho tham số: BASE, KEY.
 const argv = process.argv.slice(2);
@@ -20,7 +20,7 @@ const pos = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1].
 const base = (opt('base') || process.env.BASE || 'http://localhost:3000').replace(/\/$/, '');
 const key = opt('key') || process.env.KEY;
 const [cmd, arg] = pos;
-if (!key || !cmd) { console.error('Cách dùng: node scripts/pos-simulator.js --base <địa chỉ> --key <khoá API> <health|preview|claim|status|paid|cancelled> [đối số]. Xem phần đầu file.'); process.exit(2); }
+if (!key || !cmd) { console.error('Cách dùng: node scripts/pos-simulator.js --base <địa chỉ> --key <khóa API> <health|preview|claim|status|paid|cancelled> [đối số]. Xem phần đầu file.'); process.exit(2); }
 
 const routes = {
   health: () => ['GET', '/health'],

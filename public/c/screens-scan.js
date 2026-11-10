@@ -150,7 +150,7 @@ export function ChangesSheet({ changes, onAccept, onBack, busy }) {
 export function Cart({ s, store }) {
   const cart = cartView(s);
   const online = useOnline();
-  const [confirm, setConfirm] = useState(null); // item cần xoá
+  const [confirm, setConfirm] = useState(null); // item cần xóa
   const [busy, setBusy] = useState(false);
   const empty = !cart.items.length && !cart.pendingCount;
   const canPay = (store.basket ? cart.items.length + cart.pendingCount > 0 : online && cart.items.length > 0 && !s.syncing);

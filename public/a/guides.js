@@ -30,7 +30,7 @@ export function GuideList({ group }) {
       if (!all.length) return html`<div class="card"><${Empty} icon=${g.icon} title="Chưa có tài liệu" text="Nhóm này hiện chưa có tài liệu nào dành cho bạn."/></div>`;
       return html`
         <div class="guide-search"><${Icon} name="search"/><input class="input" type="search" placeholder="Tìm theo tiêu đề hoặc mô tả" aria-label="Tìm tài liệu" value=${q} onInput=${(e) => setQ(e.target.value)}/></div>
-        ${list.length === 0 ? html`<div class="card"><${Empty} icon="search" title="Không có tài liệu phù hợp" text=${`Không thấy tài liệu nào khớp với "${q}".`}><button class="btn sm line" onClick=${() => setQ('')}>Xoá tìm kiếm</button><//></div>`
+        ${list.length === 0 ? html`<div class="card"><${Empty} icon="search" title="Không có tài liệu phù hợp" text=${`Không thấy tài liệu nào khớp với "${q}".`}><button class="btn sm line" onClick=${() => setQ('')}>Xóa tìm kiếm</button><//></div>`
         : html`<div class="guide-grid">${list.map((x, i) => html`<a class="card guide-card" key=${x.id} href=${`#/huong-dan/${x.id}`}>
           <div class="row"><div class="ico-tile"><${Icon} name=${g.icon}/></div><div class="grow"><h2>${x.title}</h2></div><${Icon} name="chev" class="muted"/></div>
           ${x.summary && html`<p class="muted">${x.summary}</p>`}

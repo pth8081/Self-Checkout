@@ -1,7 +1,7 @@
 // API cho phần mềm Dsmart POS gọi vào BRG Scan & Checkout (Dsmart POS là bên gọi):
 //   1. Dsmart POS quét mã giỏ hàng của khách và "nhận" giỏ (lấy danh sách mặt hàng để tự nhập vào đơn Dsmart POS).
 //   2. Dsmart POS báo đơn đã thanh toán, BRG tự xác nhận và cho khách ra (thu ngân không phải xác nhận lại).
-//   3. Dsmart POS báo đơn đã huỷ.
+//   3. Dsmart POS báo đơn đã hủy.
 // Mọi lời gọi đều idempotent theo mã đơn Dsmart POS (posOrderRef), gọi lại không tạo trùng.
 import crypto from 'node:crypto';
 import { config } from '../config.js';
@@ -22,7 +22,7 @@ const REF = /^[A-Za-z0-9._:/-]{1,64}$/;
 
 const byCode = (db, code) => db.prepare('SELECT * FROM transactions WHERE cart_code = ? ORDER BY created_at DESC LIMIT 1').get(String(code || '').trim().toUpperCase());
 const byRef = (db, ref) => db.prepare('SELECT * FROM transactions WHERE pos_order_ref = ? ORDER BY created_at DESC LIMIT 1').get(String(ref || ''));
-function inScope(scope, tx) { if (scope.storeId && scope.storeId !== tx.store_id) throw forbidden('STORE_FORBIDDEN', 'Khoá API này không dùng cho chi nhánh của giỏ hàng'); }
+function inScope(scope, tx) { if (scope.storeId && scope.storeId !== tx.store_id) throw forbidden('STORE_FORBIDDEN', 'Khóa API này không dùng cho chi nhánh của giỏ hàng'); }
 
 /** Dữ liệu giỏ hàng trả cho Dsmart POS: các mặt hàng đã chốt giá (Dsmart POS tự tính lại theo giá và khuyến mãi của Dsmart POS). */
 export function cartForPos(tx) {
@@ -73,7 +73,7 @@ export function orderStatus(ctx, scope, ref) {
     paidAmount: tx.pos_amount, exitStatus: tx.exit_status, guardCheck: !tx.guard_skipped };
 }
 
-/** Bill thật của Dsmart POS: danh sách dòng đã tính giá và khuyến mãi. Lúc thanh toán chưa có hoá đơn điện tử nên không có số hoá đơn. */
+/** Bill thật của Dsmart POS: danh sách dòng đã tính giá và khuyến mãi. Lúc thanh toán chưa có hóa đơn điện tử nên không có số hóa đơn. */
 /** Tên mặt hàng theo mã hàng: ưu tiên giỏ khách, rồi bảng sản phẩm, không có thì dùng chính mã hàng. */
 function lineNamer(db, tx) {
   const names = new Map(JSON.parse(tx.items_json).map((it) => [String(it.barcode), it.name]));
@@ -105,7 +105,7 @@ function cleanBill(body, db, tx) {
 }
 
 
-/** Link hoá đơn điện tử và link giao dịch Dsmart POS gửi kèm. Chỉ nhận https, tối đa 600 ký tự, không khoảng trắng. */
+/** Link hóa đơn điện tử và link giao dịch Dsmart POS gửi kèm. Chỉ nhận https, tối đa 600 ký tự, không khoảng trắng. */
 const LINK_RE = /^https:\/\/[^\s]{1,590}$/;
 function cleanLinks(body, strict = false) {
   const out = {}; const warnings = [];
@@ -144,10 +144,10 @@ export function orderPaid(ctx, scope, ref, body = {}) {
     saveLinks(db, tx.id, links); // báo lại kèm link (hoặc link mới hơn): cập nhật
     return result(true);
   }
-  // Khách có thể sửa giỏ (giỏ bị huỷ phía điện thoại) trong lúc Dsmart POS đã quét mã QR cũ và thu tiền. Tiền đã thu là thật nên vẫn ghi nhận.
-  // Chỉ từ chối khi chính Dsmart POS đã huỷ đơn này hoặc đơn đã bị huỷ sau thanh toán.
+  // Khách có thể sửa giỏ (giỏ bị hủy phía điện thoại) trong lúc Dsmart POS đã quét mã QR cũ và thu tiền. Tiền đã thu là thật nên vẫn ghi nhận.
+  // Chỉ từ chối khi chính Dsmart POS đã hủy đơn này hoặc đơn đã bị hủy sau thanh toán.
   const late = tx.status === 'cancelled' && tx.method === 'basket' && tx.pos_status !== 'cancelled';
-  if (tx.status === 'voided' || (tx.status === 'cancelled' && !late)) throw conflict('ORDER_CANCELLED', 'Đơn này đã bị huỷ');
+  if (tx.status === 'voided' || (tx.status === 'cancelled' && !late)) throw conflict('ORDER_CANCELLED', 'Đơn này đã bị hủy');
   if (!late && !['awaiting_counter', 'handed_off'].includes(tx.status)) throw conflict('NOT_PAYABLE', 'Đơn không ở trạng thái chờ thanh toán');
   const amount = body.amount;
   if (!Number.isInteger(amount) || amount <= 0) throw bad('BAD_AMOUNT', 'amount là số nguyên dương, đơn vị đồng');
@@ -190,7 +190,7 @@ export function orderCancelled(ctx, scope, ref, body = {}) {
   const tx = byRef(db, ref);
   if (!tx) throw notFound('ORDER_NOT_FOUND', 'Không tìm thấy đơn Dsmart POS này');
   inScope(scope, tx);
-  const reason = String(body.reason || 'Dsmart POS huỷ đơn').slice(0, 200);
+  const reason = String(body.reason || 'Dsmart POS hủy đơn').slice(0, 200);
   if (tx.status === 'cancelled' || tx.status === 'voided') return { ok: true, duplicate: true, status: tx.status };
   const ts = nowIso();
   if (tx.status === 'handed_off') {
@@ -198,7 +198,7 @@ export function orderCancelled(ctx, scope, ref, body = {}) {
     return { ok: true, status: 'cancelled' };
   }
   if (tx.status === 'awaiting_counter') {
-    // Chưa thu tiền: nhả giỏ để khách sửa hoặc khoá lại.
+    // Chưa thu tiền: nhả giỏ để khách sửa hoặc khóa lại.
     db.transaction(() => {
       db.prepare(`UPDATE transactions SET status='cancelled', pos_status='cancelled' WHERE id=?`).run(tx.id);
       db.prepare(`UPDATE scan_sessions SET status='active', last_activity=? WHERE id=?`).run(ts, tx.session_id);
@@ -207,10 +207,10 @@ export function orderCancelled(ctx, scope, ref, body = {}) {
     return { ok: true, status: 'cancelled', cartReleased: true };
   }
   if (tx.status === 'paid') {
-    // Đã thu: Dsmart POS là nguồn đúng, nên huỷ theo Dsmart POS (QR mất hiệu lực, không tính doanh thu, hoá đơn chuyển yêu cầu huỷ).
+    // Đã thu: Dsmart POS là nguồn đúng, nên hủy theo Dsmart POS (QR mất hiệu lực, không tính doanh thu, hóa đơn chuyển yêu cầu hủy).
     const exited = tx.exit_status === 'exited';
     db.transaction(() => {
-      db.prepare(`UPDATE transactions SET status='voided', pos_status='cancelled', void_reason=?, voided_at=?, voided_by=? WHERE id=?`).run(`Dsmart POS huỷ: ${reason}`, ts, `Dsmart POS:${scope.name}`, tx.id);
+      db.prepare(`UPDATE transactions SET status='voided', pos_status='cancelled', void_reason=?, voided_at=?, voided_by=? WHERE id=?`).run(`Dsmart POS hủy: ${reason}`, ts, `Dsmart POS:${scope.name}`, tx.id);
       db.prepare('UPDATE payments SET voided_at = ? WHERE transaction_id = ? AND voided_at IS NULL').run(ts, tx.id);
       db.prepare(`UPDATE invoices SET status = CASE WHEN status='issued' THEN 'cancel_requested' ELSE 'cancelled' END WHERE transaction_id = ?`).run(tx.id);
       if (!exited) db.prepare(`UPDATE scan_sessions SET status='abandoned' WHERE id=?`).run(tx.session_id);
@@ -219,7 +219,7 @@ export function orderCancelled(ctx, scope, ref, body = {}) {
     })();
     return { ok: true, status: 'voided', alreadyExited: exited };
   }
-  throw conflict('NOT_CANCELLABLE', 'Đơn không ở trạng thái huỷ được');
+  throw conflict('NOT_CANCELLABLE', 'Đơn không ở trạng thái hủy được');
 }
 
 export { txView };
@@ -227,7 +227,7 @@ export { txView };
 // ====================== Chế độ giỏ QR: Dsmart POS báo theo mã giỏ ======================
 /**
  * Dsmart POS không gọi "nhận giỏ" trước (mã QR đã chứa mặt hàng), nên kết quả được báo thẳng theo mã giỏ.
- * `posOrderRef` (mã đơn bên Dsmart POS) bắt buộc và là khoá chống trùng. Chưa thấy giỏ (điện thoại chưa đồng bộ vì mất mạng)
+ * `posOrderRef` (mã đơn bên Dsmart POS) bắt buộc và là khóa chống trùng. Chưa thấy giỏ (điện thoại chưa đồng bộ vì mất mạng)
  * thì trả 404 BASKET_NOT_FOUND, Dsmart POS thử lại sau.
  */
 function basketTx(ctx, scope, code, body) {
@@ -236,7 +236,7 @@ function basketTx(ctx, scope, code, body) {
     || db.prepare(`SELECT * FROM transactions WHERE cart_code = ? AND pos_order_ref IS NOT NULL`).get(String(code).toUpperCase());
   if (!tx) throw notFound('BASKET_NOT_FOUND', 'Chưa thấy giỏ này. Điện thoại khách có thể đang mất mạng, hãy thử lại sau');
   inScope(scope, tx);
-  // Mã điểm là khoá bảo vệ: Dsmart POS phải gửi mã điểm của CHÍNH cửa hàng mình, sai thì từ chối ngay.
+  // Mã điểm là khóa bảo vệ: Dsmart POS phải gửi mã điểm của CHÍNH cửa hàng mình, sai thì từ chối ngay.
   const point = String(body.pointCode || '').trim();
   if (!point) throw bad('POINT_REQUIRED', 'pointCode (mã điểm của cửa hàng Dsmart POS đang bán) là bắt buộc');
   const st = db.prepare('SELECT pos_code FROM stores WHERE id = ?').get(tx.store_id);
@@ -259,7 +259,7 @@ function basketByCode(ctx, scope, code, body) {
   }
   return ref;
 }
-/** Gửi bổ sung (hoặc cập nhật) link hoá đơn điện tử và link giao dịch sau khi đã báo thanh toán, vì hoá đơn có thể phát hành chậm hơn. */
+/** Gửi bổ sung (hoặc cập nhật) link hóa đơn điện tử và link giao dịch sau khi đã báo thanh toán, vì hóa đơn có thể phát hành chậm hơn. */
 export function basketInvoice(ctx, scope, code, body = {}) {
   const { db } = ctx;
   const ref = basketByCode(ctx, scope, code, body);
@@ -276,8 +276,8 @@ export function basketCancelled(ctx, scope, code, body = {}) {
   let ref;
   try { ref = basketByCode(ctx, scope, code, body); }
   catch (e) {
-    // BRG chưa có giỏ này (điện thoại khách chưa gửi lên): không có gì để huỷ, Dsmart POS không cần thử lại.
-    if (e.code === 'BASKET_NOT_FOUND') return { ok: true, status: 'unknown', message: 'BRG Scan & Checkout chưa có giỏ này nên không có gì để huỷ' };
+    // BRG chưa có giỏ này (điện thoại khách chưa gửi lên): không có gì để hủy, Dsmart POS không cần thử lại.
+    if (e.code === 'BASKET_NOT_FOUND') return { ok: true, status: 'unknown', message: 'BRG Scan & Checkout chưa có giỏ này nên không có gì để hủy' };
     throw e;
   }
   return orderCancelled(ctx, scope, ref, body);
@@ -303,15 +303,15 @@ export function basketStatus(ctx, scope, code, query = {}) {
 
 /**
  * Hoàn trả một phần sau khi đã thanh toán (khách trả lại một số mặt hàng). Đơn vẫn "đã thanh toán"; khoản hoàn ghi thành
- * dòng thu âm nên doanh thu giảm đúng số tiền. Hoàn hết số tiền đã thu thì đơn thành "đã huỷ".
+ * dòng thu âm nên doanh thu giảm đúng số tiền. Hoàn hết số tiền đã thu thì đơn thành "đã hủy".
  * `refundRef` là mã lần hoàn trên Dsmart POS: báo lại cùng mã thì không ghi trùng.
  */
 export function basketRefund(ctx, scope, code, body = {}) {
   const { db } = ctx;
   const ref = basketByCode(ctx, scope, code, body);
   const tx = byRef(db, ref);
-  if (tx.status === 'voided') throw conflict('ORDER_CANCELLED', 'Đơn này đã bị huỷ');
-  if (tx.status !== 'paid') throw conflict('NOT_REFUNDABLE', 'Chỉ hoàn trả được đơn đã thanh toán. Đơn chưa thu tiền thì dùng lệnh huỷ');
+  if (tx.status === 'voided') throw conflict('ORDER_CANCELLED', 'Đơn này đã bị hủy');
+  if (tx.status !== 'paid') throw conflict('NOT_REFUNDABLE', 'Chỉ hoàn trả được đơn đã thanh toán. Đơn chưa thu tiền thì dùng lệnh hủy');
   const refundRef = String(body.refundRef || '').trim().slice(0, 64);
   if (!refundRef) throw bad('REFUND_REF_REQUIRED', 'refundRef (mã lần hoàn trên Dsmart POS) là bắt buộc');
   const amount = body.amount;
@@ -355,7 +355,7 @@ export function basketRefund(ctx, scope, code, body = {}) {
 
 /**
  * Dsmart POS báo đơn đang tính ở quầy (thu ngân thêm, bớt hoặc đổi số lượng mặt hàng) TRƯỚC khi thanh toán, để điện thoại khách thấy ngay
- * khác biệt so với giỏ đã quét. Không khoá giỏ và không thay cho lệnh báo thanh toán; gửi nhiều lần được, lần sau thay lần trước.
+ * khác biệt so với giỏ đã quét. Không khóa giỏ và không thay cho lệnh báo thanh toán; gửi nhiều lần được, lần sau thay lần trước.
  */
 export function basketUpdate(ctx, scope, code, body = {}) {
   const { db } = ctx;

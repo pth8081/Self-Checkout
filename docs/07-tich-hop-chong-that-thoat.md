@@ -14,7 +14,7 @@ Hiện trạng: khách hàng **đã có API tồn kho của tất cả siêu th�
 | 20–50 sản phẩm mẫu thật của một chi nhánh | Kiểm tra cách ghép dữ liệu |
 | Trường mỗi sản phẩm: mã chi nhánh, SKU, mã vạch, tên, giá, tồn kho, đơn vị, trạng thái đang bán, thời điểm cập nhật | `ProductCache` |
 | Cách nhận cập nhật: webhook, gọi định kỳ, hay sự kiện đẩy; tần suất và giới hạn số lần gọi | Chọn chế độ đồng bộ |
-| Một SKU có nhiều mã vạch không; mã vạch có trùng giữa chi nhánh không | Khoá tra cứu |
+| Một SKU có nhiều mã vạch không; mã vạch có trùng giữa chi nhánh không | Khóa tra cứu |
 | API có trả giá khuyến mãi không | G-03, dòng khuyến mãi ở M12 |
 | Hàng cân theo ký, hàng giới hạn độ tuổi: có đánh dấu không | G-01, G-02 |
 
@@ -23,7 +23,7 @@ Hiện trạng: khách hàng **đã có API tồn kho của tất cả siêu th�
 | Dsmart POS có API/webhook thời gian thực | Đồng bộ trực tiếp, `ProductCache` cập nhật ngay |
 | Dsmart POS chỉ xuất dữ liệu định kỳ | Đồng bộ chu kỳ ngắn (1–5 phút) + cảnh báo khi lệch quá ngưỡng (Q-12) |
 
-Màn hình quản trị A01 và A03 hiện độ trễ đồng bộ và số mã vạch không khớp. Khi khoá giỏ, hệ thống kiểm tra lại giá và tồn kho (M15).
+Màn hình quản trị A01 và A03 hiện độ trễ đồng bộ và số mã vạch không khớp. Khi khóa giỏ, hệ thống kiểm tra lại giá và tồn kho (M15).
 
 Ghi nhận giao dịch Scan & Checkout vào Dsmart POS/kế toán/tồn kho: chưa có cơ chế, xem G-05.
 
@@ -46,11 +46,11 @@ Việc cần kiểm chứng trước khi code: (a) QR do app tự dựng theo ch
 - Cần thiết kế khi bật: thông báo có chữ ký, idempotency, đối soát cuối ngày, hoàn tiền.
 - Màn hình đã chuẩn bị: M23 (đang xử lý), M24 (thất bại).
 
-## 3. Hoá đơn điện tử
+## 3. Hóa đơn điện tử
 
 - Dùng nhà cung cấp khách hàng đang dùng (Viettel / VNPT / MISA…, Q-04), xuất tự động sau khi nhân viên xác nhận thu tiền.
-- Mặc định hoá đơn bán lẻ; khách cần hoá đơn công ty điền mã số thuế sau thanh toán (M22).
-- TODO: hàng đợi thử lại, xử lý huỷ/điều chỉnh hoá đơn, xử lý khi nhân viên huỷ xác nhận thu.
+- Mặc định hóa đơn bán lẻ; khách cần hóa đơn công ty điền mã số thuế sau thanh toán (M22).
+- TODO: hàng đợi thử lại, xử lý hủy/điều chỉnh hóa đơn, xử lý khi nhân viên hủy xác nhận thu.
 
 ## 4. Chiến lược chống thất thoát (theo lớp)
 
@@ -59,8 +59,8 @@ Việc cần kiểm chứng trước khi code: (a) QR do app tự dựng theo ch
 | Kiểm tra ngẫu nhiên tại cổng ra | 1 | Thấp (quy trình + công cụ hỗ trợ) | Trung bình, phụ thuộc con người |
 | QR biên nhận quét ở cổng (PWA nhân viên) | 1 | Thấp (dùng điện thoại/máy cầm tay) | Cao với gian lận cơ bản; chặn chụp lại ảnh QR |
 | Cổng vật lý quét QR tự động | 2 | Trung bình | Cao |
-| Cân thông minh trên xe đẩy | 3 (tuỳ chọn) | Cao | Rất cao |
-| Camera AI | 3 (tuỳ chọn) | Rất cao | Cao nhất |
+| Cân thông minh trên xe đẩy | 3 (tùy chọn) | Cao | Rất cao |
+| Camera AI | 3 (tùy chọn) | Rất cao | Cao nhất |
 
 Giai đoạn 1 dùng PWA nhân viên làm thiết bị quét tại quầy và cổng — không cần phần cứng riêng.
 

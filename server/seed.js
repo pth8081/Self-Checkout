@@ -1,5 +1,5 @@
 // Tạo dữ liệu mẫu để chạy thử. KHÔNG dùng ở production: tài khoản mẫu có mật khẩu công khai.
-//   node server/seed.js --reset        xoá toàn bộ và tạo lại
+//   node server/seed.js --reset        xóa toàn bộ và tạo lại
 //   node server/seed.js --reset --demo thêm lịch sử giao dịch 7 ngày để xem báo cáo
 import { config } from './config.js';
 import { openDb } from './db.js';
@@ -28,7 +28,7 @@ const PRODUCTS = [
   ['BANH02', 'Bánh mì sandwich lát', 21000, 'túi'],
   ['SNACK01', 'Snack khoai tây vị tự nhiên 52g', 12000, 'gói', { promo: [2, 4000] }],
   ['KEO01', 'Kẹo trái cây hỗn hợp 150g', 18500, 'gói'],
-  ['CAFE01', 'Cà phê hoà tan 3 trong 1 (hộp 20)', 55000, 'hộp'],
+  ['CAFE01', 'Cà phê hòa tan 3 trong 1 (hộp 20)', 55000, 'hộp'],
   ['TRA01', 'Trà xanh túi lọc (hộp 25)', 32000, 'hộp'],
   ['XUC01', 'Xúc xích tiệt trùng (gói 5)', 36000, 'gói'],
   ['THIT01', 'Thịt hộp 340g', 48000, 'hộp'],

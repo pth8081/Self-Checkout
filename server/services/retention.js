@@ -1,10 +1,10 @@
-// Giữ dữ liệu có thời hạn: xoá thông tin cá nhân của khách và dữ liệu kỹ thuật cũ, GIỮ số liệu bán hàng.
+// Giữ dữ liệu có thời hạn: xóa thông tin cá nhân của khách và dữ liệu kỹ thuật cũ, GIỮ số liệu bán hàng.
 //
-// - Thông tin cá nhân (email nhận bill, thông tin xuất hoá đơn công ty, email đã xác minh của thiết bị, mã thiết bị gắn với đơn)
-//   bị xoá sau `piiMonths` tháng kể từ lúc thanh toán (hoặc tạo đơn nếu chưa thanh toán). Đơn, số tiền, các dòng hàng, bill
+// - Thông tin cá nhân (email nhận bill, thông tin xuất hóa đơn công ty, email đã xác minh của thiết bị, mã thiết bị gắn với đơn)
+//   bị xóa sau `piiMonths` tháng kể từ lúc thanh toán (hoặc tạo đơn nếu chưa thanh toán). Đơn, số tiền, các dòng hàng, bill
 //   và hoàn trả vẫn giữ nguyên nên doanh thu và đối soát không đổi.
-// - Dữ liệu kỹ thuật (nhật ký quét, hàng chờ đồng bộ, chi tiết giỏ, lần quét ở cổng) xoá sau `logDays` ngày.
-// - Nhật ký thao tác xoá sau `auditMonths` tháng. 0 nghĩa là giữ mãi.
+// - Dữ liệu kỹ thuật (nhật ký quét, hàng chờ đồng bộ, chi tiết giỏ, lần quét ở cổng) xóa sau `logDays` ngày.
+// - Nhật ký thao tác xóa sau `auditMonths` tháng. 0 nghĩa là giữ mãi.
 import { getSetting, setSetting } from '../db.js';
 import { audit } from './audit.js';
 import { nowIso } from '../util.js';

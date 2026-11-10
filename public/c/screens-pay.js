@@ -1,5 +1,5 @@
 // Thanh toán và sau mua: M16 chọn cách trả, M17 chuyển khoản QR, M18 chờ nhân viên, M19 QR biên nhận,
-// M20 kiểm tra ngẫu nhiên, M21 hoàn tất, M22 hoá đơn, M25 lịch sử, M26 chi tiết đơn.
+// M20 kiểm tra ngẫu nhiên, M21 hoàn tất, M22 hóa đơn, M25 lịch sử, M26 chi tiết đơn.
 import { html, useState, useEffect, useRef, Header, Icon, QR, Banner, Pill, Spinner, Loading, ErrorBox, Empty, Field, Switch, Sheet, Confirm, go, fmt, toast, usePoll, useAsync, copyText, ApiError } from '/shared/lib.js';
 import { api, lock, unlock, cartView, refreshSession, resetSession, getState, setState, local, deviceId } from './store.js';
 import { ChangesSheet } from './screens-scan.js';
@@ -63,9 +63,9 @@ export function PayMethod({ s, store }) {
         <div class="option off" aria-disabled="true"><div class="ico-tile" style="background:var(--surface);color:var(--muted)"><${Icon} name="card"/></div><div class="grow"><b>Ví, VNPay, thẻ</b><div class="small muted">Thanh toán tự động</div></div><${Pill} tone="warn">Sắp có<//></div>`}
       </div>
       ${pos && html`<div class="stack">
-        <b>Hoá đơn <span class="muted small" style="font-weight:500">(tuỳ chọn)</span></b>
-        <${Field} label="Email nhận hoá đơn điện tử" error=${emailErr}><input class="input" type="email" inputmode="email" autocomplete="email" placeholder="ten@email.com" value=${email} onInput=${(e) => setEmail(e.target.value)}/><//>
-        <div class="row"><div class="grow"><b>Xuất hoá đơn cho công ty</b><div class="small muted">Cần email. Hãy nhập trước khi thanh toán.</div></div><${Switch} checked=${company} onChange=${setCompany} label="Xuất hoá đơn cho công ty"/></div>
+        <b>Hóa đơn <span class="muted small" style="font-weight:500">(tùy chọn)</span></b>
+        <${Field} label="Email nhận hóa đơn điện tử" error=${emailErr}><input class="input" type="email" inputmode="email" autocomplete="email" placeholder="ten@email.com" value=${email} onInput=${(e) => setEmail(e.target.value)}/><//>
+        <div class="row"><div class="grow"><b>Xuất hóa đơn cho công ty</b><div class="small muted">Cần email. Hãy nhập trước khi thanh toán.</div></div><${Switch} checked=${company} onChange=${setCompany} label="Xuất hóa đơn cho công ty"/></div>
         ${company && html`<div class="stack">
           <${Field} label="Mã số thuế" error=${taxErr}><input class="input num" inputmode="numeric" placeholder="0312345678" value=${f.taxCode} onInput=${set('taxCode')}/><//>
           <${Field} label="Tên công ty" error=${compErr && !f.name.trim() ? compErr : null}><input class="input" autocomplete="organization" value=${f.name} onInput=${set('name')}/><//>
@@ -75,7 +75,7 @@ export function PayMethod({ s, store }) {
       ${error && !(pos && fieldCodes.includes(error.code)) && html`<${ErrorBox} error=${error}/>`}
     </div>
     <div class="bar-bottom"><div class="in"><button class="btn primary" disabled=${busy || !avail.length} onClick=${() => proceed(false)}>${busy ? html`<${Spinner} sm/>` : 'Tiếp tục'}</button>
-      <div class="xs muted center">Giỏ hàng sẽ khoá khi bạn bấm tiếp tục</div></div></div>
+      <div class="xs muted center">Giỏ hàng sẽ khóa khi bạn bấm tiếp tục</div></div></div>
     ${changes && html`<${ChangesSheet} changes=${changes} busy=${busy} onAccept=${() => proceed(true)} onBack=${() => { setChanges(null); go('/cart'); refreshSession(); }}/>`}
   </div>`;
 }
@@ -143,7 +143,7 @@ export function Wait({ s }) {
       </ol>
     </div>
     <div class="bar-bottom"><div class="in">
-      ${claimed ? html`<button class="btn" disabled><${Icon} name="lock"/>Quay lại sửa giỏ hàng</button><div class="xs muted center">Đơn đang ở máy tính tiền nên chưa sửa được giỏ. Nếu cần sửa, hãy nhờ thu ngân huỷ đơn.</div>`
+      ${claimed ? html`<button class="btn" disabled><${Icon} name="lock"/>Quay lại sửa giỏ hàng</button><div class="xs muted center">Đơn đang ở máy tính tiền nên chưa sửa được giỏ. Nếu cần sửa, hãy nhờ thu ngân hủy đơn.</div>`
       : html`${!pos && html`<button class="btn" disabled=${!!busy} onClick=${() => undo('/pay')}>${busy === '/pay' ? html`<${Spinner} sm/>` : 'Đổi cách thanh toán'}</button>`}
         <button class=${pos ? 'btn' : 'btn txt'} disabled=${!!busy} onClick=${() => undo('/cart')}>${busy === '/cart' && pos ? html`<${Spinner} sm/>` : 'Quay lại sửa giỏ hàng'}</button>`}</div></div></div>`;
 }
@@ -190,13 +190,13 @@ export function Receipt({ s, store, onDone }) {
     <${Header} title="Mã ra cổng"/>
     <div class="page pad-b" style="gap:14px">
       ${offline && html`<${Banner} icon="wifioff">Mất kết nối. Mã QR đã được lưu trên máy nên vẫn dùng được.<//>`}
-      <div class="center stack" style="align-items:center"><${Pill} tone="ok"><${Icon} name="check" size=${14}/>Đã thanh toán ${fmt.money(paidAmount(tx))}<//><h1>Đưa mã này cho nhân viên ở cổng</h1>${(tx.posInvoiceNo || tx.invoice?.number) && html`<div class="small muted">Hoá đơn số <b class="num">${tx.posInvoiceNo || tx.invoice.number}</b></div>`}</div>
+      <div class="center stack" style="align-items:center"><${Pill} tone="ok"><${Icon} name="check" size=${14}/>Đã thanh toán ${fmt.money(paidAmount(tx))}<//><h1>Đưa mã này cho nhân viên ở cổng</h1>${(tx.posInvoiceNo || tx.invoice?.number) && html`<div class="small muted">Hóa đơn số <b class="num">${tx.posInvoiceNo || tx.invoice.number}</b></div>`}</div>
       ${tx.extraDue > 0 && html`<${Banner} tone="brand" icon="info" title=${`Còn khoản thu bổ sung ${fmt.money(tx.extraDue)}`}>Hãy đến quầy Scan & Checkout và đưa mã giỏ hàng <b class="num">${tx.code}</b>.<//>`}
       <div class="qrbox"><${QR} text=${tx.receipt.token} label="Mã QR biên nhận"/><div class="code">${tx.id}</div></div>
       <div class="small muted center">Mã dùng một lần · hiệu lực đến ${fmt.time(tx.receipt.expiresAt)}${tx.receipt.expired ? ' (đã hết hạn, hãy gặp nhân viên)' : ''}</div>
     </div>
     <div class="bar-bottom"><div class="in">
-      <div class="grid2"><button class="btn" onClick=${() => go(`/order/${tx.id}`)}><${Icon} name="bag"/>Các mặt hàng đã mua</button><button class="btn" onClick=${() => go(`/invoice/${tx.id}`)}><${Icon} name="mail"/>Hoá đơn</button></div></div></div>
+      <div class="grid2"><button class="btn" onClick=${() => go(`/order/${tx.id}`)}><${Icon} name="bag"/>Các mặt hàng đã mua</button><button class="btn" onClick=${() => go(`/invoice/${tx.id}`)}><${Icon} name="mail"/>Hóa đơn</button></div></div></div>
   </div>`;
 }
 
@@ -214,12 +214,12 @@ export function Done({ s, onClose }) {
       ${tx && tx.guardCheck === false && html`<p style="font-weight:600">Thanh toán xong, bạn có thể ra về.</p>`}
       ${tx && html`<div class="card flat tight stack small" style="width:100%;gap:8px;text-align:left"><div class="row"><span class="muted grow">Đã thanh toán</span><b class="num">${fmt.money(paidAmount(tx))}</b></div>
         <div class="row"><span class="muted grow">Cách trả</span><b>${fmt.method(tx.method)}</b></div>
-        ${(tx.posInvoiceNo || tx.invoice?.number) && html`<div class="row"><span class="muted grow">Số hoá đơn</span><b class="num">${tx.posInvoiceNo || tx.invoice.number}</b></div>`}</div>`}
-      <p class="muted">Hoá đơn điện tử ${(tx?.invoice?.email || tx?.buyer?.email) ? `sẽ gửi về ${tx.invoice?.email || tx.buyer.email}` : 'có thể nhận qua email trong mục Hoá đơn'}.</p>
+        ${(tx.posInvoiceNo || tx.invoice?.number) && html`<div class="row"><span class="muted grow">Số hóa đơn</span><b class="num">${tx.posInvoiceNo || tx.invoice.number}</b></div>`}</div>`}
+      <p class="muted">Hóa đơn điện tử ${(tx?.invoice?.email || tx?.buyer?.email) ? `sẽ gửi về ${tx.invoice?.email || tx.buyer.email}` : 'có thể nhận qua email trong mục Hóa đơn'}.</p>
       ${tx && html`<div class="stack" style="align-items:center"><b class="small">Trải nghiệm hôm nay thế nào?</b>
         <div class="row" style="justify-content:center;gap:6px" role="radiogroup" aria-label="Đánh giá">${[1, 2, 3, 4, 5].map((n) => html`<button class="iconbtn" style=${`background:transparent;color:${n <= stars ? 'var(--orange)' : 'var(--line)'}`} role="radio" aria-checked=${n <= stars} aria-label=${`${n} sao`} onClick=${() => rate(n)}><svg class="ic" viewBox="0 0 24 24" style=${`width:34px;height:34px;fill:${n <= stars ? 'currentColor' : 'none'}`}><path d="M12 4l2.4 5 5.6.7-4.1 3.8 1.1 5.5L12 16.3 7 19l1.1-5.5L4 9.7 9.6 9z"/></svg></button>`)}</div></div>`}
     </div>
-    <div class="bar-bottom"><div class="in">${tx && html`<button class="btn primary" onClick=${() => go(`/invoice/${tx.id}`)}>Xem hoá đơn</button>`}<button class="btn txt" onClick=${onClose}>Đóng</button></div></div></div>`;
+    <div class="bar-bottom"><div class="in">${tx && html`<button class="btn primary" onClick=${() => go(`/invoice/${tx.id}`)}>Xem hóa đơn</button>`}<button class="btn txt" onClick=${onClose}>Đóng</button></div></div></div>`;
 }
 
 export function Invoice({ id }) {
@@ -230,7 +230,7 @@ export function Invoice({ id }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   if (loading) return html`<div class="page"><${Loading}/></div>`;
-  if (error) return html`<div class="page"><${Header} onBack=${() => history.back()} title="Hoá đơn điện tử"/><${ErrorBox} error=${error} retry=${reload}/></div>`;
+  if (error) return html`<div class="page"><${Header} onBack=${() => history.back()} title="Hóa đơn điện tử"/><${ErrorBox} error=${error} retry=${reload}/></div>`;
   const tx = data.transaction, inv = tx.invoice;
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const posMode = tx.paymentSource === 'pos' || tx.posOrderRef != null || tx.posInvoiceNo != null;
@@ -239,7 +239,7 @@ export function Invoice({ id }) {
     try {
       await api.post(`/transactions/${id}/invoice`, { email, company: company ? { taxCode: f.taxCode, name: f.name, address: f.address } : undefined });
       local.set('brg.email', email);
-      toast(company ? 'Đã xuất hoá đơn công ty' : 'Đã lưu email nhận hoá đơn', 'ok'); reload();
+      toast(company ? 'Đã xuất hóa đơn công ty' : 'Đã lưu email nhận hóa đơn', 'ok'); reload();
     } catch (e) { setErr(e); } finally { setBusy(false); }
   }
   const field = (code) => err?.code === code ? err.message : null;
@@ -247,32 +247,32 @@ export function Invoice({ id }) {
     const no = tx.posInvoiceNo || inv?.number;
     const em = inv?.email || tx.buyer?.email;
     const comp = (inv?.type || (tx.buyer?.taxCode ? 'company' : 'retail')) === 'company';
-    return html`<div style="display:flex;flex-direction:column;flex:1"><${Header} onBack=${() => history.back()} title="Hoá đơn điện tử"/>
+    return html`<div style="display:flex;flex-direction:column;flex:1"><${Header} onBack=${() => history.back()} title="Hóa đơn điện tử"/>
     <div class="page pad-b">
       <div class="card flat tight"><div class="row"><div class="ico-tile"><${Icon} name="receipt"/></div><div class="grow"><b>${tx.id}</b><div class="small muted">${fmt.when(tx.paidAt)} · ${fmt.money(paidAmount(tx))}</div></div>
         <${Pill} tone=${no ? 'ok' : 'warn'}>${no ? 'Đã xuất' : 'Đang chờ'}<//></div></div>
-      ${no ? html`<div class="card stack small" style="gap:8px"><div class="row"><span class="muted grow">Số hoá đơn</span><b class="num">${no}</b></div>
-        <div class="row"><span class="muted grow">Loại</span><b>${comp ? 'Hoá đơn công ty' : 'Hoá đơn bán lẻ'}</b></div>
+      ${no ? html`<div class="card stack small" style="gap:8px"><div class="row"><span class="muted grow">Số hóa đơn</span><b class="num">${no}</b></div>
+        <div class="row"><span class="muted grow">Loại</span><b>${comp ? 'Hóa đơn công ty' : 'Hóa đơn bán lẻ'}</b></div>
         ${comp && tx.buyer?.companyName && html`<div class="row"><span class="muted grow">Công ty</span><b style="text-align:right">${tx.buyer.companyName}</b></div>`}
         <div class="row"><span class="muted grow">Email</span><b style="text-align:right;word-break:break-all">${em || 'Chưa có'}</b></div></div>`
-        : html`<${Banner} tone="brand" icon="clock">Đang chờ máy tính tiền phát hành hoá đơn. Số hoá đơn sẽ hiện ở đây khi có.<//>`}
-      <${Banner} icon="info">Hoá đơn được phát hành tại máy tính tiền. Muốn xuất hoá đơn công ty, hãy nhập thông tin hoá đơn trước khi thanh toán.<//>
+        : html`<${Banner} tone="brand" icon="clock">Đang chờ máy tính tiền phát hành hóa đơn. Số hóa đơn sẽ hiện ở đây khi có.<//>`}
+      <${Banner} icon="info">Hóa đơn được phát hành tại máy tính tiền. Muốn xuất hóa đơn công ty, hãy nhập thông tin hóa đơn trước khi thanh toán.<//>
     </div></div>`;
   }
-  return html`<div style="display:flex;flex-direction:column;flex:1"><${Header} onBack=${() => history.back()} title="Hoá đơn điện tử"/>
+  return html`<div style="display:flex;flex-direction:column;flex:1"><${Header} onBack=${() => history.back()} title="Hóa đơn điện tử"/>
     <div class="page pad-b">
       <div class="card flat tight"><div class="row"><div class="ico-tile"><${Icon} name="receipt"/></div><div class="grow"><b>${tx.id}</b><div class="small muted">${fmt.when(tx.paidAt)} · ${fmt.money(paidAmount(tx))}</div></div>
         ${posMode ? html`<${Pill} tone=${(inv?.number || tx.posInvoiceNo) ? 'ok' : 'warn'}>${(inv?.number || tx.posInvoiceNo) ? 'Đã xuất' : 'Đang chờ'}<//>` : inv ? html`<${Pill} tone=${inv.status === 'issued' ? 'ok' : 'warn'}>${inv.status === 'issued' ? 'Đã xuất' : 'Đang xuất'}<//>` : html`<${Pill}>Chưa có<//>`}</div></div>
-      ${inv?.number && html`<div class="small muted">Số hoá đơn: <b class="num">${inv.number}</b> · ${inv.type === 'company' ? 'hoá đơn công ty' : 'hoá đơn bán lẻ'}${inv.email ? ` · gửi về ${inv.email}` : ''}</div>`}
-      <${Field} label="Email nhận hoá đơn" error=${field('BAD_EMAIL')}><input class="input" type="email" inputmode="email" autocomplete="email" placeholder="ten@email.com" value=${email} onInput=${(e) => setEmail(e.target.value)}/><//>
-      <div class="row"><div class="grow"><b>Xuất hoá đơn cho công ty</b><div class="small muted">Điền mã số thuế. Chỉ xuất được trong ngày phát sinh giao dịch.</div></div><${Switch} checked=${company} onChange=${setCompany} label="Xuất hoá đơn cho công ty"/></div>
+      ${inv?.number && html`<div class="small muted">Số hóa đơn: <b class="num">${inv.number}</b> · ${inv.type === 'company' ? 'hóa đơn công ty' : 'hóa đơn bán lẻ'}${inv.email ? ` · gửi về ${inv.email}` : ''}</div>`}
+      <${Field} label="Email nhận hóa đơn" error=${field('BAD_EMAIL')}><input class="input" type="email" inputmode="email" autocomplete="email" placeholder="ten@email.com" value=${email} onInput=${(e) => setEmail(e.target.value)}/><//>
+      <div class="row"><div class="grow"><b>Xuất hóa đơn cho công ty</b><div class="small muted">Điền mã số thuế. Chỉ xuất được trong ngày phát sinh giao dịch.</div></div><${Switch} checked=${company} onChange=${setCompany} label="Xuất hóa đơn cho công ty"/></div>
       ${company && html`<div class="stack">
         <${Field} label="Mã số thuế" error=${field('BAD_TAX_CODE')}><input class="input num" inputmode="numeric" placeholder="0312345678" value=${f.taxCode} onInput=${set('taxCode')}/><//>
         <${Field} label="Tên công ty"><input class="input" autocomplete="organization" value=${f.name} onInput=${set('name')}/><//>
         <${Field} label="Địa chỉ" error=${field('COMPANY_INFO_REQUIRED') || field('INVOICE_WINDOW_CLOSED')}><input class="input" autocomplete="street-address" value=${f.address} onInput=${set('address')}/><//></div>`}
       ${err && !['BAD_EMAIL', 'BAD_TAX_CODE', 'COMPANY_INFO_REQUIRED', 'INVOICE_WINDOW_CLOSED'].includes(err.code) && html`<${ErrorBox} error=${err}/>`}
     </div>
-    <div class="bar-bottom"><div class="in"><button class="btn primary" disabled=${busy || !email} onClick=${submit}>${busy ? html`<${Spinner} sm/>` : company ? 'Xuất hoá đơn công ty' : 'Lưu email nhận hoá đơn'}</button></div></div></div>`;
+    <div class="bar-bottom"><div class="in"><button class="btn primary" disabled=${busy || !email} onClick=${submit}>${busy ? html`<${Spinner} sm/>` : company ? 'Xuất hóa đơn công ty' : 'Lưu email nhận hóa đơn'}</button></div></div></div>`;
 }
 
 function LinkEmail({ onClose, onLinked }) {
@@ -338,6 +338,6 @@ export function Order({ id }) {
         <div class="grow"><div class="name">${i.name}</div><div class="small muted num">${fmt.money(i.price)} × ${i.qty}</div></div><b class="num">${fmt.money(i.price * i.qty - (i.discount || 0))}</b></div>`)}</div></div>
       <div class="card flat"><div class="sum num"><div><span class="muted">Tạm tính</span><span>${fmt.money(tx.subtotal)}</span></div>${tx.discount > 0 && html`<div><span class="muted">Khuyến mãi</span><span style="color:var(--ok)">−${fmt.money(tx.discount)}</span></div>`}<div class="tot"><span>Đã trả</span><span>${fmt.money(paidAmount(tx))}</span></div></div></div>
     </div>
-    <div class="bar-bottom"><div class="in">${tx.bill && html`<button class="btn primary" onClick=${() => go(`/bill/${tx.id}`)}><${Icon} name="receipt"/>Xem bill</button>`}${tx.invoicePortalUrl ? html`<a class="btn" href=${tx.invoicePortalUrl} target="_blank" rel="noopener"><${Icon} name="mail"/>Khai báo hoá đơn điện tử</a>` : tx.method === 'basket' ? null : html`<button class="btn" onClick=${() => go(`/invoice/${tx.id}`)}><${Icon} name="mail"/>${tx.invoice ? 'Hoá đơn điện tử' : 'Yêu cầu hoá đơn'}</button>`}</div></div></div>`;
+    <div class="bar-bottom"><div class="in">${tx.bill && html`<button class="btn primary" onClick=${() => go(`/bill/${tx.id}`)}><${Icon} name="receipt"/>Xem bill</button>`}${tx.invoicePortalUrl ? html`<a class="btn" href=${tx.invoicePortalUrl} target="_blank" rel="noopener"><${Icon} name="mail"/>Khai báo hóa đơn điện tử</a>` : tx.method === 'basket' ? null : html`<button class="btn" onClick=${() => go(`/invoice/${tx.id}`)}><${Icon} name="mail"/>${tx.invoice ? 'Hóa đơn điện tử' : 'Yêu cầu hóa đơn'}</button>`}</div></div></div>`;
 }
 void resetSession; void setState; void deviceId; void Confirm;

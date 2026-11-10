@@ -4,7 +4,7 @@ import { makeApp, call, adminLogin } from './helpers.js';
 import { totpNow } from '../server/services/totp.js';
 import { vietQrPayload, crc16 } from '../server/services/qr.js';
 
-test('đăng nhập quản trị: sai mật khẩu, khoá tạm sau 5 lần, nhân viên không vào được', async () => {
+test('đăng nhập quản trị: sai mật khẩu, khóa tạm sau 5 lần, nhân viên không vào được', async () => {
   const app = await makeApp();
   assert.equal((await adminLogin(app, 'NV0142', 'x')).status, 401);
   assert.equal((await adminLogin(app, 'QT0001', 'sai')).body.error, 'BAD_LOGIN');

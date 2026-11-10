@@ -54,7 +54,7 @@ export function Transactions({ ctx }) {
     <${StoreBar} ...${ctx}/>
     <div class="card tight"><div class="toolbar">
       <div class="field"><label for="t-date">Ngày</label><input id="t-date" class="input" type="date" value=${date} onChange=${(e) => setDate(e.target.value)}/></div>
-      <div class="field"><label for="t-st">Trạng thái</label><select id="t-st" class="input" value=${status} onChange=${(e) => setStatus(e.target.value)}><option value="">Tất cả</option><option value="paid">Đã thu tiền</option><option value="awaiting_counter">Chờ thu tiền</option><option value="voided">Đã huỷ</option></select></div>
+      <div class="field"><label for="t-st">Trạng thái</label><select id="t-st" class="input" value=${status} onChange=${(e) => setStatus(e.target.value)}><option value="">Tất cả</option><option value="paid">Đã thu tiền</option><option value="awaiting_counter">Chờ thu tiền</option><option value="voided">Đã hủy</option></select></div>
       ${!ng && html`<div class="field"><label for="t-ex">Cổng ra</label><select id="t-ex" class="input" value=${exit} onChange=${(e) => setExit(e.target.value)}><option value="">Tất cả</option><option value="exited">Đã ra cổng</option><option value="checking">Đang kiểm tra</option><option value="held">Chờ quản lý</option><option value="none">Chưa ra cổng</option></select></div>`}
       <div class="field grow"><label for="t-q">Tìm mã giỏ hàng</label><input id="t-q" class="input" placeholder="Ví dụ GH-Q7-0012" value=${q} onInput=${(e) => setQ(e.target.value)}/></div>
       ${date && html`<button class="btn sm line" onClick=${() => setDate('')}>Tất cả các ngày</button>`}</div></div>
@@ -67,12 +67,12 @@ function VoidDialog({ tx, onClose, onDone }) {
   const [err, setErr] = useState('');
   const [busy, run] = useBusy();
   const ok = async () => {
-    if (!reason.trim()) return setErr('Hãy nhập lý do huỷ');
-    const r = await run(async () => { try { await api.post(`/transactions/${tx.id}/void`, { reason: reason.trim() }); } catch (x) { setErr(x.message); throw x; } }, 'Đã huỷ giao dịch');
+    if (!reason.trim()) return setErr('Hãy nhập lý do hủy');
+    const r = await run(async () => { try { await api.post(`/transactions/${tx.id}/void`, { reason: reason.trim() }); } catch (x) { setErr(x.message); throw x; } }, 'Đã hủy giao dịch');
     if (r) { onDone(); onClose(); }
   };
-  return html`<${Confirm} title="Huỷ giao dịch này?" text=${`Giao dịch ${tx.code} (${fmt.money(tx.total)}) sẽ bị huỷ và khoản thu được trừ khỏi doanh thu. Không thể hoàn tác.`} ok="Huỷ giao dịch" cancel="Giữ lại" danger busy=${busy} onOk=${ok} onCancel=${onClose}>
-    <${Field} label="Lý do huỷ (bắt buộc)" error=${err}><textarea class=${`input ${err ? 'err' : ''}`} value=${reason} onInput=${(e) => setReason(e.target.value)} aria-label="Lý do huỷ" autofocus></textarea><//><//>`;
+  return html`<${Confirm} title="Hủy giao dịch này?" text=${`Giao dịch ${tx.code} (${fmt.money(tx.total)}) sẽ bị hủy và khoản thu được trừ khỏi doanh thu. Không thể hoàn tác.`} ok="Hủy giao dịch" cancel="Giữ lại" danger busy=${busy} onOk=${ok} onCancel=${onClose}>
+    <${Field} label="Lý do hủy (bắt buộc)" error=${err}><textarea class=${`input ${err ? 'err' : ''}`} value=${reason} onInput=${(e) => setReason(e.target.value)} aria-label="Lý do hủy" autofocus></textarea><//><//>`;
 }
 
 /** Dsmart POS đã nhận giỏ mà quá 10 phút chưa báo kết quả. */
@@ -120,7 +120,7 @@ export function TxDetail({ ctx, id }) {
       ${held && html`<${Banner} tone="err" title="Khách đang chờ quản lý xử lý ở cổng">
         <div class="stack" style="margin-top:8px"><div class="small">Chênh lệch khi kiểm tra ngẫu nhiên. Cho qua nếu đã đối chiếu xong, hoặc từ chối để khách quay lại quầy.</div>
         <div class="row wrap"><button class="btn sm ok" onClick=${() => setResolve('allow')}>Cho qua</button><button class="btn sm danger-line" onClick=${() => setResolve('deny')}>Từ chối</button></div></div><//>`}
-      ${t.status === 'voided' && html`<${Banner} tone="err" icon="x" title="Giao dịch đã bị huỷ">Lý do: ${d.voidReason || '(không ghi)'}<//>`}
+      ${t.status === 'voided' && html`<${Banner} tone="err" icon="x" title="Giao dịch đã bị hủy">Lý do: ${d.voidReason || '(không ghi)'}<//>`}
       <div class="two wide-l">
         <div class="stack-lg">
           <div class="card"><h2>Tóm tắt</h2><div class="kv">
@@ -138,13 +138,13 @@ export function TxDetail({ ctx, id }) {
               ${po?.claimedAt && html`<span>Dsmart POS nhận giỏ lúc</span><span>${fmt.dateTime(po.claimedAt)}</span>`}</div>
             ${t.posAmount != null && t.posAmount !== t.total && html`<${Banner} tone="err" title="Số tiền Dsmart POS lệch với BRG">Dsmart POS báo ${fmt.money(t.posAmount)}, BRG tính ${fmt.money(t.total)} (${t.posAmount > t.total ? 'Dsmart POS thu nhiều hơn' : 'Dsmart POS thu ít hơn'} ${fmt.money(Math.abs(t.posAmount - t.total))}). Hãy đối chiếu với đơn trên Dsmart POS.<//>`}
             ${waitedLong(t.posStatus, po?.claimedAt) && html`<div class="stack"><div class="small muted">Dsmart POS đã nhận giỏ hơn 10 phút nhưng chưa báo kết quả. Nếu Dsmart POS gặp sự cố, bạn có thể nhả giỏ để thu lại.</div><button class="btn sm danger-line auto" onClick=${() => setReleasing(true)}>Nhả giỏ</button></div>`}</div>`}
-          ${d.transaction?.cancelReason === 'expired' && html`<div class="card"><h2>Mã QR hết hạn</h2><div class="small muted">Khách bấm Thanh toán nhưng quá thời hạn (mặc định 30 phút) chưa thanh toán nên hệ thống tự huỷ đơn. Giỏ hàng của khách vẫn được giữ để tạo mã mới. Nếu Dsmart POS báo thanh toán sau đó, hệ thống vẫn ghi nhận.</div></div>`}
+          ${d.transaction?.cancelReason === 'expired' && html`<div class="card"><h2>Mã QR hết hạn</h2><div class="small muted">Khách bấm Thanh toán nhưng quá thời hạn (mặc định 30 phút) chưa thanh toán nên hệ thống tự hủy đơn. Giỏ hàng của khách vẫn được giữ để tạo mã mới. Nếu Dsmart POS báo thanh toán sau đó, hệ thống vẫn ghi nhận.</div></div>`}
           ${d.cartDiff && !d.cartDiff.same && html`<div class="card"><h2>Khác với giỏ khách quét</h2><div class="small muted" style="margin-bottom:8px">Đơn Dsmart POS khác giỏ trên điện thoại khách: thu ngân đã bớt, thêm hoặc đổi số lượng ở quầy. Đơn Dsmart POS là bản đúng.</div>
             ${d.cartDiff.removed.map((x, i) => html`<div class="item" key=${'r' + i}><div class="grow"><div class="name">${x.name}</div><div class="small muted">Khách quét ${x.qty}, Dsmart POS không có</div></div><${Pill} tone="warn">Bớt<//></div>`)}
             ${d.cartDiff.changed.map((x, i) => html`<div class="item" key=${'c' + i}><div class="grow"><div class="name">${x.name}</div><div class="small muted">Khách quét ${x.from}, Dsmart POS tính ${x.to}</div></div><${Pill} tone="warn">Đổi số lượng<//></div>`)}
             ${d.cartDiff.added.map((x, i) => html`<div class="item" key=${'a' + i}><div class="grow"><div class="name">${x.name}</div><div class="small muted">Dsmart POS thêm ${x.qty}, khách không quét</div></div><${Pill} tone="brand">Thêm<//></div>`)}</div>`}
-          ${(d.transaction?.invoiceUrl || d.transaction?.transactionUrl) && html`<div class="card"><h2>Hoá đơn điện tử và giao dịch</h2><div class="small muted" style="margin-bottom:8px">Link do Dsmart POS gửi kèm khi báo thanh toán. Khách mở được từ màn hình sau thanh toán, bill và email.</div>
-            ${d.transaction.invoiceUrl && html`<div class="item"><div class="grow"><div class="name">Hoá đơn điện tử</div><div class="small"><a href=${d.transaction.invoiceUrl} target="_blank" rel="noopener" style="word-break:break-all">${d.transaction.invoiceUrl}</a></div></div></div>`}
+          ${(d.transaction?.invoiceUrl || d.transaction?.transactionUrl) && html`<div class="card"><h2>Hóa đơn điện tử và giao dịch</h2><div class="small muted" style="margin-bottom:8px">Link do Dsmart POS gửi kèm khi báo thanh toán. Khách mở được từ màn hình sau thanh toán, bill và email.</div>
+            ${d.transaction.invoiceUrl && html`<div class="item"><div class="grow"><div class="name">Hóa đơn điện tử</div><div class="small"><a href=${d.transaction.invoiceUrl} target="_blank" rel="noopener" style="word-break:break-all">${d.transaction.invoiceUrl}</a></div></div></div>`}
             ${d.transaction.transactionUrl && html`<div class="item"><div class="grow"><div class="name">Chi tiết giao dịch</div><div class="small"><a href=${d.transaction.transactionUrl} target="_blank" rel="noopener" style="word-break:break-all">${d.transaction.transactionUrl}</a></div></div></div>`}</div>`}
           ${d.refunds?.length > 0 && html`<div class="card"><h2>Hoàn trả</h2>${d.refunds.map((r, i) => html`<div class="item" key=${i}><div class="grow"><div class="name">−${fmt.money(r.amount)}${r.reason ? ` · ${r.reason}` : ''}</div><div class="small muted">${fmt.dateTime(r.at)} · mã ${r.ref}${r.lines.length ? ` · ${r.lines.map((l) => `${l.name}${l.qty ? ` × ${l.qty}` : ''}`).join(', ')}` : ''}</div></div></div>`)}</div>`}
           <div class="card"><h2>Mặt hàng (${t.itemCount})</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Sản phẩm</th><th class="r">Đơn giá</th><th class="r">SL</th><th class="r">Thành tiền</th></tr></thead>
@@ -152,10 +152,10 @@ export function TxDetail({ ctx, id }) {
         </div>
         <div class="stack-lg">
           <div class="card"><h2>Dòng thời gian</h2>${d.events.length ? html`<div class="tl wide">${d.events.map((e, k) => html`<div key=${k}><span class="muted xs num">${fmt.time(e.ts)}</span><span class=${`pt ${e.tone === 'warn' ? 'warn' : e.tone === 'ok' ? 'ok' : e.tone === 'info' ? 'info' : e.tone === 'err' ? 'err' : ''}`}></span><span>${e.text}<div class="xs muted">${fmt.date(e.ts)}</div></span></div>`)}</div>` : html`<div class="muted">Chưa có sự kiện</div>`}</div>
-          <div class="card"><h2>Thanh toán</h2>${d.payments.length ? d.payments.map((p) => html`<div class="item" key=${p.id}><div class="grow"><div class="name">${fmt.method(p.method)}${p.kind === 'extra' ? ' (thu bổ sung)' : p.kind === 'refund' ? ' (hoàn trả)' : ''}</div><div class="small muted">${fmt.dateTime(p.at)} · ${payerLabel(p.by)}${p.cashReceived ? ` · khách đưa ${fmt.money(p.cashReceived)}, thối ${fmt.money(p.change)}` : ''}</div></div><div class="b">${fmt.money(p.amount)}</div>${p.voided && html`<${Pill} tone="err">Đã huỷ<//>`}</div>`) : html`<div class="muted">Chưa thu tiền</div>`}</div>
+          <div class="card"><h2>Thanh toán</h2>${d.payments.length ? d.payments.map((p) => html`<div class="item" key=${p.id}><div class="grow"><div class="name">${fmt.method(p.method)}${p.kind === 'extra' ? ' (thu bổ sung)' : p.kind === 'refund' ? ' (hoàn trả)' : ''}</div><div class="small muted">${fmt.dateTime(p.at)} · ${payerLabel(p.by)}${p.cashReceived ? ` · khách đưa ${fmt.money(p.cashReceived)}, thối ${fmt.money(p.change)}` : ''}</div></div><div class="b">${fmt.money(p.amount)}</div>${p.voided && html`<${Pill} tone="err">Đã hủy<//>`}</div>`) : html`<div class="muted">Chưa thu tiền</div>`}</div>
           ${gd && html`<div class="card"><h2>Kiểm tra ngẫu nhiên</h2>${d.checks.length ? d.checks.map((c) => html`<div class="item" key=${c.id}><div class="grow"><div class="name">${c.result === 'match' ? 'Khớp' : c.result === 'mismatch' ? 'Chênh lệch' : c.result}${c.amount ? ` · ${fmt.money(c.amount)}` : ''}</div><div class="small muted">${fmt.dateTime(c.at)} · NV ${c.by}${c.note ? ` · ${c.note}` : ''}${c.resolution ? ` · ${c.resolution === 'allow' ? 'đã cho qua' : 'đã từ chối'}${c.resolvedBy ? ` bởi ${c.resolvedBy}` : ''}` : ''}</div></div></div>`) : html`<div class="muted">${t.checkRequired ? 'Đang chờ kiểm tra' : 'Không bị chọn kiểm tra'}</div>`}</div>`}
-          <div class="card"><h2>Hoá đơn điện tử</h2>${d.invoices.length ? d.invoices.map((v) => html`<div class="item" key=${v.id}><div class="grow"><div class="name">${v.type === 'company' ? 'Hoá đơn công ty' : 'Hoá đơn bán lẻ'}${v.number ? ` · ${v.number}` : ''}</div><div class="small muted">${v.email || v.tax_code || ''}${v.error ? ` · ${v.error}` : ''}</div></div><${Pill} tone=${v.status === 'issued' ? 'ok' : v.status === 'pending' ? 'warn' : ''}>${({ issued: 'Đã xuất', pending: 'Đang treo', cancelled: 'Đã huỷ', cancel_requested: 'Chờ huỷ', replaced: 'Đã thay thế' })[v.status] || v.status}<//></div>`) : html`<div class="muted">${t.method === 'basket' ? 'Hoá đơn điện tử không phát hành lúc thanh toán. Khách tự khai báo qua link của nhà cung cấp.' : 'Khách không yêu cầu hoá đơn'}</div>`}</div>
-          ${canVoid && html`<div class="card"><h2>Hành động quản lý</h2><p class="small muted">${gd ? 'Huỷ khi thu nhầm hoặc khách trả hàng trước khi ra cổng.' : 'Huỷ khi thu nhầm hoặc khách trả hàng.'}</p>${t.posOrderRef && html`<${Banner} tone="info" icon="info">Giao dịch này thu qua Dsmart POS. Huỷ ở đây chỉ trừ trong BRG, bạn cần huỷ cả đơn trên Dsmart POS.<//>`}<button class="btn danger-line" onClick=${() => setVoiding(true)}><${Icon} name="trash"/>Huỷ giao dịch</button></div>`}
+          <div class="card"><h2>Hóa đơn điện tử</h2>${d.invoices.length ? d.invoices.map((v) => html`<div class="item" key=${v.id}><div class="grow"><div class="name">${v.type === 'company' ? 'Hóa đơn công ty' : 'Hóa đơn bán lẻ'}${v.number ? ` · ${v.number}` : ''}</div><div class="small muted">${v.email || v.tax_code || ''}${v.error ? ` · ${v.error}` : ''}</div></div><${Pill} tone=${v.status === 'issued' ? 'ok' : v.status === 'pending' ? 'warn' : ''}>${({ issued: 'Đã xuất', pending: 'Đang treo', cancelled: 'Đã hủy', cancel_requested: 'Chờ hủy', replaced: 'Đã thay thế' })[v.status] || v.status}<//></div>`) : html`<div class="muted">${t.method === 'basket' ? 'Hóa đơn điện tử không phát hành lúc thanh toán. Khách tự khai báo qua link của nhà cung cấp.' : 'Khách không yêu cầu hóa đơn'}</div>`}</div>
+          ${canVoid && html`<div class="card"><h2>Hành động quản lý</h2><p class="small muted">${gd ? 'Hủy khi thu nhầm hoặc khách trả hàng trước khi ra cổng.' : 'Hủy khi thu nhầm hoặc khách trả hàng.'}</p>${t.posOrderRef && html`<${Banner} tone="info" icon="info">Giao dịch này thu qua Dsmart POS. Hủy ở đây chỉ trừ trong BRG, bạn cần hủy cả đơn trên Dsmart POS.<//>`}<button class="btn danger-line" onClick=${() => setVoiding(true)}><${Icon} name="trash"/>Hủy giao dịch</button></div>`}
         </div>
       </div>
       ${releasing && po && html`<${ReleaseDialog} order=${po} onClose=${() => setReleasing(false)} onDone=${() => { st.reload(); loadPo(); }}/>`}
@@ -179,11 +179,11 @@ export function PosOrders({ ctx }) {
   const orders = d?.orders || [];
   const differs = orders.filter((o) => o.differs).length;
   const longWait = orders.filter((o) => waitedLong(o.posStatus, o.claimedAt)).length;
-  const FILTERS = [['', 'Tất cả'], ['claimed', 'Đã nhận'], ['paid', 'Đã thanh toán'], ['cancelled', 'Đã huỷ']];
+  const FILTERS = [['', 'Tất cả'], ['claimed', 'Đã nhận'], ['paid', 'Đã thanh toán'], ['cancelled', 'Đã hủy']];
   return html`<div class="stack-lg"><${PageHead} title="Đơn Dsmart POS" sub=${upd ? `Đơn thu tiền qua phần mềm Dsmart POS · tự cập nhật mỗi 10 giây · lần cuối ${fmt.time(upd)}` : 'Đang tải'}><//>
     <${StoreBar} ...${ctx}/>
     ${!isPos(cfg) && html`<${Banner} tone="info" icon="info" title="Chi nhánh này chưa thu tiền qua Dsmart POS">
-      Hiện chi nhánh tự thu trong BRG. Để dùng Dsmart POS: tạo khoá API cho Dsmart POS ở mục Tích hợp, rồi đổi "Thu tiền" sang "Qua Dsmart POS" ở mục Chi nhánh & tính năng${me?.role === 'chain_admin' ? '' : ' (nhờ quản trị chuỗi)'}.
+      Hiện chi nhánh tự thu trong BRG. Để dùng Dsmart POS: tạo khóa API cho Dsmart POS ở mục Tích hợp, rồi đổi "Thu tiền" sang "Qua Dsmart POS" ở mục Chi nhánh & tính năng${me?.role === 'chain_admin' ? '' : ' (nhờ quản trị chuỗi)'}.
       ${me?.role === 'chain_admin' && html`<div class="row wrap" style="margin-top:8px"><button class="btn sm line" onClick=${() => go('/integrations')}>Tới Tích hợp</button><button class="btn sm line" onClick=${() => go('/stores')}>Tới Chi nhánh</button></div>`}<//>`}
     ${differs > 0 && html`<${Banner} tone="err" title=${`${differs} đơn lệch tiền`}>Số tiền Dsmart POS khác tổng BRG. Mở đơn để đối chiếu với Dsmart POS.<//>`}
     ${longWait > 0 && html`<${Banner} title=${`${longWait} đơn chờ lâu`}>Dsmart POS đã nhận giỏ hơn 10 phút mà chưa báo kết quả. Nếu Dsmart POS gặp sự cố, mở đơn hoặc bấm "Nhả giỏ" để thu lại.<//>`}
@@ -367,7 +367,7 @@ export function Unknown({ ctx }) {
     if (key) return; setKey(barcode);
     try { await api.put(`/unknown-barcodes?${sq(storeId)}`, { barcode, status: v }); toast('Đã cập nhật', 'ok'); await st.reload(); } catch (e) { toast(e.message, 'err'); } finally { setKey(''); }
   };
-  return html`<div class="stack-lg"><${PageHead} title="Mã quét không tìm thấy" sub="Mã vạch khách quét nhưng không có trong dữ liệu Dsmart POS. Báo bộ phận hàng hoá để bổ sung."/>
+  return html`<div class="stack-lg"><${PageHead} title="Mã quét không tìm thấy" sub="Mã vạch khách quét nhưng không có trong dữ liệu Dsmart POS. Báo bộ phận hàng hóa để bổ sung."/>
     <${StoreBar} ...${ctx}/>
     <div class="card tight"><div class="toolbar"><div class="field"><label for="u-st">Hiển thị</label><select id="u-st" class="input" value=${status} onChange=${(e) => setStatus(e.target.value)}><option value="">Chưa xử lý xong</option><option value="new">Mới</option><option value="reported">Đã báo Dsmart POS</option><option value="resolved">Đã xử lý</option></select></div></div></div>
     <${Async} state=${st}>${(d) => d.items.length === 0 ? html`<${Empty} icon="barcode" title="Không có mã nào" text="Chưa có mã vạch lạ trong nhóm này."/>` : html`<div class="card"><div class="tblwrap"><table class="tbl"><thead><tr><th>Mã vạch</th><th class="r">Số lần quét</th><th>Lần cuối</th><th>Trạng thái</th></tr></thead>

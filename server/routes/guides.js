@@ -10,7 +10,7 @@ const ACCESS = ['all', 'chain'];
 
 export const guidesDir = () => process.env.GUIDES_DIR || path.join(config.root, 'server', 'guides');
 
-/** Tách front matter đơn giản (khoá: giá trị). Trả null nếu không hợp lệ. */
+/** Tách front matter đơn giản (khóa: giá trị). Trả null nếu không hợp lệ. */
 export function parseGuide(text) {
   const src = String(text).replace(/^﻿/, '').replace(/\r\n?/g, '\n');
   if (!src.startsWith('---\n')) return null;

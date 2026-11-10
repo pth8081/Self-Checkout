@@ -25,8 +25,8 @@ export default async function customerRoutes(app) {
     const okId = (v) => typeof v === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(v);
     const hasCookie = /(?:^|;\s*)brgd=[A-Za-z0-9_-]{16,64}/.test(req.headers.cookie || '');
     if (!okId(id) && !hasCookie) throw bad('NO_DEVICE', 'Thiếu mã thiết bị');
-    // Bản sao lưu mã thiết bị trong cookie do máy chủ đặt (iOS Safari xoá localStorage sau 7 ngày không dùng,
-    // còn cookie của máy chủ thì không bị giới hạn đó). Còn cookie thì cookie là chuẩn, để giỏ không mất khi bộ nhớ trang bị xoá.
+    // Bản sao lưu mã thiết bị trong cookie do máy chủ đặt (iOS Safari xóa localStorage sau 7 ngày không dùng,
+    // còn cookie của máy chủ thì không bị giới hạn đó). Còn cookie thì cookie là chuẩn, để giỏ không mất khi bộ nhớ trang bị xóa.
     const saved = /(?:^|;\s*)brgd=([A-Za-z0-9_-]{16,64})/.exec(req.headers.cookie || '')?.[1];
     req.deviceId = saved || id;
     if (!saved && okId(id)) req.cookieToSet = id;
@@ -154,7 +154,7 @@ export default async function customerRoutes(app) {
     return reply.send(await billPdf(b));
   });
 
-  // ---- Hoá đơn & đánh giá ----
+  // ---- Hóa đơn & đánh giá ----
   app.post('/transactions/:id/invoice', async (req) => {
     const tx = ownTx(req);
     if (tx.status !== 'paid') throw conflict('NOT_PAID', 'Đơn hàng chưa thanh toán');
@@ -162,11 +162,11 @@ export default async function customerRoutes(app) {
     const company = req.body?.company;
     if (email && !EMAIL.test(email)) throw bad('BAD_EMAIL', 'Email không hợp lệ');
     if (company) {
-      if (localDate(tx.paid_at) !== localDate()) throw conflict('INVOICE_WINDOW_CLOSED', 'Chỉ xuất được hoá đơn công ty trong ngày phát sinh giao dịch');
+      if (localDate(tx.paid_at) !== localDate()) throw conflict('INVOICE_WINDOW_CLOSED', 'Chỉ xuất được hóa đơn công ty trong ngày phát sinh giao dịch');
       const taxCode = String(company.taxCode || '').replace(/\s/g, '');
       if (!/^\d{10}(-\d{3})?$/.test(taxCode)) throw bad('BAD_TAX_CODE', 'Mã số thuế gồm 10 chữ số (hoặc 13 số có chi nhánh)');
       if (!String(company.name || '').trim() || !String(company.address || '').trim()) throw bad('COMPANY_INFO_REQUIRED', 'Nhập đủ tên công ty và địa chỉ');
-      if (!EMAIL.test(email)) throw bad('BAD_EMAIL', 'Nhập email để nhận hoá đơn công ty');
+      if (!EMAIL.test(email)) throw bad('BAD_EMAIL', 'Nhập email để nhận hóa đơn công ty');
       db.prepare(`UPDATE invoices SET status='replaced' WHERE transaction_id = ? AND type='retail' AND status IN ('issued','pending')`).run(tx.id);
       await issueInvoice(db, ctx.invoicer, tx, { email, taxCode, companyName: company.name.trim(), address: company.address.trim() });
     } else {

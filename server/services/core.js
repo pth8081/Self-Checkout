@@ -1,4 +1,4 @@
-// Lõi nghiệp vụ: phiên mua sắm, khoá giỏ, thu tiền, cổng ra, kiểm tra ngẫu nhiên, ca làm việc.
+// Lõi nghiệp vụ: phiên mua sắm, khóa giỏ, thu tiền, cổng ra, kiểm tra ngẫu nhiên, ca làm việc.
 // Mọi hàm nhận ctx = { db, pos, invoicer, rng } để dễ kiểm thử.
 import { config } from '../config.js';
 import { nextCounter } from '../db.js';
@@ -19,7 +19,7 @@ export function getStoreConfig(db, storeId) {
   const store = db.prepare('SELECT * FROM stores WHERE id = ?').get(storeId);
   if (!store) throw notFound('STORE_NOT_FOUND', 'Không tìm thấy chi nhánh');
   const raw = db.prepare('SELECT * FROM store_config WHERE store_id = ?').get(storeId);
-  // Chế độ "giỏ QR cho Dsmart POS": Dsmart POS thu tiền, không có bước bảo vệ. Các luồng cũ (thu tại quầy, cổng ra) bị khoá, không xoá.
+  // Chế độ "giỏ QR cho Dsmart POS": Dsmart POS thu tiền, không có bước bảo vệ. Các luồng cũ (thu tại quầy, cổng ra) bị khóa, không xóa.
   const cfg = raw.checkout_mode === 'basket' ? { ...raw, payment_source: 'pos', guard_check: 0 } : raw;
   return { store, cfg };
 }
@@ -60,7 +60,7 @@ export function sessionView(ctx, sessionId) {
     items: items.map(itemView), itemCount: itemCount(items), ...t,
     ageRestricted: items.some((i) => i.age_restricted),
     transaction: tx ? txView(ctx, tx) : null,
-    // Đơn vừa bị huỷ và giỏ được trả lại cho khách: 'expired' (quá hạn không thanh toán) hoặc null
+    // Đơn vừa bị hủy và giỏ được trả lại cho khách: 'expired' (quá hạn không thanh toán) hoặc null
     releasedReason: tx ? null : (db.prepare(`SELECT cancel_reason r FROM transactions WHERE session_id = ? AND status = 'cancelled' ORDER BY created_at DESC LIMIT 1`).get(sessionId)?.r ?? null)
   };
 }
@@ -80,7 +80,7 @@ export function createOrResumeSession(ctx, storeId, deviceId) {
   return { session: sessionView(ctx, id), resumed: false };
 }
 
-/** Chuẩn hoá thông tin người mua (hoá đơn công ty) khách nhập trước khi khoá giỏ. */
+/** Chuẩn hóa thông tin người mua (hóa đơn công ty) khách nhập trước khi khóa giỏ. */
 export function cleanBuyer(b) {
   if (!b || typeof b !== 'object') return null;
   const email = String(b.email || '').trim();
@@ -93,7 +93,7 @@ export function cleanBuyer(b) {
     const taxCode = String(b.taxCode || '').replace(/\s/g, '');
     if (!/^\d{10}(-\d{3})?$/.test(taxCode)) throw bad('BAD_TAX_CODE', 'Mã số thuế gồm 10 chữ số (hoặc 13 số có chi nhánh)');
     if (!String(b.companyName || '').trim() || !String(b.address || '').trim()) throw bad('COMPANY_INFO_REQUIRED', 'Nhập đủ tên công ty và địa chỉ');
-    if (!out.email) throw bad('BAD_EMAIL', 'Nhập email để nhận hoá đơn công ty');
+    if (!out.email) throw bad('BAD_EMAIL', 'Nhập email để nhận hóa đơn công ty');
     Object.assign(out, { taxCode, companyName: String(b.companyName).trim().slice(0, 200), address: String(b.address).trim().slice(0, 300) });
   }
   return Object.keys(out).length ? JSON.stringify(out) : null;
@@ -193,10 +193,10 @@ function runOp(ctx, session, op) {
   return { ok: false, code: 'BAD_OP', message: 'Thao tác không hợp lệ' };
 }
 
-/** Áp dụng lô thao tác (quét, đổi số lượng, xoá). Mỗi thao tác có id nên gửi lại không bị trùng. */
+/** Áp dụng lô thao tác (quét, đổi số lượng, xóa). Mỗi thao tác có id nên gửi lại không bị trùng. */
 export function applyOps(ctx, session, ops) {
   const { db } = ctx;
-  if (session.status !== 'active') throw conflict('SESSION_LOCKED', 'Giỏ hàng đã khoá, hãy quay lại giỏ để sửa');
+  if (session.status !== 'active') throw conflict('SESSION_LOCKED', 'Giỏ hàng đã khóa, hãy quay lại giỏ để sửa');
   if (!Array.isArray(ops) || ops.length > 100) throw bad('BAD_OPS', 'Danh sách thao tác không hợp lệ');
   const results = [];
   db.transaction(() => {
@@ -214,7 +214,7 @@ export function applyOps(ctx, session, ops) {
   return results;
 }
 
-// ====================== Khoá giỏ & giao dịch ======================
+// ====================== Khóa giỏ & giao dịch ======================
 function bankInfo(cfg) {
   return { bin: cfg.bank_bin, name: cfg.bank_name, account: cfg.bank_account, holder: cfg.bank_holder };
 }
@@ -308,7 +308,7 @@ export function lockSession(ctx, session, { method, acceptChanges = false, buyer
     }
   }
   const buyerJson = posMode ? cleanBuyer(buyer) : null;
-  // Đang khoá: chỉ đổi cách trả
+  // Đang khóa: chỉ đổi cách trả
   if (session.status === 'locked') {
     const tx = db.prepare(`SELECT * FROM transactions WHERE session_id = ? AND status = 'awaiting_counter'`).get(session.id);
     if (!tx) throw conflict('SESSION_CLOSED', 'Phiên này đã kết thúc');
@@ -354,7 +354,7 @@ export function lockSession(ctx, session, { method, acceptChanges = false, buyer
 }
 
 /**
- * Chế độ giỏ QR: khoá giỏ để ghi nhận tạm tính theo giá của đúng chi nhánh. Không hỏi cách thanh toán.
+ * Chế độ giỏ QR: khóa giỏ để ghi nhận tạm tính theo giá của đúng chi nhánh. Không hỏi cách thanh toán.
  * `ref` do điện thoại sinh (có trong mã QR), gửi lại cùng ref thì trả kết quả cũ.
  */
 export function lockBasket(ctx, session, { ref, email } = {}) {
@@ -374,7 +374,7 @@ export function lockBasket(ctx, session, { ref, email } = {}) {
     return txView(ctx, db.prepare('SELECT * FROM transactions WHERE id = ?').get(same.id));
   }
   if (session.status === 'locked') {
-    // Khách đổi ý: bỏ giao dịch cũ chưa thu rồi khoá lại với mã mới.
+    // Khách đổi ý: bỏ giao dịch cũ chưa thu rồi khóa lại với mã mới.
     unlockSession(ctx, session);
     session = db.prepare('SELECT * FROM scan_sessions WHERE id = ?').get(session.id);
   }
@@ -417,7 +417,7 @@ export function finishBasket(ctx, session) {
 
 export function unlockSession(ctx, session) {
   const { db } = ctx;
-  if (session.status !== 'locked') throw conflict('NOT_LOCKED', 'Giỏ hàng chưa khoá');
+  if (session.status !== 'locked') throw conflict('NOT_LOCKED', 'Giỏ hàng chưa khóa');
   const tx = db.prepare(`SELECT * FROM transactions WHERE session_id = ? AND status = 'awaiting_counter'`).get(session.id);
   if (!tx) throw conflict('ALREADY_PAID', 'Giao dịch đã được thanh toán, không thể sửa giỏ');
   if (tx.exit_status === 'held') throw conflict('HELD', 'Giao dịch đang được quản lý xử lý');
@@ -546,7 +546,7 @@ export function cancelCart(ctx, user, txId, reason) {
   const { db } = ctx;
   const tx = ownTx(ctx, user, txId);
   if (!canCash(user)) throw forbidden();
-  if (tx.status !== 'awaiting_counter') throw conflict('NOT_CANCELLABLE', 'Chỉ huỷ được giỏ đang chờ thu tiền');
+  if (tx.status !== 'awaiting_counter') throw conflict('NOT_CANCELLABLE', 'Chỉ hủy được giỏ đang chờ thu tiền');
   db.transaction(() => {
     db.prepare(`UPDATE transactions SET status='cancelled' WHERE id=?`).run(tx.id);
     db.prepare(`UPDATE scan_sessions SET status='active', last_activity=? WHERE id=?`).run(nowIso(), tx.session_id);
@@ -554,14 +554,14 @@ export function cancelCart(ctx, user, txId, reason) {
   })();
 }
 
-/** Huỷ xác nhận thu tiền (chỉ quản lý). Dùng khi bấm nhầm hoặc phát hiện sai sót. */
+/** Hủy xác nhận thu tiền (chỉ quản lý). Dùng khi bấm nhầm hoặc phát hiện sai sót. */
 export function voidTransaction(ctx, user, txId, reason) {
   const { db } = ctx;
-  if (!isManager(user)) throw forbidden('MANAGER_ONLY', 'Chỉ quản lý mới huỷ được giao dịch đã thu tiền');
+  if (!isManager(user)) throw forbidden('MANAGER_ONLY', 'Chỉ quản lý mới hủy được giao dịch đã thu tiền');
   const tx = ownTx(ctx, user, txId);
-  if (!String(reason || '').trim()) throw bad('REASON_REQUIRED', 'Hãy nhập lý do huỷ');
-  if (tx.status !== 'paid') throw conflict('NOT_PAID', 'Chỉ huỷ được giao dịch đã thu tiền');
-  if (tx.exit_status === 'exited') throw conflict('ALREADY_EXITED', 'Khách đã ra cổng, không huỷ được');
+  if (!String(reason || '').trim()) throw bad('REASON_REQUIRED', 'Hãy nhập lý do hủy');
+  if (tx.status !== 'paid') throw conflict('NOT_PAID', 'Chỉ hủy được giao dịch đã thu tiền');
+  if (tx.exit_status === 'exited') throw conflict('ALREADY_EXITED', 'Khách đã ra cổng, không hủy được');
   const ts = nowIso();
   db.transaction(() => {
     db.prepare(`UPDATE transactions SET status='voided', void_reason=?, voided_at=?, voided_by=? WHERE id=?`).run(reason, ts, user.id, tx.id);
@@ -603,7 +603,7 @@ export function gateScan(ctx, user, raw, gate = 'Cổng 1') {
   }
   const tx = db.prepare('SELECT * FROM transactions WHERE id = ?').get(parsed.txId);
   if (!tx || (user.role !== 'chain_admin' && tx.store_id !== user.store_id)) return out('invalid', { reason: 'Không tìm thấy giao dịch ở chi nhánh này' });
-  if (tx.status === 'voided' || tx.status === 'cancelled') return out('invalid', { reason: 'Giao dịch đã bị huỷ' }, tx);
+  if (tx.status === 'voided' || tx.status === 'cancelled') return out('invalid', { reason: 'Giao dịch đã bị hủy' }, tx);
   if (tx.status === 'awaiting_counter') return out('unpaid', { reason: 'Chưa thanh toán' }, tx);
   if (tx.exit_status === 'exited') return out('used', { reason: 'QR đã được dùng', usedAt: tx.exited_at, usedBy: tx.exited_by, gate: tx.exited_gate }, tx);
   if (tx.receipt_expires_at < nowIso()) return out('expired', { reason: 'QR đã hết hạn' }, tx);

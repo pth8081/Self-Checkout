@@ -17,11 +17,11 @@ export const store = {
 export const ROLE_VI = { chain_admin: 'Quản trị chuỗi', branch_admin: 'Quản trị chi nhánh', cashier: 'Thu ngân', gate: 'Kiểm soát cổng', cashier_gate: 'Thu ngân kiêm cổng' };
 export const STAFF_ROLES = ['cashier', 'gate', 'cashier_gate'];
 export const TX_STATUS = {
-  awaiting_counter: ['Chờ thu tiền', 'warn'], paid: ['Đã thu tiền', 'ok'], voided: ['Đã huỷ', 'err'], cancelled: ['Đã huỷ giỏ', ''],
-  locked: ['Đã khoá giỏ', 'info'], active: ['Đang mua', 'info']
+  awaiting_counter: ['Chờ thu tiền', 'warn'], paid: ['Đã thu tiền', 'ok'], voided: ['Đã hủy', 'err'], cancelled: ['Đã hủy giỏ', ''],
+  locked: ['Đã khóa giỏ', 'info'], active: ['Đang mua', 'info']
 };
 export const EXIT_STATUS = { none: ['Chưa ra cổng', ''], checking: ['Đang kiểm tra', 'warn'], held: ['Chờ quản lý', 'err'], exited: ['Đã ra cổng', 'ok'] };
-export const POS_STATUS = { claimed: ['Đã nhận', 'info'], paid: ['Đã thanh toán', 'ok'], cancelled: ['Đã huỷ', 'err'] };
+export const POS_STATUS = { claimed: ['Đã nhận', 'info'], paid: ['Đã thanh toán', 'ok'], cancelled: ['Đã hủy', 'err'] };
 export const posPill = (s) => { const [t, tone] = POS_STATUS[s] || [s || '–', '']; return html`<${Pill} tone=${tone}>${t}<//>`; };
 export const PAY_SOURCE = { manual: 'Tự thu trong BRG', pos: 'Qua Dsmart POS' };
 /** Cấu hình của một chi nhánh (từ danh sách chi nhánh đã gộp cấu hình ở app.js). */
@@ -39,14 +39,14 @@ export const exitPill = (s) => { const [t, tone] = EXIT_STATUS[s] || [s, '']; re
 const ACTION_VI = {
   'admin.login': () => 'Đăng nhập quản trị',
   'staff.login': () => 'Nhân viên đăng nhập',
-  'cart.locked': () => 'Khách khoá giỏ hàng để thanh toán',
+  'cart.locked': () => 'Khách khóa giỏ hàng để thanh toán',
   'cart.unlocked': () => 'Khách mở lại giỏ để sửa',
-  'cart.cancelled': () => 'Huỷ giỏ chờ thu',
-  'cart.expired': (d) => `Mã QR hết hạn${d?.lockedMinutes ? ` (quá ${d.lockedMinutes} phút chưa thanh toán)` : ''}, huỷ đơn`,
-  'retention.run': (d) => `Tự dọn dữ liệu quá hạn (${d?.piiTransactions || 0} đơn xoá thông tin cá nhân)`,
+  'cart.cancelled': () => 'Hủy giỏ chờ thu',
+  'cart.expired': (d) => `Mã QR hết hạn${d?.lockedMinutes ? ` (quá ${d.lockedMinutes} phút chưa thanh toán)` : ''}, hủy đơn`,
+  'retention.run': (d) => `Tự dọn dữ liệu quá hạn (${d?.piiTransactions || 0} đơn xóa thông tin cá nhân)`,
   'retention.run_manual': () => 'Quản trị bấm Dọn ngay dữ liệu quá hạn',
   'retention.config_saved': () => 'Đổi thời hạn giữ dữ liệu',
-  'privacy.erase': (d) => `Xoá dữ liệu cá nhân theo yêu cầu của khách (${d?.transactions || 0} đơn có email, ${d?.transactionsByDevice || 0} đơn theo thiết bị)${d?.note ? `. Ghi chú: ${d.note}` : ''}`,
+  'privacy.erase': (d) => `Xóa dữ liệu cá nhân theo yêu cầu của khách (${d?.transactions || 0} đơn có email, ${d?.transactionsByDevice || 0} đơn theo thiết bị)${d?.note ? `. Ghi chú: ${d.note}` : ''}`,
   'payment.collected': () => 'Thu tiền',
   'payment.extra_collected': () => 'Thu tiền bổ sung',
   'gate.check_required': () => 'Cổng chọn kiểm tra ngẫu nhiên',
@@ -55,22 +55,22 @@ const ACTION_VI = {
   'check.mismatch': () => 'Kiểm tra ngẫu nhiên: chênh lệch',
   'check.resolved_allow': () => 'Quản lý cho qua',
   'check.resolved_deny': () => 'Quản lý từ chối cho qua',
-  'invoice.issued': () => 'Xuất hoá đơn điện tử',
-  'invoice.failed': () => 'Xuất hoá đơn điện tử lỗi',
+  'invoice.issued': () => 'Xuất hóa đơn điện tử',
+  'invoice.failed': () => 'Xuất hóa đơn điện tử lỗi',
   'pos.sync': () => 'Đồng bộ dữ liệu Dsmart POS',
-  'pos.key_created': () => 'Tạo khoá API cho Dsmart POS',
-  'pos.key_revoked': () => 'Thu hồi khoá API của Dsmart POS',
+  'pos.key_created': () => 'Tạo khóa API cho Dsmart POS',
+  'pos.key_revoked': () => 'Thu hồi khóa API của Dsmart POS',
   'pos.claimed': () => 'Dsmart POS nhận giỏ hàng',
   'pos.released': () => 'Quản lý nhả giỏ khỏi Dsmart POS',
   'pos.amount_differs': () => 'Số tiền Dsmart POS lệch với BRG',
-  'pos.cancel_after_exit': () => 'Dsmart POS báo huỷ sau khi khách đã ra',
+  'pos.cancel_after_exit': () => 'Dsmart POS báo hủy sau khi khách đã ra',
   'shift.started': () => 'Bắt đầu ca',
   'shift.ended': () => 'Kết thúc ca',
   'statement.uploaded': () => 'Tải lên sao kê ngân hàng',
   'store.config_updated': () => 'Đổi cấu hình chi nhánh',
   'store.created': () => 'Thêm chi nhánh',
   'store.updated': () => 'Cập nhật chi nhánh',
-  'transaction.voided': () => 'Huỷ giao dịch',
+  'transaction.voided': () => 'Hủy giao dịch',
   'user.created': () => 'Tạo tài khoản',
   'user.updated': () => 'Cập nhật tài khoản',
   'user.pin_reset': () => 'Đặt lại mã PIN',
@@ -91,8 +91,8 @@ export function auditDetail(ev) {
   if (d.total != null) p.push(fmt.money(d.total));
   if (d.amount != null) p.push(fmt.money(d.amount));
   if (d.role) p.push(ROLE_VI[d.role] || d.role);
-  if (d.active === true) p.push('Mở khoá');
-  if (d.active === false) p.push('Khoá');
+  if (d.active === true) p.push('Mở khóa');
+  if (d.active === false) p.push('Khóa');
   if (d.enabled === true) p.push('Bật');
   if (d.enabled === false && ev.action.startsWith('store')) p.push('Tắt');
   if (d.payCash !== undefined) p.push(`Tiền mặt: ${d.payCash ? 'bật' : 'tắt'}`);
@@ -100,7 +100,7 @@ export function auditDetail(ev) {
   if (d.randomCheckRate !== undefined) p.push(`Tỷ lệ kiểm tra: ${fmt.pct(d.randomCheckRate)}`);
   if (d.paymentSource !== undefined) p.push(`Thu tiền: ${PAY_SOURCE[d.paymentSource] || d.paymentSource}`);
   if (d.guardCheck !== undefined) p.push(`Bảo vệ cổng ra: ${d.guardCheck ? 'bật' : 'tắt'}`);
-  if (d.name && ev.action.startsWith('pos.key')) p.push(`Khoá: ${d.name}`);
+  if (d.name && ev.action.startsWith('pos.key')) p.push(`Khóa: ${d.name}`);
   if (d.bank) p.push('Cập nhật thông tin ngân hàng');
   if (d.posStaleMinutes !== undefined) p.push(`Ngưỡng Dsmart POS: ${d.posStaleMinutes} phút`);
   if (d.date) p.push(`Ngày ${d.date}`);

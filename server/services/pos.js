@@ -30,7 +30,7 @@ export function createMockPos(db) {
       }
       return null;
     },
-    /** Giá/tồn kho hiện tại từ nguồn Dsmart POS (dùng khi khoá giỏ để kiểm tra lại). */
+    /** Giá/tồn kho hiện tại từ nguồn Dsmart POS (dùng khi khóa giỏ để kiểm tra lại). */
     current(storeId, skus) {
       const q = db.prepare('SELECT * FROM pos_products WHERE store_id = ? AND sku = ?');
       const map = new Map();

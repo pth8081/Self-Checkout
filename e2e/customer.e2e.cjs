@@ -27,7 +27,7 @@ async function api(method,url,body,headers={}){const r=await fetch(BASE+url,{met
  // 3. có mạng lại: tự đồng bộ
  await ctx.setOffline(false);await p.evaluate(()=>dispatchEvent(new Event('online')));await sleep(1500);
  console.log('synced, mì in cart:',(await p.innerText('body')).includes('Mì ăn liền'),'still pending:',await p.isVisible('text=Chờ đồng bộ để lấy tên và giá'));
- // 4. giá đổi trước khi khoá giỏ
+ // 4. giá đổi trước khi khóa giỏ
  await api('POST','/api/a/dev/pos-product',{storeId:'Q7',sku:'TRU01',price:41000},AH);
  await p.evaluate(()=>{location.hash='#/pay'});await sleep(600);
  await p.click('.bar-bottom .btn.primary');await p.waitForSelector('text=Có thay đổi trong giỏ hàng');await shot('16-changes');
@@ -44,7 +44,7 @@ async function api(method,url,body,headers={}){const r=await fetch(BASE+url,{met
  await ctx.setOffline(true);await sleep(300);await p.evaluate(()=>dispatchEvent(new Event('offline')));await sleep(500);
  console.log('receipt visible offline',await p.isVisible('.qrbox'),'banner',await p.isVisible('text=Mất kết nối'));await shot('18-receipt-offline');
  await ctx.setOffline(false);await p.evaluate(()=>dispatchEvent(new Event('online')));
- // 7. cổng quét -> kiểm tra ngẫu nhiên (đặt tỷ lệ 1 sau khi khoá giỏ nên cờ chưa bật; ép trực tiếp bằng DB không có, dùng API checks)
+ // 7. cổng quét -> kiểm tra ngẫu nhiên (đặt tỷ lệ 1 sau khi khóa giỏ nên cờ chưa bật; ép trực tiếp bằng DB không có, dùng API checks)
  const tok=await p.evaluate(()=>JSON.parse(localStorage.getItem('brg.c.v1')).session.transaction.receipt.token);
  const gate=(await api('POST','/api/s/login',{code:'NV0157',pin:'2222'})).body.token;const GH={authorization:'Bearer '+gate};
  let g=await api('POST','/api/s/gate/scan',{raw:tok},GH);console.log('gate outcome',g.body.outcome);

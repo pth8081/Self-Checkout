@@ -128,7 +128,7 @@ export function QueueScreen({ c }) {
   if (!c.user.canCash) return html`<${Denied} c=${c}/>`;
   return html`<${Top} c=${c} title="Hàng đợi" sub="Tự cập nhật mỗi vài giây"/><${Page}>
     ${err && !carts ? html`<${ErrorBox} error=${err}/>` : !carts ? html`<${Loading}/>`
-      : carts.length ? html`<${QueueList} carts=${carts}/>` : html`<${Empty} icon="users" title="Chưa có khách chờ" text="Khi khách khoá giỏ hàng và chọn thanh toán tại quầy, giỏ sẽ hiện ở đây."/>`}
+      : carts.length ? html`<${QueueList} carts=${carts}/>` : html`<${Empty} icon="users" title="Chưa có khách chờ" text="Khi khách khóa giỏ hàng và chọn thanh toán tại quầy, giỏ sẽ hiện ở đây."/>`}
   <//>`;
 }
 
@@ -161,7 +161,7 @@ export function Cart({ c, id }) {
   const doCancel = () => run(async () => {
     const text = reason === 'Lý do khác' ? (other.trim() || 'Lý do khác') : reason;
     await api.post(`/carts/${enc(tx.id)}/cancel`, { reason: text });
-    toast('Đã huỷ giỏ hàng', 'ok');
+    toast('Đã hủy giỏ hàng', 'ok');
     setCancel(false);
     go('/thu', true);
   }, (e) => { setCancel(false); toast(e.message, 'err'); st.reload(); return true; });
@@ -188,17 +188,17 @@ export function Cart({ c, id }) {
     ${mode !== 'none' && !held && html`<div class="card tight"><div class="label">Cách trả (khách có thể đổi)</div>
       <div class="seg" role="group" aria-label="Cách trả"><button aria-pressed=${method === 'cash'} disabled=${!pay.cash} onClick=${() => setMethod('cash')}>Tiền mặt</button>
         <button aria-pressed=${method === 'qr_transfer'} disabled=${!pay.qrTransfer} onClick=${() => setMethod('qr_transfer')}>Chuyển khoản</button></div></div>`}
-    ${mode === 'main' && !held && html`<button class="btn danger-line" onClick=${() => setCancel(true)}>Huỷ giỏ hàng</button>`}
+    ${mode === 'main' && !held && html`<button class="btn danger-line" onClick=${() => setCancel(true)}>Hủy giỏ hàng</button>`}
   <//>
   ${mode !== 'none' && !held && html`<${BottomBar}>
     <button class="btn primary" disabled=${!c.shift || !method} onClick=${() => go(`/gio/${enc(tx.id)}/${method === 'cash' ? 'tien-mat' : 'chuyen-khoan'}`)}>
         ${method === 'cash' ? 'Thu tiền mặt' : 'Xác nhận chuyển khoản'} · ${fmt.money(amount)}</button>
     ${flagged && html`<button class="btn line" onClick=${() => go(`/doi-chieu/${enc(tx.id)}?place=counter`)}><${Icon} name="eye"/> Đối chiếu ngay tại quầy</button>`}<//>`}
   ${held && guardOn && c.user.isManager && html`<${BottomBar}><button class="btn primary" onClick=${() => go('/cho-quan-ly')}>Xử lý ca chờ quản lý</button><//>`}
-  ${cancel && html`<${Sheet} onClose=${() => setCancel(false)}><h2>Huỷ giỏ ${tx.code}?</h2><p class="muted">Giỏ sẽ mở lại trên điện thoại của khách để họ sửa hoặc thanh toán lại.</p>
+  ${cancel && html`<${Sheet} onClose=${() => setCancel(false)}><h2>Hủy giỏ ${tx.code}?</h2><p class="muted">Giỏ sẽ mở lại trên điện thoại của khách để họ sửa hoặc thanh toán lại.</p>
     <div class="stack" style="gap:8px">${CANCEL_REASONS.map((r) => html`<button key=${r} class=${`option ${reason === r ? 'on' : ''}`} onClick=${() => setReason(r)}>${r}<span class="radio"></span></button>`)}</div>
-    ${reason === 'Lý do khác' && html`<input class="input" placeholder="Ghi lý do" value=${other} onInput=${(e) => setOther(e.target.value)} aria-label="Lý do huỷ"/>`}
-    <button class="btn danger" disabled=${busy} onClick=${doCancel}>${busy ? html`<${Spinner} sm/>` : 'Huỷ giỏ hàng'}</button><button class="btn txt" onClick=${() => setCancel(false)}>Quay lại</button><//>`}`;
+    ${reason === 'Lý do khác' && html`<input class="input" placeholder="Ghi lý do" value=${other} onInput=${(e) => setOther(e.target.value)} aria-label="Lý do hủy"/>`}
+    <button class="btn danger" disabled=${busy} onClick=${doCancel}>${busy ? html`<${Spinner} sm/>` : 'Hủy giỏ hàng'}</button><button class="btn txt" onClick=${() => setCancel(false)}>Quay lại</button><//>`}`;
 }
 
 async function collect(c, tx, body, run, st) {
@@ -234,7 +234,7 @@ export function Cash({ c, id }) {
       : html`<div class="change short"><div class="label" style="color:inherit">Còn thiếu</div><div class="bigamt">${fmt.money(amount - got)}</div></div>`) : null}
     <div class="chips"><button class=${`chip ${got === amount && recv ? 'on' : ''}`} onClick=${() => setRecv(String(amount))}>Đủ tiền</button>
       ${chips.map((d) => html`<button key=${d} class=${`chip ${got === d ? 'on' : ''}`} onClick=${() => setRecv(String(d))}>${fmt.num(d)}</button>`)}
-      <button class="chip" onClick=${() => setRecv('')}>Xoá</button></div>
+      <button class="chip" onClick=${() => setRecv('')}>Xóa</button></div>
     <${MoneyPad} value=${recv} onChange=${setRecv} max=${9}/>
   <//>
   <${BottomBar}><button class="btn primary" disabled=${!ok || busy || !c.shift} onClick=${() => collect(c, tx, { method: 'cash', cashReceived: got }, run)}>${busy ? html`<${Spinner} sm/>` : 'Đã thu tiền'}</button><//>`;
@@ -283,7 +283,7 @@ export function Done({ c }) {
 }
 
 // ============================== Giao dịch gần đây ==============================
-const POS_ST = { claimed: 'Dsmart POS đang xử lý', paid: 'Dsmart POS đã thu', cancelled: 'Dsmart POS đã huỷ' };
+const POS_ST = { claimed: 'Dsmart POS đang xử lý', paid: 'Dsmart POS đã thu', cancelled: 'Dsmart POS đã hủy' };
 export function Transactions({ c }) {
   const st = useAsync(async () => (await api.get('/transactions')).transactions, []);
   return html`<${Top} c=${c} title="Giao dịch gần đây" sub="12 giờ qua" right=${html`<button class="iconbtn" onClick=${st.reload} aria-label="Làm mới"><${Icon} name="refresh"/></button>`}/><${Page}>
@@ -312,7 +312,7 @@ export function TxDetail({ c, id }) {
         <div class="tot"><span>Tổng</span><span class="num">${fmt.money(tx.total)}</span></div>
         ${tx.posAmount != null && html`<div><span>Đã trả (theo Dsmart POS)</span><b class="num">${fmt.money(tx.posAmount)}</b></div>`}</div></div>
     ${(tx.posOrderRef || tx.posInvoiceNo) && html`<div class="card tight"><div class="label">Nguồn thu: máy tính tiền (Dsmart POS)</div><div class="sum">
-      ${tx.posOrderRef && html`<div><span>Đơn Dsmart POS</span><b>${tx.posOrderRef}</b></div>`}${tx.posInvoiceNo && html`<div><span>Số hoá đơn</span><b>${tx.posInvoiceNo}</b></div>`}
+      ${tx.posOrderRef && html`<div><span>Đơn Dsmart POS</span><b>${tx.posOrderRef}</b></div>`}${tx.posInvoiceNo && html`<div><span>Số hóa đơn</span><b>${tx.posInvoiceNo}</b></div>`}
       ${tx.posStatus && html`<div><span>Trạng thái Dsmart POS</span><span>${POS_ST[tx.posStatus] || tx.posStatus}</span></div>`}</div></div>`}
     <div class="card tight"><div class="sum"><div><span>Mã giao dịch</span><b>${tx.id}</b></div><div><span>Tạo lúc</span><span>${fmt.dateTime(tx.createdAt)}</span></div>
       ${tx.paidAt && html`<div><span>Thu tiền lúc</span><span>${fmt.dateTime(tx.paidAt)}</span></div>`}${tx.guardCheck !== false && tx.exitedAt && html`<div><span>Ra cổng lúc</span><span>${fmt.dateTime(tx.exitedAt)}</span></div>`}</div></div>

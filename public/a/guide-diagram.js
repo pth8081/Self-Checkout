@@ -282,7 +282,7 @@ function sizeNode(n) {
   return { lines, w, h };
 }
 
-/** Nửa chiều cao / rộng của hình tại độ lệch `off` (toạ độ thực, tâm là gốc). */
+/** Nửa chiều cao / rộng của hình tại độ lệch `off` (tọa độ thực, tâm là gốc). */
 function halfY(n, off) {
   const a = Math.abs(off);
   switch (n.shape) {
@@ -441,7 +441,7 @@ export function layoutFlow(m) {
     }
   }
 
-  // 4. Toạ độ ngang (trục chéo tầng): xếp sát nhau rồi kéo về trung bình hàng xóm
+  // 4. Tọa độ ngang (trục chéo tầng): xếp sát nhau rồi kéo về trung bình hàng xóm
   const gap = (a, b) => {
     let g = a.dummy && b.dummy ? 16 : a.dummy || b.dummy ? 26 : FL.nodeSep;
     if ((a.group != null || b.group != null) && a.group !== b.group) g += 26;

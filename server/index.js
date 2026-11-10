@@ -17,15 +17,15 @@ if (process.env.RUN_JOBS !== '0') {
   const tick = () => { try { pos.syncAll(); } catch (e) { app.log.error(e, 'Đồng bộ Dsmart POS lỗi'); } };
   tick();
   timers.push(setInterval(tick, syncEvery));
-  // Thử lại hoá đơn điện tử còn treo.
+  // Thử lại hóa đơn điện tử còn treo.
   timers.push(setInterval(() => retryPendingInvoices(db, app.ctx.invoicer).catch((e) => app.log.error(e)), 120_000));
   // Thử lại gửi bill qua email khi lần đầu lỗi.
   timers.push(setInterval(() => retryBillEmails(app.ctx).catch((e) => app.log.error(e)), 120_000));
-  // Dọn giỏ bỏ quên mỗi phút: giỏ đã bấm Thanh toán quá LOCKED_TTL_MINUTES (mặc định 30) thì huỷ đơn;
+  // Dọn giỏ bỏ quên mỗi phút: giỏ đã bấm Thanh toán quá LOCKED_TTL_MINUTES (mặc định 30) thì hủy đơn;
   // giỏ đang quét quá CART_TTL_HOURS (mặc định 3) không thao tác thì đóng.
   const sweep = () => { try { const n = sweepStaleCarts(app.ctx, { activeHours: Number(process.env.CART_TTL_HOURS || 3), lockedMinutes: Number(process.env.LOCKED_TTL_MINUTES || 30) }); if (n) app.log.info({ n }, 'Đã dọn giỏ bỏ quên'); } catch (e) { app.log.error(e); } };
   timers.push(setInterval(sweep, 60_000));
-  // Giữ dữ liệu có thời hạn: xoá thông tin cá nhân và nhật ký quá hạn (cấu hình ở trang quản trị). Chạy lúc khởi động và mỗi 6 giờ.
+  // Giữ dữ liệu có thời hạn: xóa thông tin cá nhân và nhật ký quá hạn (cấu hình ở trang quản trị). Chạy lúc khởi động và mỗi 6 giờ.
   const retain = () => { try { const r = runRetention(app.ctx); const n = Object.values(r.done).reduce((a, b) => a + b, 0); if (n) app.log.info(r.done, 'Đã dọn dữ liệu quá hạn'); } catch (e) { app.log.error(e, 'Dọn dữ liệu quá hạn lỗi'); } };
   setTimeout(retain, 60_000).unref?.();
   timers.push(setInterval(retain, 6 * 3600_000));

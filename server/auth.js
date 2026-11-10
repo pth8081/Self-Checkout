@@ -38,11 +38,11 @@ export function verify(token) {
   } catch { return null; }
 }
 
-// ---- Khoá tạm khi sai nhiều lần ----
+// ---- Khóa tạm khi sai nhiều lần ----
 export function checkLocked(user) {
   if (user.locked_until && user.locked_until > nowIso()) {
     const mins = Math.ceil((new Date(user.locked_until) - Date.now()) / 60000);
-    const e = unauthorized('LOCKED', `Tài khoản bị khoá tạm, thử lại sau ${mins} phút`);
+    const e = unauthorized('LOCKED', `Tài khoản bị khóa tạm, thử lại sau ${mins} phút`);
     e.extra = { minutes: mins };
     throw e;
   }
@@ -71,7 +71,7 @@ export function authenticate(db, kind) {
     const p = verify(h.startsWith('Bearer ') ? h.slice(7) : '');
     if (!p || p.kind !== kind) throw unauthorized();
     const user = db.prepare('SELECT * FROM staff WHERE id = ?').get(p.uid);
-    if (!user || !user.active) throw unauthorized('INACTIVE', 'Tài khoản đã bị khoá');
+    if (!user || !user.active) throw unauthorized('INACTIVE', 'Tài khoản đã bị khóa');
     if (kind === 'admin' && !isManager(user)) throw forbidden();
     req.user = user;
   };

@@ -24,7 +24,7 @@ async function lockCart(app, { method = 'pos', items = [['SUA01', 2], ['MI01', 1
 }
 const pos = (app, key, method, path, body) => call(app, method, POS + path, { token: key, body });
 
-test('khoá API: bắt buộc, thu hồi được, mỗi khoá giới hạn theo chi nhánh, chi nhánh không tạo được', async () => {
+test('khóa API: bắt buộc, thu hồi được, mỗi khóa giới hạn theo chi nhánh, chi nhánh không tạo được', async () => {
   const app = await makeApp();
   const { admin, key } = await setup(app, { posMode: false });
   assert.equal((await call(app, 'GET', `${POS}/health`)).status, 401);
@@ -37,7 +37,7 @@ test('khoá API: bắt buộc, thu hồi được, mỗi khoá giới hạn theo
   assert.equal(h.status, 200);
   assert.equal(h.body.storeScope, 'Q7');
   const list = await call(app, 'GET', '/api/a/pos/keys', { token: admin });
-  assert.ok(!JSON.stringify(list.body).includes(key), 'danh sách không lộ khoá');
+  assert.ok(!JSON.stringify(list.body).includes(key), 'danh sách không lộ khóa');
   assert.equal(list.body.keys[0].prefix, key.slice(0, 14));
   const q7 = (await adminLogin(app, 'QT0007')).body.token;
   assert.equal((await call(app, 'POST', '/api/a/pos/keys', { token: q7, body: { name: 'x' } })).status, 403);
@@ -46,7 +46,7 @@ test('khoá API: bắt buộc, thu hồi được, mỗi khoá giới hạn theo
   await app.close();
 });
 
-test('đổi sang thu tiền qua POS cần khoá API và không còn giỏ chờ thu; chi nhánh không tự đổi được', async () => {
+test('đổi sang thu tiền qua POS cần khóa API và không còn giỏ chờ thu; chi nhánh không tự đổi được', async () => {
   const app = await makeApp();
   const admin = (await adminLogin(app)).body.token;
   assert.equal((await call(app, 'PUT', '/api/a/stores/Q7/config', { token: admin, body: { paymentSource: 'pos' } })).body.error, 'NO_POS_KEY');
@@ -61,7 +61,7 @@ test('đổi sang thu tiền qua POS cần khoá API và không còn giỏ chờ
   await app.close();
 });
 
-test('chế độ POS: khách chỉ chọn thanh toán tại quầy, thu tiền thủ công bị chặn, kiểm tra hoá đơn công ty', async () => {
+test('chế độ POS: khách chỉ chọn thanh toán tại quầy, thu tiền thủ công bị chặn, kiểm tra hóa đơn công ty', async () => {
   const app = await makeApp();
   await setup(app);
   const view = await call(app, 'GET', '/api/c/store/Q7');
@@ -98,7 +98,7 @@ test('POS nhận giỏ: xem trước, nhận, gọi lại cùng mã đơn, mã �
   assert.equal(claim.body.cart.items[0].barcode, barcodeOf(app, 'Q7', 'SUA01'));
   assert.equal((await pos(app, key, 'POST', `/carts/${tx.code}/claim`, { posOrderRef: 'A-20481' })).body.duplicate, true);
   assert.equal((await pos(app, key, 'POST', `/carts/${tx.code}/claim`, { posOrderRef: 'A-99999' })).body.error, 'ALREADY_CLAIMED');
-  // khách thấy trạng thái, không sửa/mở khoá được
+  // khách thấy trạng thái, không sửa/mở khóa được
   const sess = await call(app, 'GET', `/api/c/sessions/${id}`);
   assert.equal(sess.body.session.transaction.posStatus, 'claimed');
   assert.equal((await call(app, 'POST', `/api/c/sessions/${id}/unlock`)).body.error, 'CLAIMED');
@@ -106,7 +106,7 @@ test('POS nhận giỏ: xem trước, nhận, gọi lại cùng mã đơn, mã �
   await app.close();
 });
 
-test('khoá API theo chi nhánh không nhận được giỏ chi nhánh khác', async () => {
+test('khóa API theo chi nhánh không nhận được giỏ chi nhánh khác', async () => {
   const app = await makeApp();
   const { admin } = await setup(app);
   const k = await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS TD', storeId: 'TD' } });
@@ -117,7 +117,7 @@ test('khoá API theo chi nhánh không nhận được giỏ chi nhánh khác', 
   await app.close();
 });
 
-test('POS báo đã thanh toán: tự xác nhận, có QR ra cổng, số hoá đơn, báo lại không thu trùng, lệch tiền được ghi', async () => {
+test('POS báo đã thanh toán: tự xác nhận, có QR ra cổng, số hóa đơn, báo lại không thu trùng, lệch tiền được ghi', async () => {
   const app = await makeApp();
   const { key, admin } = await setup(app);
   const { tx, id } = await lockCart(app);
@@ -149,10 +149,10 @@ test('POS báo đã thanh toán: tự xác nhận, có QR ra cổng, số hoá �
   await app.close();
 });
 
-test('POS báo huỷ: trước khi thu thì nhả giỏ cho khách; sau khi thu thì huỷ theo POS; báo lại không lỗi', async () => {
+test('POS báo hủy: trước khi thu thì nhả giỏ cho khách; sau khi thu thì hủy theo POS; báo lại không lỗi', async () => {
   const app = await makeApp();
   const { key } = await setup(app);
-  // 1. huỷ trước khi thanh toán
+  // 1. hủy trước khi thanh toán
   const a = await lockCart(app);
   await pos(app, key, 'POST', `/carts/${a.tx.code}/claim`, { posOrderRef: 'B-1' });
   const c1 = await pos(app, key, 'POST', '/orders/B-1/cancelled', { reason: 'Khách đổi ý' });
@@ -164,7 +164,7 @@ test('POS báo huỷ: trước khi thu thì nhả giỏ cho khách; sau khi thu 
   const relock = await call(app, 'POST', `/api/c/sessions/${a.id}/lock`, { body: { method: 'pos' }, device: a.device });
   assert.equal(relock.status, 200);
   assert.notEqual(relock.body.transaction.code, a.tx.code);
-  // 2. huỷ sau khi thanh toán, khách chưa ra cổng: QR mất hiệu lực
+  // 2. hủy sau khi thanh toán, khách chưa ra cổng: QR mất hiệu lực
   const b = await lockCart(app, { device: 'device-second-0123456789' });
   await pos(app, key, 'POST', `/carts/${b.tx.code}/claim`, { posOrderRef: 'C-1' });
   await pos(app, key, 'POST', '/orders/C-1/paid', { amount: b.tx.total, method: 'cash' });
@@ -178,7 +178,7 @@ test('POS báo huỷ: trước khi thu thì nhả giỏ cho khách; sau khi thu 
   await app.close();
 });
 
-test('POS huỷ sau khi khách đã ra cổng: ghi nhận, loại khỏi doanh thu, không báo lỗi', async () => {
+test('POS hủy sau khi khách đã ra cổng: ghi nhận, loại khỏi doanh thu, không báo lỗi', async () => {
   const app = await makeApp();
   const { key } = await setup(app);
   const a = await lockCart(app);
@@ -246,7 +246,7 @@ test('POS + không có bảo vệ: POS báo thanh toán là khách xong ngay', a
   await app.close();
 });
 
-test('công cụ giả lập POS trong trang quản trị chạy đủ luồng (không cần khoá API)', async () => {
+test('công cụ giả lập POS trong trang quản trị chạy đủ luồng (không cần khóa API)', async () => {
   const app = await makeApp();
   const { admin } = await setup(app);
   const { tx } = await lockCart(app);
@@ -296,7 +296,7 @@ test('DELETE không thân gửi từ trình duyệt không bị từ chối (kh�
   await app.close();
 });
 
-test('giỏ QR: khoá giỏ không hỏi cách trả, QR chứa mã vạch và số lượng, gửi lại cùng mã giỏ thì trả kết quả cũ', async () => {
+test('giỏ QR: khóa giỏ không hỏi cách trả, QR chứa mã vạch và số lượng, gửi lại cùng mã giỏ thì trả kết quả cũ', async () => {
   const { decodeBasket } = await import('../public/shared/basket.js');
   const app = await makeApp({ basket: true });
   const chain = (await adminLogin(app)).body.token;
@@ -306,14 +306,14 @@ test('giỏ QR: khoá giỏ không hỏi cách trả, QR chứa mã vạch và s
   const bc = (sku) => barcodeOf(app, 'Q7', sku);
   await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [
     { id: 'a', type: 'scan', barcode: bc('SUA01') }, { id: 'b', type: 'scan', barcode: bc('SUA01') }, { id: 'c', type: 'scan', barcode: bc('MI01') }] } });
-  // luồng cũ bị khoá
+  // luồng cũ bị khóa
   assert.equal((await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash' } })).status, 409);
   const r = await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-LM3K2AB' } });
   assert.equal(r.status, 200, JSON.stringify(r.body));
   // QR chuẩn là dạng ngắn: chỉ mã điểm và mã giỏ
   const q = decodeBasket(r.body.transaction.basketQr);
-  assert.equal(q.ok, true); assert.equal(q.kind, 'short');
-  assert.equal(q.point, 'SP-0107'); assert.equal(q.ref, 'Q7-LM3K2AB'); assert.equal(q.items, null);
+  assert.equal(q.ok, true);
+  assert.equal(q.point, 'SP-0107'); assert.equal(q.ref, 'Q7-LM3K2AB');
   assert.ok(r.body.transaction.basketQr.length < 60);
   assert.ok(!r.body.transaction.basketQr.includes(bc('SUA01')));
   // Dsmart POS lấy danh sách hàng qua API theo mã giỏ, bắt buộc kèm mã điểm
@@ -339,19 +339,15 @@ test('giỏ QR: khoá giỏ không hỏi cách trả, QR chứa mã vạch và s
   await app.close();
 });
 
-test('mã QR giỏ: sai chữ ký hoặc sai định dạng thì từ chối', async () => {
-  const { encodeBasket, decodeBasket } = await import('../public/shared/basket.js');
-  const t = encodeBasket({ point: 'Q7', ref: 'Q7-ABCDEFGH', at: 1700000000000, items: [{ barcode: '8936036123456', qty: 2 }, { barcode: '8936036123456', qty: 1 }], total: 90000 });
-  assert.deepEqual(decodeBasket(t).items, [{ barcode: '8936036123456', qty: 3 }]);
-  assert.equal(decodeBasket(t.replace('*3', '*9')).error, 'CRC');
-  assert.equal(decodeBasket('hello').error, 'FORMAT');
-  assert.equal(decodeBasket(t).kind, 'full');
-  // dạng ngắn
-  const { encodeBasketShort } = await import('../public/shared/basket.js');
+test('mã QR giỏ: chỉ có mã điểm và mã giỏ, sai chữ ký hoặc sai định dạng thì từ chối', async () => {
+  const { encodeBasketShort, decodeBasket } = await import('../public/shared/basket.js');
   const sh = encodeBasketShort({ point: 'SP-0107', ref: 'Q7-ABCDEFGH', at: 1700000000000 });
   assert.match(sh, /^BRG2\|SP-0107\|Q7-ABCDEFGH\|1700000000\|[0-9A-F]{4}$/);
-  assert.deepEqual({ ...decodeBasket(sh) }, { ok: true, kind: 'short', point: 'SP-0107', ref: 'Q7-ABCDEFGH', at: 1700000000000, items: null, total: null });
+  assert.deepEqual({ ...decodeBasket(sh) }, { ok: true, point: 'SP-0107', ref: 'Q7-ABCDEFGH', at: 1700000000000 });
   assert.equal(decodeBasket(sh.replace('Q7-', 'Q8-')).error, 'CRC');
+  assert.equal(decodeBasket('hello').error, 'FORMAT');
+  // dạng cũ có danh sách mặt hàng (BRG1) không còn dùng
+  assert.equal(decodeBasket('BRG1|SP-0107|Q7-LM3K2AB|1793845800|8936036123456*2|T1000|0000').ok, false);
 });
 
 test('giỏ QR: POS báo thanh toán theo mã giỏ kèm bill thật; báo lại nhiều lần an toàn; khách xem bill và tải PDF', async () => {
@@ -419,7 +415,7 @@ test('giỏ QR: POS chưa gửi bill thì bill là tạm tính; gửi bổ sung 
   await app.close();
 });
 
-test('mã điểm là khoá: POS gửi sai hoặc thiếu mã điểm thì bị từ chối, không ghi thanh toán; cửa hàng chưa có mã điểm thì không tạo được giỏ QR', async () => {
+test('mã điểm là khóa: POS gửi sai hoặc thiếu mã điểm thì bị từ chối, không ghi thanh toán; cửa hàng chưa có mã điểm thì không tạo được giỏ QR', async () => {
   const app = await makeApp({ basket: true });
   const admin = (await adminLogin(app)).body.token;
   const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
@@ -442,7 +438,7 @@ test('mã điểm là khoá: POS gửi sai hoặc thiếu mã điểm thì bị 
   await call(app, 'POST', `/api/c/sessions/${s2.body.session.id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'MI01') }] }, device: 'other-1234567890abcdef' });
   const nope = await call(app, 'POST', `/api/c/sessions/${s2.body.session.id}/basket`, { body: { ref: 'Q7-NOPOINT23' }, device: 'other-1234567890abcdef' });
   assert.equal(nope.status, 409); assert.equal(nope.body.error, 'NO_POS_CODE');
-  // không bật được chi nhánh khi chưa có mã điểm; không xoá được mã điểm khi đang bật
+  // không bật được chi nhánh khi chưa có mã điểm; không xóa được mã điểm khi đang bật
   app.ctx.db.prepare(`UPDATE stores SET enabled = 0 WHERE id = 'Q7'`).run();
   assert.equal((await call(app, 'PUT', '/api/a/stores/Q7', { token: admin, body: { enabled: true } })).body.error, 'NO_POS_CODE');
   await app.close();
@@ -457,7 +453,7 @@ async function configureMail(app, admin) {
   return call(app, 'PUT', '/api/a/integrations/email', { token: admin, body: { host: 'smtp.congty.vn', port: 587, secure: 'starttls', user: 'bot@congty.vn', pass: 'Mật-khẩu-bí-mật', from: 'no-reply@congty.vn', fromName: 'BRG Scan & Checkout' } });
 }
 
-test('email: quản trị cấu hình SMTP, mật khẩu không bao giờ trả lại và được mã hoá trong CSDL; chỉ quản trị chuỗi; gửi thử', async () => {
+test('email: quản trị cấu hình SMTP, mật khẩu không bao giờ trả lại và được mã hóa trong CSDL; chỉ quản trị chuỗi; gửi thử', async () => {
   const { createMailer } = await import('../server/services/mailer.js');
   const fm = fakeMail();
   const app = await makeApp({ basket: true, mailer: undefined });
@@ -628,7 +624,7 @@ test('email: quản trị lưu chứng chỉ qua API, xem được vân tay và 
   await app.close();
 });
 
-test('link hoá đơn điện tử và link giao dịch do Dsmart POS gửi kèm: hiện ở màn khách, bill, email, PDF; gửi bổ sung sau; link sai bị bỏ qua', async () => {
+test('link hóa đơn điện tử và link giao dịch do Dsmart POS gửi kèm: hiện ở màn khách, bill, email, PDF; gửi bổ sung sau; link sai bị bỏ qua', async () => {
   const { createMailer } = await import('../server/services/mailer.js');
   const fm = fakeMail();
   const app = await makeApp({ basket: true });
@@ -654,7 +650,7 @@ test('link hoá đơn điện tử và link giao dịch do Dsmart POS gửi kèm
   assert.equal(bill.invoiceUrl, inv); assert.equal(bill.transactionUrl, trn);
   const t = (await call(app, 'GET', `/api/c/sessions/${a.id}`, { device: a.dev })).body.session.transaction;
   assert.equal(t.invoiceUrl, inv); assert.equal(t.transactionUrl, trn);
-  assert.ok(fm.sent[0].html.includes('Xem hoá đơn điện tử') && fm.sent[0].text.includes(inv) && fm.sent[0].text.includes(trn));
+  assert.ok(fm.sent[0].html.includes('Xem hóa đơn điện tử') && fm.sent[0].text.includes(inv) && fm.sent[0].text.includes(trn));
   const pdf = await app.inject({ method: 'GET', url: `/api/c/transactions/${a.tx.id}/bill.pdf`, headers: { 'x-device-id': a.dev } });
   assert.equal(pdf.statusCode, 200);
   // admin thấy link trong chi tiết giao dịch
@@ -665,7 +661,7 @@ test('link hoá đơn điện tử và link giao dịch do Dsmart POS gửi kèm
   const bad = await pos(app, key, 'POST', '/baskets/Q7-LINKS3456/paid', { pointCode: 'SP-Q7', posOrderRef: 'POS-2', amount: b.tx.total, method: 'cash', invoiceUrl: 'http://khong-https.vn', transactionUrl: 'javascript:alert(1)' });
   assert.equal(bad.status, 200); assert.equal(bad.body.warnings.length, 2);
   assert.equal((await call(app, 'GET', `/api/c/transactions/${b.tx.id}/bill`, { device: b.dev })).body.bill.invoiceUrl, null);
-  // hoá đơn phát hành chậm: gửi bổ sung sau bằng lệnh /invoice (bắt buộc đúng mã điểm, mã đơn; chỉ nhận https)
+  // hóa đơn phát hành chậm: gửi bổ sung sau bằng lệnh /invoice (bắt buộc đúng mã điểm, mã đơn; chỉ nhận https)
   const inv2 = 'https://hoadon.dsmart.vn/tra-cuu/XYZ789';
   const later = (body) => pos(app, key, 'POST', '/baskets/Q7-LINKS3456/invoice', { pointCode: 'SP-Q7', posOrderRef: 'POS-2', ...body });
   assert.equal((await later({ invoiceUrl: 'http://x.vn' })).body.error, 'BAD_URL');
@@ -708,7 +704,7 @@ test('bill: POS chỉ gửi mã hàng, số lượng, thành tiền thì hệ th
   await app.close();
 });
 
-test('bill: POS giảm giá cấp hoá đơn (tổng tiền khác tổng các dòng) thì bill hiện dòng điều chỉnh để cộng đúng', async () => {
+test('bill: POS giảm giá cấp hóa đơn (tổng tiền khác tổng các dòng) thì bill hiện dòng điều chỉnh để cộng đúng', async () => {
   const app = await makeApp({ basket: true });
   const admin = (await adminLogin(app)).body.token;
   const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
@@ -745,7 +741,7 @@ test('giỏ tối đa số mặt hàng khác nhau: mặt hàng mới vượt m�
   } finally { config.maxCartItems = old; }
 });
 
-// ---- Huỷ đơn ----
+// ---- Hủy đơn ----
 async function basketSetup(ref = 'Q7-CANCEL234', device = DEVICE) {
   const app = await makeApp({ basket: true });
   const admin = (await adminLogin(app)).body.token;
@@ -758,23 +754,23 @@ async function basketSetup(ref = 'Q7-CANCEL234', device = DEVICE) {
 }
 const cancelBody = { pointCode: 'SP-Q7', posOrderRef: 'P-C1', reason: 'Khách đổi ý' };
 
-test('huỷ đơn: POS huỷ trước khi thu tiền thì giỏ về trạng thái đang quét, khách quét lại được; POS báo thanh toán cho đơn đã huỷ bị từ chối', async () => {
+test('hủy đơn: POS hủy trước khi thu tiền thì giỏ về trạng thái đang quét, khách quét lại được; POS báo thanh toán cho đơn đã hủy bị từ chối', async () => {
   const { app, key, id, tx } = await basketSetup();
   const c = await pos(app, key, 'POST', '/baskets/Q7-CANCEL234/cancelled', cancelBody);
   assert.equal(c.status, 200); assert.equal(c.body.status, 'cancelled'); assert.equal(c.body.cartReleased, true);
   const sv = (await call(app, 'GET', `/api/c/sessions/${id}`)).body.session;
-  assert.equal(sv.status, 'active'); assert.equal(sv.transaction, null);          // điện thoại sẽ báo "Thu ngân đã huỷ đơn"
+  assert.equal(sv.status, 'active'); assert.equal(sv.transaction, null);          // điện thoại sẽ báo "Thu ngân đã hủy đơn"
   assert.equal(sv.items.length, 1);                                               // giỏ còn nguyên để sửa
   assert.equal((await pos(app, key, 'POST', '/baskets/Q7-CANCEL234/cancelled', cancelBody)).body.duplicate, true); // báo lại an toàn
   const late = await pos(app, key, 'POST', '/baskets/Q7-CANCEL234/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-C1', amount: tx.total, method: 'cash' });
   assert.equal(late.status, 409); assert.equal(late.body.error, 'ORDER_CANCELLED');
-  // khách khoá lại giỏ với mã mới, POS thu bình thường
+  // khách khóa lại giỏ với mã mới, POS thu bình thường
   const tx2 = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-CANCEL999' } })).body.transaction;
   assert.equal((await pos(app, key, 'POST', '/baskets/Q7-CANCEL999/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-C2', amount: tx2.total, method: 'cash' })).status, 200);
   await app.close();
 });
 
-test('huỷ đơn: huỷ sau khi đã thanh toán thì đơn thành "voided", khoản thu bị trừ khỏi doanh thu, khách thấy đơn đã huỷ', async () => {
+test('hủy đơn: hủy sau khi đã thanh toán thì đơn thành "voided", khoản thu bị trừ khỏi doanh thu, khách thấy đơn đã hủy', async () => {
   const { app, key, id, tx } = await basketSetup();
   const pay = { pointCode: 'SP-Q7', posOrderRef: 'P-C1', amount: tx.total, method: 'cash' };
   assert.equal((await pos(app, key, 'POST', '/baskets/Q7-CANCEL234/paid', pay)).status, 200);
@@ -784,16 +780,16 @@ test('huỷ đơn: huỷ sau khi đã thanh toán thì đơn thành "voided", kh
   assert.equal(c.status, 200); assert.equal(c.body.status, 'voided');
   assert.equal(rev(), 0);
   assert.equal((await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.transaction.status, 'voided');
-  assert.equal((await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).status, 409); // không còn bill của đơn đã huỷ
+  assert.equal((await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).status, 409); // không còn bill của đơn đã hủy
   assert.equal((await pos(app, key, 'POST', '/baskets/Q7-CANCEL234/cancelled', cancelBody)).body.duplicate, true);
   await app.close();
 });
 
-test('huỷ đơn: khách sửa giỏ trên điện thoại sau khi POS đã quét và thu tiền thì khoản thu vẫn được ghi nhận, không làm hỏng giỏ mới của khách', async () => {
+test('hủy đơn: khách sửa giỏ trên điện thoại sau khi POS đã quét và thu tiền thì khoản thu vẫn được ghi nhận, không làm hỏng giỏ mới của khách', async () => {
   const { app, key, id, tx } = await basketSetup();
   assert.equal((await call(app, 'POST', `/api/c/sessions/${id}/unlock`)).status, 200); // khách bấm "Sửa giỏ hàng"
   assert.equal(app.ctx.db.prepare('SELECT status FROM transactions WHERE id=?').get(tx.id).status, 'cancelled');
-  // khách khoá giỏ mới (mã mới) trong lúc POS vẫn đang thu tiền theo mã QR cũ
+  // khách khóa giỏ mới (mã mới) trong lúc POS vẫn đang thu tiền theo mã QR cũ
   const tx2 = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-NEWBASK23' } })).body.transaction;
   const r = await pos(app, key, 'POST', '/baskets/Q7-CANCEL234/paid', { pointCode: 'SP-Q7', posOrderRef: 'P-OLD', amount: tx.total, method: 'cash' });
   assert.equal(r.status, 200, JSON.stringify(r.body));
@@ -806,7 +802,7 @@ test('huỷ đơn: khách sửa giỏ trên điện thoại sau khi POS đã qu�
   await app.close();
 });
 
-test('huỷ đơn: POS huỷ đơn mà BRG chưa có giỏ (điện thoại đang mất mạng) thì trả 200 "unknown", POS không phải thử lại', async () => {
+test('hủy đơn: POS hủy đơn mà BRG chưa có giỏ (điện thoại đang mất mạng) thì trả 200 "unknown", POS không phải thử lại', async () => {
   const { app, key } = await basketSetup();
   const r = await pos(app, key, 'POST', '/baskets/Q7-NOTHERE234/cancelled', cancelBody);
   assert.equal(r.status, 200); assert.equal(r.body.status, 'unknown');
@@ -839,7 +835,7 @@ test('khách quét nhiều hơn số lấy: POS chỉ gửi các dòng thực mu
   await app.close();
 });
 
-test('hoàn trả một phần sau thanh toán: ghi khoản hoàn âm, doanh thu giảm, báo lại không ghi trùng, không hoàn quá số đã thu, hoàn hết thì đơn thành đã huỷ', async () => {
+test('hoàn trả một phần sau thanh toán: ghi khoản hoàn âm, doanh thu giảm, báo lại không ghi trùng, không hoàn quá số đã thu, hoàn hết thì đơn thành đã hủy', async () => {
   const app = await makeApp({ basket: true });
   const admin = (await adminLogin(app)).body.token;
   const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
@@ -872,7 +868,7 @@ test('hoàn trả một phần sau thanh toán: ghi khoản hoàn âm, doanh thu
   assert.equal(bill.refunds[0].lines[0].name.length > 3, true);
   assert.equal((await app.inject({ method: 'GET', url: `/api/c/transactions/${tx.id}/bill.pdf`, headers: { 'x-device-id': DEVICE } })).statusCode, 200);
   assert.equal((await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.transaction.refundTotal, 30000);
-  // hoàn nốt phần còn lại: đơn thành đã huỷ
+  // hoàn nốt phần còn lại: đơn thành đã hủy
   const r2 = await refund({ refundRef: 'R2', amount: 30000 });
   assert.equal(r2.body.status, 'voided'); assert.equal(r2.body.remaining, 0);
   assert.equal(rev(), 0);
@@ -904,7 +900,7 @@ test('khách lấy thêm hàng ở quầy: POS báo đơn đang tính để đi�
   assert.equal(t1.status, 'awaiting_counter');
   assert.equal(t1.posDraft.itemCount, 4);
   assert.equal(t1.posDraft.diff.added.length, 1); assert.equal(t1.posDraft.diff.changed[0].to, 2);
-  // khách vẫn sửa giỏ được (đơn tại quầy chưa khoá giỏ)
+  // khách vẫn sửa giỏ được (đơn tại quầy chưa khóa giỏ)
   // gửi cập nhật lần sau thay lần trước
   assert.equal((await up({ lines: [{ barcode: sua, qty: 1, lineTotal: 29000 }, { barcode: mi, qty: 1, lineTotal: 12500 }] })).body.differsFromPhone, false);
   await up({ lines: [{ barcode: sua, qty: 2, lineTotal: 58000 }, { barcode: mi, qty: 1, lineTotal: 12500 }, { barcode: tru, qty: 1, lineTotal: 38000 }] });
@@ -928,7 +924,7 @@ test('khách lấy thêm hàng ở quầy: POS báo đơn đang tính để đi�
   await app.close();
 });
 
-test('hết hạn: giỏ đã bấm Thanh toán quá 30 phút bị huỷ đơn nhưng giữ giỏ; giỏ đang quét quá 3 giờ mới đóng; Dsmart POS báo muộn vẫn nhận', async () => {
+test('hết hạn: giỏ đã bấm Thanh toán quá 30 phút bị hủy đơn nhưng giữ giỏ; giỏ đang quét quá 3 giờ mới đóng; Dsmart POS báo muộn vẫn nhận', async () => {
   const { sweepStaleCarts } = await import('../server/services/core.js');
   const app = await makeApp({ basket: true });
   const admin = (await adminLogin(app)).body.token;
@@ -959,7 +955,7 @@ test('hết hạn: giỏ đã bấm Thanh toán quá 30 phút bị huỷ đơn n
   // giỏ A được giữ lại để khách tạo mã mới
   const view = (await call(app, 'GET', `/api/c/sessions/${A.id}`, { device: 'devA-1234567890abcdef' })).body.session;
   assert.equal(view.status, 'active'); assert.equal(view.items.length, 1); assert.equal(view.transaction, null); assert.equal(view.releasedReason, 'expired');
-  // Dsmart POS hỏi trạng thái thấy huỷ + lý do
+  // Dsmart POS hỏi trạng thái thấy hủy + lý do
   const st = await pos(app, key, 'GET', '/baskets/Q7-EXPIRE2345?pointCode=SP-Q7');
   assert.equal(st.body.status, 'cancelled'); assert.equal(st.body.reason, 'expired');
   // Dsmart POS báo muộn: tiền đã thu thật nên vẫn nhận
@@ -975,7 +971,7 @@ test('hết hạn: giỏ đã bấm Thanh toán quá 30 phút bị huỷ đơn n
   await app.close();
 });
 
-test('giữ dữ liệu: xoá thông tin cá nhân quá hạn nhưng giữ đơn, tiền và bill; xoá nhật ký kỹ thuật cũ; cấu hình qua API', async () => {
+test('giữ dữ liệu: xóa thông tin cá nhân quá hạn nhưng giữ đơn, tiền và bill; xóa nhật ký kỹ thuật cũ; cấu hình qua API', async () => {
   const { runRetention } = await import('../server/services/retention.js');
   const app = await makeApp({ basket: true });
   const admin = (await adminLogin(app)).body.token;
@@ -1027,7 +1023,7 @@ test('giữ dữ liệu: xoá thông tin cá nhân quá hạn nhưng giữ đơn
   assert.equal((await call(app, 'PUT', '/api/a/integrations/retention', { token: admin, body: { piiMonths: 3 } })).body.config.piiMonths, 3);
   assert.equal((await call(app, 'PUT', '/api/a/integrations/retention', { token: admin, body: { piiMonths: 0 } })).body.config.piiMonths, 0); // giữ mãi
   assert.equal((await call(app, 'PUT', '/api/a/integrations/retention', { token: admin, body: { logDays: 2 } })).body.error, 'BAD_RETENTION');
-  // piiMonths = 0: không xoá gì
+  // piiMonths = 0: không xóa gì
   db.prepare('UPDATE transactions SET paid_at=? WHERE id=?').run(ago(900), fresh.tx.id);
   assert.equal(runRetention(app.ctx).done.piiTransactions, 0);
   const run = await call(app, 'POST', '/api/a/integrations/retention/run', { token: admin });
@@ -1035,7 +1031,7 @@ test('giữ dữ liệu: xoá thông tin cá nhân quá hạn nhưng giữ đơn
   await app.close();
 });
 
-test('xoá dữ liệu theo yêu cầu của khách: tìm theo email, xoá thông tin cá nhân, giữ đơn và tiền, không đụng khách khác', async () => {
+test('xóa dữ liệu theo yêu cầu của khách: tìm theo email, xóa thông tin cá nhân, giữ đơn và tiền, không đụng khách khác', async () => {
   const app = await makeApp({ basket: true });
   const admin = (await adminLogin(app)).body.token;
   const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
@@ -1079,7 +1075,7 @@ test('xoá dữ liệu theo yêu cầu của khách: tìm theo email, xoá thôn
   // nhật ký chỉ lưu dấu vết băm, không lưu email
   const ev = db.prepare(`SELECT entity_id, data FROM audit_events WHERE action='privacy.erase'`).get();
   assert.ok(ev); assert.ok(!JSON.stringify(ev).includes('khach.a')); assert.match(ev.data, /Yêu cầu #12/);
-  // không còn gì để xoá
+  // không còn gì để xóa
   assert.equal((await call(app, 'POST', '/api/a/privacy/erase-preview', { token: admin, body: { email: 'khach.a@example.com' } })).body.counts.transactions, 0);
   await app.close();
 });

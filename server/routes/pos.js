@@ -1,7 +1,7 @@
 import { nowIso, unauthorized } from '../util.js';
 import { hashKey, previewCart, claimCart, orderStatus, orderPaid, orderCancelled, basketPaid, basketCancelled, basketStatus, basketInvoice, basketRefund, basketUpdate } from '../services/pos-api.js';
 
-/** API cho Dsmart POS gọi. Xác thực bằng khoá API trong header X-Api-Key (chuẩn dùng trong tài liệu; vẫn nhận Authorization: Bearer <khoá> cho tương thích). Chỉ dùng qua HTTPS. */
+/** API cho Dsmart POS gọi. Xác thực bằng khóa API trong header X-Api-Key (chuẩn dùng trong tài liệu; vẫn nhận Authorization: Bearer <khóa> cho tương thích). Chỉ dùng qua HTTPS. */
 export default async function posRoutes(app) {
   const { db } = app.ctx;
   const ctx = app.ctx;
@@ -9,9 +9,9 @@ export default async function posRoutes(app) {
   app.addHook('preHandler', async (req) => {
     const h = req.headers.authorization || '';
     const key = h.startsWith('Bearer ') ? h.slice(7).trim() : req.headers['x-api-key'];
-    if (!key) throw unauthorized('NO_API_KEY', 'Thiếu khoá API (Authorization: Bearer <khoá>)');
+    if (!key) throw unauthorized('NO_API_KEY', 'Thiếu khóa API (Authorization: Bearer <khóa>)');
     const row = db.prepare('SELECT * FROM integration_keys WHERE key_hash = ? AND active = 1').get(hashKey(String(key)));
-    if (!row) throw unauthorized('BAD_API_KEY', 'Khoá API không đúng hoặc đã bị thu hồi');
+    if (!row) throw unauthorized('BAD_API_KEY', 'Khóa API không đúng hoặc đã bị thu hồi');
     db.prepare('UPDATE integration_keys SET last_used_at = ? WHERE id = ?').run(nowIso(), row.id);
     req.scope = { keyId: row.id, name: row.name, storeId: row.store_id };
   });

@@ -8,7 +8,7 @@ Tài liệu quy trình cho vận hành nằm **trong web quản trị** (`/a/`, 
 
 | Nhóm | Tài liệu | Ai xem |
 |------|----------|--------|
-| Hướng dẫn nghiệp vụ | Tổng quan nghiệp vụ; Quy trình mua sắm của khách; Quy trình thanh toán; Thu ngân và ca làm việc; Cổng ra và kiểm tra ngẫu nhiên; Quản lý, đối soát và huỷ giao dịch; Tình huống ngoại lệ; Vai trò và trách nhiệm | Mọi quản trị viên |
+| Hướng dẫn nghiệp vụ | Tổng quan nghiệp vụ; Quy trình mua sắm của khách; Quy trình thanh toán; Thu ngân và ca làm việc; Cổng ra và kiểm tra ngẫu nhiên; Quản lý, đối soát và hủy giao dịch; Tình huống ngoại lệ; Vai trò và trách nhiệm | Mọi quản trị viên |
 | Hướng dẫn nghiệp vụ | **Điểm cần chốt** (15 quyết định chưa có quy định) | Quản trị chuỗi |
 | Hướng dẫn hệ thống | Tài khoản và bảo mật | Mọi quản trị viên |
 | Hướng dẫn hệ thống | Cài đặt một chi nhánh mới; Dữ liệu, nhật ký và tích hợp | Quản trị chuỗi |

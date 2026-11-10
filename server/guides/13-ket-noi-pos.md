@@ -1,6 +1,6 @@
 ---
 title: Kết nối Dsmart POS
-summary: Cách bật chế độ thu tiền qua Dsmart POS cho chi nhánh, tạo khoá API cho nhà cung cấp Dsmart POS, thử, theo dõi và xử lý sự cố. Chỉ quản trị chuỗi xem.
+summary: Cách bật chế độ thu tiền qua Dsmart POS cho chi nhánh, tạo khóa API cho nhà cung cấp Dsmart POS, thử, theo dõi và xử lý sự cố. Chỉ quản trị chuỗi xem.
 group: he-thong
 order: 40
 access: chain
@@ -10,14 +10,14 @@ access: chain
 
 > **Cách làm chính hiện nay là Giỏ QR cho Dsmart POS.** Khách bấm thanh toán, điện thoại hiện một mã QR chứa mã vạch và số lượng từng mặt hàng. Thu ngân quét mã vào Dsmart POS, Dsmart POS tạo đơn, tính lại giá và thu tiền. Dsmart POS không cần gọi API của BRG. Công tắc "Giỏ QR cho Dsmart POS" ở trang Chi nhánh, bật sẵn cho mọi chi nhánh; tắt đi thì quay lại các luồng cũ bên dưới. Mỗi chi nhánh **bắt buộc có Mã điểm** (mục Tích hợp) mới bật được: mã này được ghi vào mã QR, và **Dsmart POS phải từ chối thanh toán nếu mã điểm không đúng cửa hàng của máy Dsmart POS**; khi Dsmart POS báo thanh toán, BRG Scan & Checkout cũng kiểm tra lại mã điểm và từ chối nếu sai. Đặc tả cho nhà cung cấp Dsmart POS: `docs/api-qr-gio-hang.md`.
 
-Ở chế độ này, **thu ngân quét mã giỏ hàng ngay trong phần mềm Dsmart POS**. Dsmart POS gọi API của BRG để lấy mặt hàng, tính tiền, thu tiền (QR, tiền mặt, thẻ), phát hành hoá đơn điện tử, rồi **báo thanh toán về BRG**. BRG tự xác nhận và cho khách ra. Nhà cung cấp Dsmart POS làm phần gọi API theo tài liệu `docs/api-pos.md` của dự án.
+Ở chế độ này, **thu ngân quét mã giỏ hàng ngay trong phần mềm Dsmart POS**. Dsmart POS gọi API của BRG để lấy mặt hàng, tính tiền, thu tiền (QR, tiền mặt, thẻ), phát hành hóa đơn điện tử, rồi **báo thanh toán về BRG**. BRG tự xác nhận và cho khách ra. Nhà cung cấp Dsmart POS làm phần gọi API theo tài liệu `docs/api-pos.md` của dự án.
 
 ```flow
 title: Đưa một chi nhánh sang thu tiền qua POS
 direction: down
 a[Nhà cung cấp POS dựng xong phần gọi API]
-b[Tạo khoá API cho POS ở mục Tích hợp]
-c[Gửi nhà cung cấp: tài liệu API, địa chỉ API, khoá]
+b[Tạo khóa API cho POS ở mục Tích hợp]
+c[Gửi nhà cung cấp: tài liệu API, địa chỉ API, khóa]
 d[Chạy thử trên bản thử với Giả lập POS và POS thật]
 e{Đúng hết các tình huống?}
 f[Chuyển chi nhánh thí điểm sang Qua POS]
@@ -35,28 +35,28 @@ g --> h
 
 ## Các bước
 
-1. **Tạo khoá API** (Tích hợp, thẻ "Dsmart POS gọi vào BRG", **Tạo khoá**): đặt tên theo phần mềm Dsmart POS, chọn **một chi nhánh** (khoá chỉ dùng cho chi nhánh đó) hoặc **tất cả**. Khoá **chỉ hiện một lần**: chép ngay và gửi cho nhà cung cấp Dsmart POS qua kênh an toàn. Khoá có giá trị như mật khẩu vì Dsmart POS dùng nó để xác nhận thanh toán.
-2. **Gửi nhà cung cấp Dsmart POS:** tài liệu API (`docs/api-pos.md`), **địa chỉ API** (hiện sẵn trong thẻ, dạng `https://scan.hcrc.vn/api/pos/v1`), và khoá.
+1. **Tạo khóa API** (Tích hợp, thẻ "Dsmart POS gọi vào BRG", **Tạo khóa**): đặt tên theo phần mềm Dsmart POS, chọn **một chi nhánh** (khóa chỉ dùng cho chi nhánh đó) hoặc **tất cả**. Khóa **chỉ hiện một lần**: chép ngay và gửi cho nhà cung cấp Dsmart POS qua kênh an toàn. Khóa có giá trị như mật khẩu vì Dsmart POS dùng nó để xác nhận thanh toán.
+2. **Gửi nhà cung cấp Dsmart POS:** tài liệu API (`docs/api-pos.md`), **địa chỉ API** (hiện sẵn trong thẻ, dạng `https://scan.hcrc.vn/api/pos/v1`), và khóa.
 3. **Thử trên bản thử** (không thử trên máy chủ đang bán hàng thật):
-   - (Chỉ có ở bản thử, không có khi chạy thật.) Trong khối **Công cụ thử nghiệm**, dùng **Giả lập Dsmart POS** để đóng vai Dsmart POS: dán mã giỏ, nhận giỏ, báo thanh toán, báo huỷ. Nhờ đó xem trước khách và quản trị sẽ thấy gì.
-   - Nhà cung cấp Dsmart POS thử bằng Dsmart POS thật, đối chiếu kết quả với Giả lập. Các tình huống cần thử: giá khác tạm tính, thanh toán bằng QR, tiền mặt, thẻ, huỷ trước và sau khi thanh toán, gọi lại cùng mã đơn, mất mạng giữa chừng, hoá đơn công ty.
-4. **Chuyển chi nhánh sang "Qua Dsmart POS"** (Chi nhánh và tính năng, cột "Thu tiền"). Điều kiện: đã có khoá API dùng được, và **không còn giỏ chờ thu** ở chi nhánh. Nên làm ngoài giờ bán hàng đông.
+   - (Chỉ có ở bản thử, không có khi chạy thật.) Trong khối **Công cụ thử nghiệm**, dùng **Giả lập Dsmart POS** để đóng vai Dsmart POS: dán mã giỏ, nhận giỏ, báo thanh toán, báo hủy. Nhờ đó xem trước khách và quản trị sẽ thấy gì.
+   - Nhà cung cấp Dsmart POS thử bằng Dsmart POS thật, đối chiếu kết quả với Giả lập. Các tình huống cần thử: giá khác tạm tính, thanh toán bằng QR, tiền mặt, thẻ, hủy trước và sau khi thanh toán, gọi lại cùng mã đơn, mất mạng giữa chừng, hóa đơn công ty.
+4. **Chuyển chi nhánh sang "Qua Dsmart POS"** (Chi nhánh và tính năng, cột "Thu tiền"). Điều kiện: đã có khóa API dùng được, và **không còn giỏ chờ thu** ở chi nhánh. Nên làm ngoài giờ bán hàng đông.
 5. **Thí điểm một quầy**, theo dõi trang **Đơn Dsmart POS** và so với báo cáo bán hàng của Dsmart POS mỗi ngày trước khi mở rộng.
 
 ## Theo dõi hằng ngày
 
 Trang **Đơn Dsmart POS** (mỗi chi nhánh) hiện từng đơn và trạng thái. Chú ý:
 
-- **Lệch tiền:** số Dsmart POS khác tạm tính của BRG. Thường do khuyến mãi theo hoá đơn hoặc làm tròn; lệch lớn hoặc lặp lại thì báo nhà cung cấp Dsmart POS.
+- **Lệch tiền:** số Dsmart POS khác tạm tính của BRG. Thường do khuyến mãi theo hóa đơn hoặc làm tròn; lệch lớn hoặc lặp lại thì báo nhà cung cấp Dsmart POS.
 - **Chờ lâu:** Dsmart POS đã nhận giỏ nhưng quá 10 phút chưa báo kết quả. Hỏi thu ngân; nếu Dsmart POS sập thì bấm **Nhả giỏ** (ghi lý do) để khách không bị kẹt.
-- **Đã huỷ sau khi khách ra:** xác minh với Dsmart POS.
-- Thẻ "Dsmart POS gọi vào BRG" ở mục Tích hợp hiện thống kê 24 giờ và lần dùng gần nhất của từng khoá. Khoá lâu không dùng ở chi nhánh đang chạy là dấu hiệu Dsmart POS không gọi được.
+- **Đã hủy sau khi khách ra:** xác minh với Dsmart POS.
+- Thẻ "Dsmart POS gọi vào BRG" ở mục Tích hợp hiện thống kê 24 giờ và lần dùng gần nhất của từng khóa. Khóa lâu không dùng ở chi nhánh đang chạy là dấu hiệu Dsmart POS không gọi được.
 
-## Khoá API
+## Khóa API
 
-- **Thu hồi** ngay khi nghi lộ (nút Thu hồi): Dsmart POS dùng khoá đó sẽ bị từ chối ngay. Tạo khoá mới và gửi lại cho nhà cung cấp.
-- Mỗi nhà cung cấp hoặc mỗi chi nhánh một khoá riêng để thu hồi từng cái mà không ảnh hưởng nơi khác.
-- Khoá chỉ nên nằm trên máy chủ hoặc dịch vụ trung gian của Dsmart POS. Mọi lần tạo, thu hồi khoá đều ghi nhật ký.
+- **Thu hồi** ngay khi nghi lộ (nút Thu hồi): Dsmart POS dùng khóa đó sẽ bị từ chối ngay. Tạo khóa mới và gửi lại cho nhà cung cấp.
+- Mỗi nhà cung cấp hoặc mỗi chi nhánh một khóa riêng để thu hồi từng cái mà không ảnh hưởng nơi khác.
+- Khóa chỉ nên nằm trên máy chủ hoặc dịch vụ trung gian của Dsmart POS. Mọi lần tạo, thu hồi khóa đều ghi nhật ký.
 
 ## Khi Dsmart POS gặp sự cố
 
@@ -65,14 +65,14 @@ Trang **Đơn Dsmart POS** (mỗi chi nhánh) hiện từng đơn và trạng th
 | Dsmart POS nhận giỏ, không báo kết quả, khách chờ | Quản lý **Nhả giỏ** ở Đơn Dsmart POS (ghi lý do) |
 | Dsmart POS ngừng hoạt động lâu | Chuyển chi nhánh về **Tự thu trong BRG** (Chi nhánh và tính năng). Cần hết giỏ chờ thu: xử lý hoặc nhả các giỏ còn lại trước. Thu ngân dùng app nhân viên của BRG như quy trình thủ công. Khi Dsmart POS ổn, chuyển lại |
 | Dsmart POS báo thanh toán cho đơn đã bị nhả giỏ | BRG từ chối. Đối soát tay: kiểm tra khách đã nhận hàng chưa, xử lý với thu ngân và Dsmart POS |
-| Nhà cung cấp Dsmart POS đổi hệ thống | Tạo khoá mới, thử lại bằng Giả lập Dsmart POS trước khi bật |
+| Nhà cung cấp Dsmart POS đổi hệ thống | Tạo khóa mới, thử lại bằng Giả lập Dsmart POS trước khi bật |
 
-> **Lưu ý:** Ở chế độ Dsmart POS, BRG tin thông báo của Dsmart POS có khoá hợp lệ. Vì vậy **đối soát mỗi ngày giữa đơn BRG và báo cáo Dsmart POS** và bảo mật khoá API là hai việc kiểm soát quan trọng nhất.
+> **Lưu ý:** Ở chế độ Dsmart POS, BRG tin thông báo của Dsmart POS có khóa hợp lệ. Vì vậy **đối soát mỗi ngày giữa đơn BRG và báo cáo Dsmart POS** và bảo mật khóa API là hai việc kiểm soát quan trọng nhất.
 
 ## Danh sách kiểm tra trước khi bật cho khách thật
 
 - [ ] Nhà cung cấp Dsmart POS đã thử đủ tình huống ở bản thử và được xác nhận
-- [ ] Khoá API riêng cho chi nhánh, đã gửi qua kênh an toàn, không nằm trong ứng dụng ở thiết bị người dùng
+- [ ] Khóa API riêng cho chi nhánh, đã gửi qua kênh an toàn, không nằm trong ứng dụng ở thiết bị người dùng
 - [ ] Máy chủ BRG dùng HTTPS hợp lệ (Dsmart POS gọi qua Internet)
 - [ ] Quản lý chi nhánh biết cách **Nhả giỏ** và biết số liên hệ của nhà cung cấp Dsmart POS
 - [ ] Đã quyết cách đối soát hằng ngày giữa BRG và Dsmart POS và người phụ trách

@@ -58,7 +58,7 @@ test('khách khác không đọc được phiên của mình', async () => {
   await app.close();
 });
 
-test('luồng đầy đủ: khoá giỏ, thu tiền mặt, QR biên nhận, qua cổng, QR chỉ dùng một lần', async () => {
+test('luồng đầy đủ: khóa giỏ, thu tiền mặt, QR biên nhận, qua cổng, QR chỉ dùng một lần', async () => {
   const app = await makeApp();
   const { id } = await newCart(app, [['SUA01', 2], ['DAU01', 1]]);
   const lock = await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash' } });
@@ -128,7 +128,7 @@ test('chuyển khoản QR: có payload VietQR, phải tick đủ 3 điều kiệ
   await app.close();
 });
 
-test('giá đổi giữa lúc quét và khoá giỏ: phải báo và khách đồng ý; tồn kho đổi thì không ảnh hưởng', async () => {
+test('giá đổi giữa lúc quét và khóa giỏ: phải báo và khách đồng ý; tồn kho đổi thì không ảnh hưởng', async () => {
   const app = await makeApp();
   const { id } = await newCart(app, [['TRU01', 1], ['NUOC01', 2]]);
   app.ctx.db.prepare(`UPDATE pos_products SET price = 41000 WHERE store_id='Q7' AND sku='TRU01'`).run();
@@ -144,7 +144,7 @@ test('giá đổi giữa lúc quét và khoá giỏ: phải báo và khách đ�
   await app.close();
 });
 
-test('sửa giỏ sau khi khoá bị chặn; mở khoá thì sửa được', async () => {
+test('sửa giỏ sau khi khóa bị chặn; mở khóa thì sửa được', async () => {
   const app = await makeApp();
   const { id } = await newCart(app, [['MI01', 1]]);
   await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash' } });
@@ -208,7 +208,7 @@ test('kiểm tra ngẫu nhiên: gọi quản lý, giữ khách; quản lý duy�
   await app.close();
 });
 
-test('huỷ giao dịch đã thu: chỉ quản lý, cần lý do, QR trở nên vô hiệu', async () => {
+test('hủy giao dịch đã thu: chỉ quản lý, cần lý do, QR trở nên vô hiệu', async () => {
   const app = await makeApp();
   const { id } = await newCart(app, [['MI01', 1]]);
   const tx = (await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash' } })).body.transaction;
@@ -249,7 +249,7 @@ test('chi nhánh chưa bật không tạo được phiên', async () => {
   await app.close();
 });
 
-test('hoá đơn công ty: kiểm tra mã số thuế và email, thay hoá đơn bán lẻ', async () => {
+test('hóa đơn công ty: kiểm tra mã số thuế và email, thay hóa đơn bán lẻ', async () => {
   const app = await makeApp();
   const { id } = await newCart(app, [['DAU01', 1]]);
   const tx = (await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash' } })).body.transaction;
@@ -266,7 +266,7 @@ test('hoá đơn công ty: kiểm tra mã số thuế và email, thay hoá đơn
   await app.close();
 });
 
-test('hoá đơn lỗi thì để pending và thử lại được', async () => {
+test('hóa đơn lỗi thì để pending và thử lại được', async () => {
   const app = await makeApp();
   const { setSetting } = await import('../server/db.js');
   setSetting(app.ctx.db, 'einvoice', { failNext: true });
@@ -275,13 +275,13 @@ test('hoá đơn lỗi thì để pending và thử lại được', async () =>
   const staff = await staffLogin(app);
   await call(app, 'POST', '/api/s/shifts/start', { token: staff, body: { kind: 'sang' } });
   const c = await call(app, 'POST', `/api/s/carts/${tx.id}/collect`, { token: staff, body: { method: 'cash', cashReceived: 100000 } });
-  assert.equal(c.status, 200, 'thu tiền vẫn thành công dù hoá đơn lỗi');
+  assert.equal(c.status, 200, 'thu tiền vẫn thành công dù hóa đơn lỗi');
   assert.equal(c.body.transaction.invoice.status, 'pending');
   const admin = (await call(app, 'POST', '/api/a/login', { body: { account: 'QT0001', password: 'Admin@123' } })).body.token;
-  // Hoá đơn vừa treo (chưa quá 30 giây) chưa bị thử lại, tránh chen vào hoá đơn đang xuất.
+  // Hóa đơn vừa treo (chưa quá 30 giây) chưa bị thử lại, tránh chen vào hóa đơn đang xuất.
   assert.equal((await call(app, 'POST', '/api/a/integrations/invoices/retry', { token: admin })).body.tried, 0);
   app.ctx.db.prepare(`UPDATE invoices SET created_at = '2020-01-01T00:00:00.000Z'`).run();
-  // Hai lần thử lại chạy cùng lúc: hoá đơn chỉ được xuất một lần.
+  // Hai lần thử lại chạy cùng lúc: hóa đơn chỉ được xuất một lần.
   const { retryPendingInvoices } = await import('../server/services/invoice.js');
   const [x, y] = await Promise.all([retryPendingInvoices(app.ctx.db, app.ctx.invoicer), retryPendingInvoices(app.ctx.db, app.ctx.invoicer)]);
   assert.equal(x.issued + y.issued, 1);
@@ -335,14 +335,14 @@ test('quản lý từ chối: giao dịch ở trạng thái denied, cổng báo 
   await app.close();
 });
 
-test('khách mất bộ nhớ trang: cookie do máy chủ đặt vẫn tìm lại được giỏ đã khoá', async () => {
+test('khách mất bộ nhớ trang: cookie do máy chủ đặt vẫn tìm lại được giỏ đã khóa', async () => {
   const app = await makeApp();
   const { id } = await newCart(app, [['SUA01', 1]]);
   const lock = await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash' } });
   assert.equal(lock.status, 200);
   const cookie = /brgd=([A-Za-z0-9_-]+)/.exec(lock.raw.headers['set-cookie'])[1];
   assert.equal(cookie, DEVICE);
-  // localStorage bị xoá: trình duyệt sinh mã thiết bị mới nhưng vẫn gửi cookie
+  // localStorage bị xóa: trình duyệt sinh mã thiết bị mới nhưng vẫn gửi cookie
   const r = await app.inject({ method: 'POST', url: '/api/c/sessions', payload: { storeId: 'Q7' }, headers: { 'x-device-id': 'newdevice-1234567890abcdef', cookie: `brgd=${cookie}` } });
   const b = JSON.parse(r.body);
   assert.equal(b.session.id, id);

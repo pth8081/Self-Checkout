@@ -29,7 +29,7 @@ Ghi chú: ở giai đoạn 1 quầy vẫn có người (thu tiền và kiểm tr
 4. Multi-tenant cho toàn chuỗi ngay từ đầu; bật/tắt theo cờ tính năng từng chi nhánh, và từng cách thanh toán.
 5. Tích hợp Dsmart POS/ERP: đọc giá, tồn kho (đã có API cập nhật gần real-time).
 6. Thanh toán **tiền mặt** và **chuyển khoản QR** do nhân viên xác nhận.
-7. Hoá đơn điện tử tự động.
+7. Hóa đơn điện tử tự động.
 8. Kiểm soát cổng ra bằng QR biên nhận + kiểm tra ngẫu nhiên thủ công.
 
 **Chuẩn bị sẵn nhưng chưa bật**

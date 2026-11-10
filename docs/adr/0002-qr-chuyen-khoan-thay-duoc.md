@@ -9,7 +9,7 @@ Khách muốn mỗi giao dịch có một mã QR chuyển khoản riêng. Khách
 
 ## Phương án
 1. **App tự dựng QR chuyển khoản** (chuẩn VietQR/Napas) từ ngân hàng, số tài khoản, số tiền, nội dung. Không cần tích hợp. Không tự biết khi khách đã trả: nhân viên xác nhận.
-2. **Lấy QR từ nhà cung cấp** qua API (ví dụ VNPay hoặc đơn vị đọc biến động số dư). Tự biết khi khách đã trả nhờ thông báo từ nhà cung cấp. Cần đăng ký, khoá bí mật, môi trường thử.
+2. **Lấy QR từ nhà cung cấp** qua API (ví dụ VNPay hoặc đơn vị đọc biến động số dư). Tự biết khi khách đã trả nhờ thông báo từ nhà cung cấp. Cần đăng ký, khóa bí mật, môi trường thử.
 
 ## Quyết định
 Cài đặt cả hai sau một giao diện chung `QrProvider.createQr(transaction)`: `SelfQr` (dùng ở GĐ1) và `ProviderQr` (GĐ1.5/GĐ2). Chọn bằng `StoreConfig.qrProvider` theo từng chi nhánh (màn A03). Nội dung chuyển khoản luôn chứa mã giao dịch duy nhất. Giao diện khách (M17) và luồng ra cổng không đổi.

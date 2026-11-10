@@ -17,6 +17,6 @@ Chọn phương án 2. Khách tự quét hàng, đến quầy Scan & Checkout đ
 
 ## Hệ quả
 - Quầy vẫn có người; thời gian chờ giảm vì không phải quét từng mặt hàng (G1), nhưng giảm thu ngân (G2) chỉ rõ khi có thanh toán tự động.
-- Xác nhận thủ công là điểm yếu: bắt buộc ghi người/cách/thời điểm, không sửa/xoá, đối soát tiền mặt theo ca và chuyển khoản với sao kê (NFR-16, R11, G-15).
+- Xác nhận thủ công là điểm yếu: bắt buộc ghi người/cách/thời điểm, không sửa/xóa, đối soát tiền mặt theo ca và chuyển khoản với sao kê (NFR-16, R11, G-15).
 - Cần màn hình nhân viên (N01–N14) ngay từ GĐ1.
 - Bật thanh toán online sau này bằng cờ, không phải làm lại luồng (ADR-0002).

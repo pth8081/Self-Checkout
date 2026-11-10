@@ -8,7 +8,7 @@ access: all
 
 # Thu ngân và ca làm việc
 
-> **Luồng hiện hành là "Giỏ QR cho Dsmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR ngắn (mã điểm và mã giỏ); thu ngân quét mã vào Dsmart POS, Dsmart POS lấy danh sách mặt hàng bằng API, tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho Dsmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối Dsmart POS".
+> **Luồng hiện hành là "Giỏ QR cho Dsmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR ngắn (mã điểm và mã giỏ); thu ngân quét mã vào Dsmart POS, Dsmart POS lấy danh sách mặt hàng bằng API, tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khóa và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho Dsmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối Dsmart POS".
 
 > **Lưu ý:** Hướng dẫn này cho chi nhánh **tự thu trong BRG**. Ở chi nhánh **thu tiền qua Dsmart POS**, thu ngân làm việc hoàn toàn trên Dsmart POS: quét mã giỏ trong Dsmart POS, thu tiền, và hệ thống tự xác nhận. Các chức năng thu tiền trong app nhân viên (quét mã giỏ, hàng đợi, thu tiền mặt, xác nhận chuyển khoản, thu bổ sung, đối soát tiền mặt cuối ca) được **ẩn**; tiền mặt do Dsmart POS đối soát theo ca của Dsmart POS.
 
@@ -55,21 +55,21 @@ g --> h
 
 | Việc | Cách làm | Hệ quả |
 |------|---------|--------|
-| Khách đổi ý, không mua nữa | **Huỷ giỏ hàng** kèm lý do | Giỏ mở lại trên điện thoại khách để sửa hoặc trả lại |
+| Khách đổi ý, không mua nữa | **Hủy giỏ hàng** kèm lý do | Giỏ mở lại trên điện thoại khách để sửa hoặc trả lại |
 | Thu khoản bổ sung | Tìm lại giỏ, màn **Thu bổ sung** | Cộng vào tiền của ca |
 | Giỏ bị giữ chờ quản lý | Không thu được | Chờ quản lý quyết định |
 
-> **Lưu ý:** Thu ngân **không** huỷ được giao dịch đã thu tiền. Việc đó chỉ quản lý làm được, bắt buộc có lý do.
+> **Lưu ý:** Thu ngân **không** hủy được giao dịch đã thu tiền. Việc đó chỉ quản lý làm được, bắt buộc có lý do.
 
 ## Kết thúc ca và đối soát tiền mặt
 
 1. Bấm **Đối soát và kết thúc ca**.
 2. Đếm **tiền mặt thực tế** trong két thuộc ca của mình, nhập vào.
-3. Hệ thống so với **tiền mặt hệ thống** (tổng các khoản đã thu bằng tiền mặt trong ca, không tính khoản đã bị huỷ).
+3. Hệ thống so với **tiền mặt hệ thống** (tổng các khoản đã thu bằng tiền mặt trong ca, không tính khoản đã bị hủy).
 4. Nếu **lệch**, bắt buộc **ghi lý do** mới kết thúc được ca. Ca lệch hiện ở mục Đối soát của quản lý.
 5. Bàn giao tiền theo quy định nội bộ của chi nhánh.
 
-Tiền **chuyển khoản không đếm** ở bước này. Chuyển khoản được quản lý đối chiếu với sao kê ngân hàng (xem "Quản lý, đối soát và huỷ giao dịch").
+Tiền **chuyển khoản không đếm** ở bước này. Chuyển khoản được quản lý đối chiếu với sao kê ngân hàng (xem "Quản lý, đối soát và hủy giao dịch").
 
 > **Cần xác nhận:** Chưa có quy định ngưỡng lệch chấp nhận được và ai duyệt khi lệch lớn. Xem "Điểm cần chốt".
 

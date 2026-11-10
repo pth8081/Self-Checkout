@@ -1,4 +1,4 @@
-// Giỏ QR cho POS: quét, bấm thanh toán, QR chứa mặt hàng; mất mạng, tắt tab, xoá bộ nhớ trang đều không mất mã.
+// Giỏ QR cho POS: quét, bấm thanh toán, QR chứa mặt hàng; mất mạng, tắt tab, xóa bộ nhớ trang đều không mất mã.
 const {chromium}=require('playwright');
 const BASE=process.env.BASE||'http://localhost:3400';const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function api(method,url,body,headers={}){const r=await fetch(BASE+url,{method,headers:{'content-type':'application/json',...headers},body:body?JSON.stringify(body):undefined});return {status:r.status,body:await r.json().catch(()=>null)};}
@@ -46,9 +46,9 @@ const smtp=net.createServer(sock=>{let data=false,buf='';sock.write('220 sink ES
  // 2. đóng tab, mở lại
  await p.close();p=await ctx.newPage();await p.goto(BASE+'/c/?s=Q7');await sleep(1500);
  ok('đóng tab, mở lại: về màn QR',await p.isVisible('.qrbox'));
- // 3. xoá bộ nhớ trang (cookie còn) -> máy chủ trả lại QR
+ // 3. xóa bộ nhớ trang (cookie còn) -> máy chủ trả lại QR
  await p.evaluate(()=>localStorage.clear());await p.close();p=await ctx.newPage();await p.goto(BASE+'/c/?s=Q7');await sleep(1800);
- ok('xoá localStorage: QR khôi phục từ máy chủ',await p.isVisible('.qrbox'));
+ ok('xóa localStorage: QR khôi phục từ máy chủ',await p.isVisible('.qrbox'));
  ok('QR khôi phục giống bản đầu',(await qrText(p))===qr);
  // 4. sửa giỏ rồi thanh toán lại: mã giỏ mới
  await p.click('button:has-text("Tiếp tục mua sắm")');await sleep(400);ok('có hộp xác nhận trước khi rời mã QR',await p.isVisible('text=Mã QR hiện tại sẽ không còn dùng được'));await p.click('.sheet button.primary, [role=dialog] button.primary');await p.waitForURL(/#\/scan/);ok('về màn quét, giỏ còn nguyên',true);await p.evaluate(()=>{location.hash='#/cart'});await sleep(600);
@@ -65,8 +65,8 @@ const smtp=net.createServer(sock=>{let data=false,buf='';sock.write('220 sink ES
  ok('POS báo thanh toán thành công',paid.status===200);
  await p.waitForSelector('text=Đã hoàn thành thanh toán',{timeout:15000}).catch(()=>{});
  ok('khách thấy "Đã hoàn thành thanh toán"',await p.isVisible('text=Đã hoàn thành thanh toán'));
- const lk=await p.getAttribute('a:has-text("Xem hoá đơn điện tử")','href');
- ok('nút Xem hoá đơn điện tử mở đúng link Dsmart POS gửi',lk==='https://hoadon.dsmart.vn/tra-cuu/E2E123');
+ const lk=await p.getAttribute('a:has-text("Xem hóa đơn điện tử")','href');
+ ok('nút Xem hóa đơn điện tử mở đúng link Dsmart POS gửi',lk==='https://hoadon.dsmart.vn/tra-cuu/E2E123');
  const lt=await p.getAttribute('a:has-text("Xem chi tiết giao dịch")','href');
  ok('nút Xem chi tiết giao dịch mở đúng link Dsmart POS gửi',lt==='https://dsmart.vn/gd/POS-E2E-1');
  for(let i=0;i<20&&mails.length<2;i++)await sleep(500);
@@ -76,9 +76,9 @@ const smtp=net.createServer(sock=>{let data=false,buf='';sock.write('220 sink ES
  ok('email có link xem bill',!!linkM);
  if(linkM){const c2=await b.newContext({viewport:{width:390,height:800}});const q=await c2.newPage();await q.goto(linkM[1]);await sleep(1800);
   ok('mở link bill từ email (máy lạ, không đăng nhập)',(await q.innerText('body')).includes('Sữa tươi 1L'));await c2.close();}
- ok('email có link hoá đơn điện tử',(mails[1]||'').replace(/=\r\n/g,'').replace(/=3D/g,'=').includes('hoadon.dsmart.vn/tra-cuu/E2E123'));
+ ok('email có link hóa đơn điện tử',(mails[1]||'').replace(/=\r\n/g,'').replace(/=3D/g,'=').includes('hoadon.dsmart.vn/tra-cuu/E2E123'));
  await p.click('text=Xem bill');await p.waitForURL(/#\/bill\//);await sleep(800);
- ok('bill có nút Xem hoá đơn điện tử',await p.isVisible('a:has-text("Xem hoá đơn điện tử")'));
+ ok('bill có nút Xem hóa đơn điện tử',await p.isVisible('a:has-text("Xem hóa đơn điện tử")'));
  ok('bill hiện dòng và tổng',(await p.innerText('body')).includes('Sữa tươi 1L')&&(await p.innerText('body')).includes('Bill từ máy tính tiền'));
  const [dl]=await Promise.all([p.waitForEvent('download',{timeout:8000}).catch(()=>null),p.click('text=Tải bill PDF')]);
  ok('tải được bill PDF',!!dl&&/\.pdf$/.test(dl.suggestedFilename()));
@@ -86,7 +86,7 @@ const smtp=net.createServer(sock=>{let data=false,buf='';sock.write('220 sink ES
  // 6. xong
  await p.click('.bar-bottom >> text=Xong');await sleep(900);
  ok('xong: về trang đầu',!(await p.isVisible('.qrbox')));
- // 7. mất mạng lúc bấm Thanh toán: hiện mã đầy đủ (có danh sách hàng) làm dự phòng, có mạng lại thì chuyển sang mã ngắn
+ // 7. mất mạng lúc bấm Thanh toán: chưa có mã QR (cần mạng để gửi giỏ lên), báo rõ; có mạng lại thì mã ngắn tự hiện
  const ctx2=await b.newContext({viewport:{width:390,height:800},permissions:['camera']});const p2=await ctx2.newPage();
  p2.on('pageerror',e=>errs.push('PAGEERR '+e.message));
  await p2.goto(BASE+'/c/?s=Q7');await p2.evaluate(()=>navigator.serviceWorker.ready);await p2.reload();await sleep(800);
@@ -97,11 +97,10 @@ const smtp=net.createServer(sock=>{let data=false,buf='';sock.write('220 sink ES
  await p2.reload();await sleep(900);await p2.evaluate(()=>{location.hash='#/cart'});await sleep(500);
  await ctx2.setOffline(true);await sleep(300);
  await p2.click('.bar-bottom .btn.primary');await p2.waitForURL(/#\/basket/);await sleep(1200);
- const full=await p2.evaluate(()=>JSON.parse(localStorage.getItem('brg.c.v1')).basket.qr);
- ok('mất mạng lúc thanh toán: mã đầy đủ làm dự phòng',full.startsWith('BRG1|SP-0107|Q7-')&&full.includes(P('Mì').barcode+'*1')&&await p2.isVisible('.qrbox canvas, .qrbox svg, .qrbox img'));
+ ok('mất mạng lúc thanh toán: báo cần có mạng, chưa hiện mã QR',await p2.isVisible('text=Cần có mạng để tạo mã QR thanh toán')&&!(await p2.isVisible('.qrbox .qr svg')));
  await ctx2.setOffline(false);await sleep(8000);
  const short=await p2.evaluate(()=>JSON.parse(localStorage.getItem('brg.c.v1')).basket.qrShort);
- ok('có mạng lại: chuyển sang mã ngắn chuẩn',!!short&&short.startsWith('BRG2|SP-0107|Q7-'));
+ ok('có mạng lại: mã QR ngắn tự hiện',!!short&&short.startsWith('BRG2|SP-0107|Q7-')&&await p2.isVisible('.qrbox .qr svg'));
  ok('không lỗi JS',errs.length===0);if(errs.length)console.log(errs);
  await b.close();
  console.log(fails.length?'FAILS: '+JSON.stringify(fails):'FAILS: []');process.exit(fails.length?1:0);

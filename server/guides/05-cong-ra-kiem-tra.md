@@ -8,7 +8,7 @@ access: all
 
 # Cổng ra và kiểm tra ngẫu nhiên
 
-> **Luồng hiện hành là "Giỏ QR cho Dsmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR ngắn (mã điểm và mã giỏ); thu ngân quét mã vào Dsmart POS, Dsmart POS lấy danh sách mặt hàng bằng API, tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khoá và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho Dsmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối Dsmart POS".
+> **Luồng hiện hành là "Giỏ QR cho Dsmart POS"** (bật sẵn cho mọi chi nhánh): khách quét mặt hàng, bấm Thanh toán, điện thoại hiện mã QR ngắn (mã điểm và mã giỏ); thu ngân quét mã vào Dsmart POS, Dsmart POS lấy danh sách mặt hàng bằng API, tạo đơn, tính tiền và báo thanh toán về BRG. Không còn bước thu tiền trong BRG, cổng ra và kiểm tra ngẫu nhiên. Nội dung dưới đây mô tả **luồng cũ**, hiện bị khóa và chỉ dùng khi quản trị chuỗi tắt công tắc "Giỏ QR cho Dsmart POS" ở trang Chi nhánh. Xem thêm bài "Kết nối Dsmart POS".
 
 Nhân viên cổng ra dùng **app nhân viên** (điện thoại hoặc máy cầm tay). Mục đích: chỉ cho qua người **đã thanh toán**, mỗi QR **một lần**, và kiểm tra hàng thật với một tỷ lệ khách do hệ thống chọn.
 
@@ -43,7 +43,7 @@ b -- Bị giữ --> g
 | **Không cho qua** (đã dùng) | Đỏ | QR này đã được quét, hiện giờ và người quét | Không cho qua, gọi quản lý. Có thể QR bị chụp lại |
 | **Không cho qua** (chưa thanh toán) | Đỏ | Mã chưa được thu tiền | Mời khách về quầy thanh toán |
 | **Không cho qua** (hết hạn) | Đỏ | QR quá hạn hiệu lực | Gọi quản lý |
-| **Không cho qua** (không hợp lệ) | Đỏ | Mã sai, bị sửa, đã bị huỷ, hoặc không thuộc chi nhánh này | Không cho qua, gọi quản lý |
+| **Không cho qua** (không hợp lệ) | Đỏ | Mã sai, bị sửa, đã bị hủy, hoặc không thuộc chi nhánh này | Không cho qua, gọi quản lý |
 | **Không phải biên nhận** | Đỏ | Khách đưa nhầm **mã giỏ hàng** (`GH-...`) thay vì QR biên nhận | Hướng dẫn khách mở màn "Mã ra cổng" sau khi đã thanh toán |
 | **Không cho qua** (quản lý từ chối) | Đỏ | Quản lý đã từ chối cho qua | Mời khách gặp quản lý |
 
@@ -51,7 +51,7 @@ b -- Bị giữ --> g
 
 ## Cách hệ thống chọn khách để kiểm tra
 
-Quyết định được đưa ra **khi khách khoá giỏ**, bởi hệ thống, không phải nhân viên:
+Quyết định được đưa ra **khi khách khóa giỏ**, bởi hệ thống, không phải nhân viên:
 
 - Mỗi chi nhánh có **tỷ lệ kiểm tra mặc định** (mẫu: 10%, tức khoảng 1 trong 10 khách).
 - Nếu khách **dùng lần đầu** trên thiết bị này, tỷ lệ nâng lên mức riêng (mẫu: 20%).
@@ -59,7 +59,7 @@ Quyết định được đưa ra **khi khách khoá giỏ**, bởi hệ thống
 - Khi nhiều điều kiện cùng đúng, áp dụng **mức cao nhất**, không cộng dồn.
 - Quản lý chi nhánh đặt các tỷ lệ này ở mục **Kiểm tra ngẫu nhiên** của web quản trị.
 
-> **Lưu ý:** Nên bắt đầu với tỷ lệ cao khi thí điểm rồi giảm dần theo số liệu chênh lệch thực tế (xem "Quản lý, đối soát và huỷ giao dịch").
+> **Lưu ý:** Nên bắt đầu với tỷ lệ cao khi thí điểm rồi giảm dần theo số liệu chênh lệch thực tế (xem "Quản lý, đối soát và hủy giao dịch").
 
 ## Quy trình kiểm tra
 

@@ -56,7 +56,7 @@ function Login({ onLogin, notice }) {
     } catch (x) {
       if (x.code === 'TOTP_REQUIRED') { setNeedTotp(true); setErr(''); }
       else if (x.code === 'BAD_TOTP') { setErr(x.message); setTotp(''); }
-      else if (x.code === 'LOCKED') setErr(x.message || 'Tài khoản bị khoá tạm vì nhập sai nhiều lần. Hãy thử lại sau ít phút.');
+      else if (x.code === 'LOCKED') setErr(x.message || 'Tài khoản bị khóa tạm vì nhập sai nhiều lần. Hãy thử lại sau ít phút.');
       else if (x.code === 'BAD_LOGIN') { setErr(x.message || 'Tài khoản hoặc mật khẩu chưa đúng'); setNeedTotp(false); }
       else setErr(x.message);
     } finally { setBusy(false); }
@@ -70,7 +70,7 @@ function Login({ onLogin, notice }) {
     ${err && html`<div class="banner err" role="alert"><${Icon} name="alert"/><div class="grow">${err}</div></div>`}
     <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : needTotp ? 'Xác nhận' : 'Đăng nhập'}</button>
     ${needTotp && html`<button class="btn txt" type="button" onClick=${() => { setNeedTotp(false); setTotp(''); setErr(''); }}>Quay lại</button>`}
-    <div class="hint">Sai nhiều lần liên tiếp sẽ bị khoá tạm. Mọi lần đăng nhập đều được ghi lại.</div>
+    <div class="hint">Sai nhiều lần liên tiếp sẽ bị khóa tạm. Mọi lần đăng nhập đều được ghi lại.</div>
   </form></div>`;
 }
 

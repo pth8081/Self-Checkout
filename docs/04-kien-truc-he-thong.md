@@ -18,21 +18,21 @@ flowchart LR
     BE <--> POS[(POS/ERP<br/>giá, tồn kho)]
     BE --> PM[Module thanh toán<br/>tiền mặt · chuyển khoản · online]
     PM -. GĐ2 .-> PAY[Cổng thanh toán / nhà cung cấp QR]
-    BE --> EINV[Hoá đơn điện tử]
+    BE --> EINV[Hóa đơn điện tử]
     BE --> DB[(CSDL + audit log)]
 ```
 
-Tích hợp: **Dsmart POS/ERP**, **hoá đơn điện tử**, và (GĐ2) **cổng thanh toán**. Ở GĐ1 không có tích hợp thanh toán bên ngoài: xác nhận thu tiền do nhân viên thực hiện qua PWA nhân viên. Thiết bị cổng ra cũng chính là PWA nhân viên.
+Tích hợp: **Dsmart POS/ERP**, **hóa đơn điện tử**, và (GĐ2) **cổng thanh toán**. Ở GĐ1 không có tích hợp thanh toán bên ngoài: xác nhận thu tiền do nhân viên thực hiện qua PWA nhân viên. Thiết bị cổng ra cũng chính là PWA nhân viên.
 
 ## 2. Các khối (khung — TODO chọn công nghệ qua ADR)
 
 | Khối | Trách nhiệm | Ghi chú |
 |------|-------------|---------|
 | API Gateway / BFF | Xác thực, giới hạn tốc độ, định tuyến `storeId` | |
-| Dịch vụ phiên & giỏ | `ScanSession`, `CartItem`, khoá giỏ | Idempotent theo `clientEventId` để đồng bộ offline |
-| Dịch vụ sản phẩm | Tra `ProductCache`, đồng bộ Dsmart POS | Hai chế độ: real-time / định kỳ; kiểm tra lại giá khi khoá giỏ (FR-CUS-10) |
+| Dịch vụ phiên & giỏ | `ScanSession`, `CartItem`, khóa giỏ | Idempotent theo `clientEventId` để đồng bộ offline |
+| Dịch vụ sản phẩm | Tra `ProductCache`, đồng bộ Dsmart POS | Hai chế độ: real-time / định kỳ; kiểm tra lại giá khi khóa giỏ (FR-CUS-10) |
 | **Module thanh toán** | Tạo giao dịch, chọn cách trả theo cờ chi nhánh, xác nhận thu | Xem mục 3 |
-| Dịch vụ hoá đơn | Xuất & lưu liên kết hoá đơn | Có hàng đợi, thử lại |
+| Dịch vụ hóa đơn | Xuất & lưu liên kết hóa đơn | Có hàng đợi, thử lại |
 | Dịch vụ cổng ra | Sinh/xác nhận QR biên nhận, bốc mẫu kiểm tra | |
 | Quản trị & báo cáo | Cờ tính năng, báo cáo, phân quyền, đối soát | |
 | Audit | Ghi bất biến mọi sự kiện | Thời gian lưu: Q-06 |
@@ -63,8 +63,8 @@ Quy tắc chung cho cả hai cách tạo QR: nội dung chuyển khoản chứa 
 
 1. **Đồng bộ giá/tồn kho:** Dsmart POS → `ProductCache` (xem [07](07-tich-hop-chong-that-thoat.md) mục 1).
 2. **Quét:** client gửi `barcode` → backend trả sản phẩm + giá tại thời điểm quét → ghi `CartItem`.
-3. **Khoá giỏ:** kiểm tra lại giá/tồn kho với dữ liệu Dsmart POS; nếu khác thì báo khách đồng ý (M15); sinh mã giỏ hàng.
-4. **Thu tiền (GĐ1):** nhân viên quét mã giỏ hàng → chọn cách thu → xác nhận → ghi `Payment` → phát QR biên nhận → xuất hoá đơn.
+3. **Khóa giỏ:** kiểm tra lại giá/tồn kho với dữ liệu Dsmart POS; nếu khác thì báo khách đồng ý (M15); sinh mã giỏ hàng.
+4. **Thu tiền (GĐ1):** nhân viên quét mã giỏ hàng → chọn cách thu → xác nhận → ghi `Payment` → phát QR biên nhận → xuất hóa đơn.
 5. **Cổng ra:** quét QR → xác nhận trạng thái, đánh dấu đã dùng → (ngẫu nhiên) kiểm tra → ghi `ExitCheck`.
 
 ## 6. Điểm lỗi & hành vi mong muốn
@@ -72,10 +72,10 @@ Quy tắc chung cho cả hai cách tạo QR: nội dung chuyển khoản chứa 
 | Sự cố | Hành vi |
 |-------|---------|
 | Dsmart POS mất kết nối | Dùng `ProductCache`; cảnh báo nếu quá ngưỡng lệch (Q-12); banner ở A01 |
-| Giá/tồn kho đổi giữa lúc quét và lúc khoá giỏ | Hiện M15, khách đồng ý rồi mới tiếp tục |
+| Giá/tồn kho đổi giữa lúc quét và lúc khóa giỏ | Hiện M15, khách đồng ý rồi mới tiếp tục |
 | Khách chuyển khoản sai số tiền hoặc sai nội dung | Nhân viên không tick đủ ba ô, không xác nhận; xử lý tại quầy |
-| Nhân viên bấm nhầm xác nhận | TODO: quy trình huỷ có quyền quản lý và để lại dấu vết |
-| Hoá đơn điện tử lỗi | Vẫn cho ra cổng (đã thu tiền); xuất bù qua hàng đợi |
+| Nhân viên bấm nhầm xác nhận | TODO: quy trình hủy có quyền quản lý và để lại dấu vết |
+| Hóa đơn điện tử lỗi | Vẫn cho ra cổng (đã thu tiền); xuất bù qua hàng đợi |
 | Khách mất mạng sau khi thu tiền | QR đã lưu cục bộ (PWA-06) |
 | Thiết bị quầy/cổng mất mạng | Đề xuất GĐ1: cần mạng (xem D-05, G-09) |
 | GĐ2: thông báo thanh toán chậm hoặc mất | Trạng thái "đang chờ", truy vấn chủ động, không phát QR khi chưa chắc |

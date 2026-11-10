@@ -8,12 +8,12 @@ Phần này tách khỏi [api-pos](api-pos.md) (Dsmart POS gọi vào BRG Scan &
 
 - Giá luôn tra theo cặp **(chi nhánh, mã vạch)**. Cùng mã vạch ở hai chi nhánh có thể khác giá.
 - Giá BRG Scan & Checkout hiện cho khách và giá Dsmart POS thu **nên cùng một nguồn**. Khi đó giá khớp, không cần Dsmart POS tính lại; Dsmart POS chỉ cần dựng đơn từ danh sách BRG Scan & Checkout gửi và thu đúng số tiền đó.
-- BRG Scan & Checkout tra giá hai lần: lúc khách quét, và lúc khách khoá giỏ (để phát hiện giá vừa đổi). Vì vậy API cần trả lời nhanh.
+- BRG Scan & Checkout tra giá hai lần: lúc khách quét, và lúc khách khóa giỏ (để phát hiện giá vừa đổi). Vì vậy API cần trả lời nhanh.
 - BRG Scan & Checkout không dùng tồn kho (Dsmart POS tự xử lý). Trường tồn kho có hay không đều được.
 
 ## 2. Hai lệnh cần có
 
-### 2.1 Tra theo mã vạch (dùng khi khách quét, và khi khoá giỏ)
+### 2.1 Tra theo mã vạch (dùng khi khách quét, và khi khóa giỏ)
 
 `POST /products/lookup`
 
@@ -88,7 +88,7 @@ Mỗi chi nhánh trong BRG Scan & Checkout có **mã điểm**: mã của siêu 
 
 ## 3. Yêu cầu chung
 
-- Xác thực bằng khoá API trong header (BRG Scan & Checkout cấp chỗ để lưu khoá), HTTPS.
+- Xác thực bằng khóa API trong header (BRG Scan & Checkout cấp chỗ để lưu khóa), HTTPS.
 - Thời gian trả lời lúc tra mã vạch: dưới 300 ms cho tới 10 mã vạch một lần.
 - Giới hạn gọi: BRG Scan & Checkout gọi đồng bộ mỗi phút cho từng chi nhánh và tra từng mã khi khách quét. Cho biết giới hạn của bạn để BRG Scan & Checkout điều chỉnh.
 - `asOf` cho biết dữ liệu tính tới lúc nào.
@@ -106,4 +106,4 @@ Mỗi chi nhánh trong BRG Scan & Checkout có **mã điểm**: mã của siêu 
 
 ## 5. Phía BRG Scan & Checkout sẽ làm khi có API
 
-Viết adapter thay cho bản giả lập (`server/services/pos.js`), theo giao diện trong [11](11-ung-dung.md) mục 3: `sync`, `lookup`, `current`, `lastSync`. Giỏ vẫn khoá giá lúc quét và kiểm tra lại lúc khoá giỏ; không đổi gì ở giao diện khách.
+Viết adapter thay cho bản giả lập (`server/services/pos.js`), theo giao diện trong [11](11-ung-dung.md) mục 3: `sync`, `lookup`, `current`, `lastSync`. Giỏ vẫn khóa giá lúc quét và kiểm tra lại lúc khóa giỏ; không đổi gì ở giao diện khách.

@@ -1,4 +1,4 @@
-// Xoá dữ liệu cá nhân theo yêu cầu của một khách (tìm theo email). Không xoá đơn, số tiền, dòng hàng, bill, hoàn trả:
+// Xóa dữ liệu cá nhân theo yêu cầu của một khách (tìm theo email). Không xóa đơn, số tiền, dòng hàng, bill, hoàn trả:
 // các số liệu bán hàng giữ nguyên, chỉ gỡ phần nhận dạng được người.
 import { createHash } from 'node:crypto';
 import { audit } from './audit.js';
@@ -19,7 +19,7 @@ function scope(db, email) {
   return { byEmail, devices, byDevice, sessions, invoices, codes, emails };
 }
 
-/** Xem trước: có bao nhiêu bản ghi sẽ bị xoá trắng. Không thay đổi gì. */
+/** Xem trước: có bao nhiêu bản ghi sẽ bị xóa trắng. Không thay đổi gì. */
 export function previewErase(ctx, rawEmail) {
   const email = norm(rawEmail);
   if (!EMAIL_RE.test(email)) return { error: 'Email không hợp lệ' };
@@ -27,7 +27,7 @@ export function previewErase(ctx, rawEmail) {
   return { counts: { transactions: s.byEmail.length, devices: s.devices.length, transactionsByDevice: s.byDevice.length, sessions: s.sessions, invoices: s.invoices.length, verifiedEmails: s.emails, pendingCodes: s.codes } };
 }
 
-/** Thực hiện xoá. Ghi nhật ký thao tác (chỉ lưu dấu vết băm của email, không lưu email). */
+/** Thực hiện xóa. Ghi nhật ký thao tác (chỉ lưu dấu vết băm của email, không lưu email). */
 export function eraseCustomer(ctx, rawEmail, { actor, note } = {}) {
   const { db } = ctx;
   const email = norm(rawEmail);

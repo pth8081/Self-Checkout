@@ -1,5 +1,5 @@
 // Gửi email qua máy chủ SMTP của công ty. Cấu hình do quản trị chuỗi nhập ở trang Tích hợp, lưu trong CSDL.
-// Mật khẩu SMTP được mã hoá bằng khoá dẫn xuất từ APP_SECRET và không bao giờ trả lại cho trình duyệt.
+// Mật khẩu SMTP được mã hóa bằng khóa dẫn xuất từ APP_SECRET và không bao giờ trả lại cho trình duyệt.
 import crypto from 'node:crypto';
 import nodemailer from 'nodemailer';
 import { config } from '../config.js';
@@ -35,7 +35,7 @@ export function certInfo(pem) {
     return { subject: c.subject.replace(/\n/g, ', '), issuer: c.issuer.replace(/\n/g, ', '), validTo: c.validTo, fingerprint: c.fingerprint256, selfSigned: c.subject === c.issuer, expired: new Date(c.validTo).getTime() < Date.now() };
   } catch { return null; }
 }
-export const SECURE_MODES = { ssl: 'SSL/TLS (thường cổng 465)', starttls: 'STARTTLS (thường cổng 587)', none: 'Không mã hoá (cổng 25)' };
+export const SECURE_MODES = { ssl: 'SSL/TLS (thường cổng 465)', starttls: 'STARTTLS (thường cổng 587)', none: 'Không mã hóa (cổng 25)' };
 
 /** Bản cấu hình an toàn để hiện cho quản trị (không có mật khẩu). */
 export function publicSettings(db) {

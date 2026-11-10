@@ -60,7 +60,7 @@ let ADMIN_TOKEN;
   await sw('Tiền mặt Chi nhánh Gò Vấp').click(); await p.waitForTimeout(500);
   await sw('Chuyển khoản QR Chi nhánh Gò Vấp').click(); await p.waitForTimeout(500);
   ok('khôi phục GV', (await sw('Tiền mặt Chi nhánh Gò Vấp').getAttribute('aria-checked')) === 'true');
-  ok('online khoá', await sw('Thanh toán online Chi nhánh Quận 7').isDisabled());
+  ok('online khóa', await sw('Thanh toán online Chi nhánh Quận 7').isDisabled());
   // QR cổng
   await p.locator('button:has-text("Mã QR dán cổng vào")').nth(2).click(); await p.waitForSelector('.overlay svg');
   ok('QR cổng có link', (await p.inputValue('[aria-label="Đường dẫn chi nhánh"]')) === B + '/c/?s=Q7');
@@ -88,7 +88,7 @@ let ADMIN_TOKEN;
   await p.selectOption('[aria-label="Chi nhánh thử nghiệm"]', 'Q7'); await p.waitForTimeout(500);
   await p.fill('[aria-label="Giá"]', '17000'); await p.click('text=Áp dụng & đồng bộ'); await p.waitForTimeout(700);
   ok('dev tool đổi giá', (await j('GET', '/api/a/dev/pos-products?storeId=Q7', null, { authorization: 'Bearer ' + ADMIN_TOKEN })).products.some((x) => x.price === 17000));
-  await p.click('text=Thử lại hoá đơn treo', { timeout: 1000 }).catch(() => {});
+  await p.click('text=Thử lại hóa đơn treo', { timeout: 1000 }).catch(() => {});
 
   // --- Tài khoản ---
   await go('/users');
@@ -99,8 +99,8 @@ let ADMIN_TOKEN;
   await p.fill('[aria-label="Mã PIN"]', '4321'); await p.click('.sheet button[type=submit]'); await p.waitForTimeout(700);
   ok('tạo nhân viên', (await p.textContent('main')).includes('Nhân viên Thử'));
   const row = p.locator('tr:has-text("Nhân viên Thử")');
-  await row.locator('button:has-text("Quản lý")').click(); await p.click('text=Khoá tài khoản'); await p.click('.sheet button:has-text("Khoá tài khoản")'); await p.waitForTimeout(600);
-  ok('khoá tài khoản', (await row.textContent()).includes('Đã khoá'));
+  await row.locator('button:has-text("Quản lý")').click(); await p.click('text=Khóa tài khoản'); await p.click('.sheet button:has-text("Khóa tài khoản")'); await p.waitForTimeout(600);
+  ok('khóa tài khoản', (await row.textContent()).includes('Đã khóa'));
   await row.locator('button:has-text("Quản lý")').click(); await p.click('text=Đặt lại mã PIN'); await p.fill('[aria-label="Mã PIN mới"]', '9876'); await p.click('.sheet button[type=submit]'); await p.waitForTimeout(500);
   await shot('users-d');
   // 2FA
@@ -142,10 +142,10 @@ let ADMIN_TOKEN;
   await go('/transactions'); await p.fill('#t-q', tx.code); await p.waitForTimeout(900);
   ok('tìm giao dịch', (await p.locator('tbody tr').count()) === 1);
   await p.click('tbody tr'); await p.waitForSelector('text=Dòng thời gian'); await shot('tx-detail-d');
-  await p.click('button:has-text("Huỷ giao dịch")'); await p.click('.sheet button:has-text("Huỷ giao dịch")'); await p.waitForTimeout(300);
-  ok('huỷ cần lý do', (await p.locator('.sheet .errtext').textContent()).includes('lý do'));
-  await p.fill('[aria-label="Lý do huỷ"]', 'Thu nhầm'); await p.click('.sheet button:has-text("Huỷ giao dịch")'); await p.waitForTimeout(800);
-  ok('giao dịch đã huỷ', (await p.textContent('main')).includes('Giao dịch đã bị huỷ'));
+  await p.click('button:has-text("Hủy giao dịch")'); await p.click('.sheet button:has-text("Hủy giao dịch")'); await p.waitForTimeout(300);
+  ok('hủy cần lý do', (await p.locator('.sheet .errtext').textContent()).includes('lý do'));
+  await p.fill('[aria-label="Lý do hủy"]', 'Thu nhầm'); await p.click('.sheet button:has-text("Hủy giao dịch")'); await p.waitForTimeout(800);
+  ok('giao dịch đã hủy', (await p.textContent('main')).includes('Giao dịch đã bị hủy'));
 
   // --- Ca ---
   await go('/plans'); await shot('plans-d');
@@ -176,7 +176,7 @@ let ADMIN_TOKEN;
   else ok('có mã lạ', false);
   await shot('unknown-d');
   await go('/audit'); await p.waitForTimeout(500); await shot('audit-d');
-  ok('nhật ký tiếng Việt', (await p.textContent('main')).includes('Huỷ giao dịch'));
+  ok('nhật ký tiếng Việt', (await p.textContent('main')).includes('Hủy giao dịch'));
 
   // tắt 2FA
   await go('/users');

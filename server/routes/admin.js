@@ -20,7 +20,7 @@ const PERMISSIONS = [
   { feature: 'Bật/tắt chi nhánh, tích hợp, cách thanh toán', chain_admin: true, branch_admin: false, cashier: false, gate: false },
   { feature: 'Báo cáo toàn chuỗi', chain_admin: true, branch_admin: false, cashier: false, gate: false },
   { feature: 'Báo cáo, ca, tỷ lệ kiểm tra của chi nhánh', chain_admin: true, branch_admin: true, cashier: false, gate: false },
-  { feature: 'Huỷ giao dịch, xử lý ca chờ quản lý', chain_admin: true, branch_admin: true, cashier: false, gate: false },
+  { feature: 'Hủy giao dịch, xử lý ca chờ quản lý', chain_admin: true, branch_admin: true, cashier: false, gate: false },
   { feature: 'Thu tiền', chain_admin: false, branch_admin: false, cashier: true, gate: false },
   { feature: 'Quét QR ra cổng, kiểm tra ngẫu nhiên', chain_admin: false, branch_admin: false, cashier: false, gate: true }
 ];
@@ -56,7 +56,7 @@ export default async function adminRoutes(app) {
     s.addHook('preHandler', authenticate(db, 'admin'));
 
     const chainOnly = (req) => { if (req.user.role !== 'chain_admin') throw forbidden('CHAIN_ONLY', 'Chỉ quản trị chuỗi mới thực hiện được'); };
-    /** Chi nhánh đang xem: quản trị chi nhánh bị khoá ở chi nhánh của mình. */
+    /** Chi nhánh đang xem: quản trị chi nhánh bị khóa ở chi nhánh của mình. */
     const storeOf = (req) => {
       const id = req.user.role === 'branch_admin' ? req.user.store_id : String(req.query?.storeId || req.body?.storeId || '').toUpperCase();
       if (!id) throw bad('STORE_REQUIRED', 'Chọn chi nhánh');
@@ -171,7 +171,7 @@ export default async function adminRoutes(app) {
       const b = req.body || {};
       if (b.enabled !== undefined || b.posCode !== undefined) chainOnly(req);
       const posCode = b.posCode === undefined ? st.pos_code : cleanPosCode(b.posCode, id);
-      if (!posCode && st.enabled && (b.enabled === undefined || b.enabled) && db.prepare("SELECT 1 FROM store_config WHERE store_id = ? AND checkout_mode = 'basket'").get(id)) throw conflict('NO_POS_CODE', 'Chi nhánh đang bật nên không được xoá Mã điểm. Hãy tắt chi nhánh trước');
+      if (!posCode && st.enabled && (b.enabled === undefined || b.enabled) && db.prepare("SELECT 1 FROM store_config WHERE store_id = ? AND checkout_mode = 'basket'").get(id)) throw conflict('NO_POS_CODE', 'Chi nhánh đang bật nên không được xóa Mã điểm. Hãy tắt chi nhánh trước');
       if (b.enabled === true) {
         const c = db.prepare('SELECT * FROM store_config WHERE store_id = ?').get(id);
         if (c.checkout_mode !== 'basket' && c.payment_source !== 'pos' && !c.pay_cash && !(c.pay_qr && c.bank_bin && c.bank_account)) throw conflict('NO_PAYMENT', 'Hãy bật ít nhất một cách thanh toán dùng được trước khi bật chi nhánh');
@@ -217,11 +217,11 @@ export default async function adminRoutes(app) {
       if (b.paymentSource !== undefined) {
         if (!['manual', 'pos'].includes(b.paymentSource)) throw bad('BAD_SOURCE', 'Nguồn thu tiền chỉ có manual hoặc pos');
         if (b.paymentSource === 'pos' && !db.prepare('SELECT 1 FROM integration_keys WHERE active = 1 AND (store_id IS NULL OR store_id = ?)').get(id)) {
-          throw conflict('NO_POS_KEY', 'Chưa có khoá API cho Dsmart POS dùng được ở chi nhánh này. Hãy tạo khoá ở mục Tích hợp trước');
+          throw conflict('NO_POS_KEY', 'Chưa có khóa API cho Dsmart POS dùng được ở chi nhánh này. Hãy tạo khóa ở mục Tích hợp trước');
         }
         if (b.paymentSource !== cur.payment_source) {
           const pend = db.prepare(`SELECT COUNT(*) n FROM transactions WHERE store_id = ? AND status = 'awaiting_counter'`).get(id).n;
-          if (pend) throw conflict('CARTS_PENDING', `Còn ${pend} giỏ đang chờ thu. Hãy thu hoặc huỷ hết rồi mới đổi cách thu tiền`);
+          if (pend) throw conflict('CARTS_PENDING', `Còn ${pend} giỏ đang chờ thu. Hãy thu hoặc hủy hết rồi mới đổi cách thu tiền`);
         }
         n.payment_source = b.paymentSource;
       }
@@ -253,7 +253,7 @@ export default async function adminRoutes(app) {
       return { store: storeRow(db.prepare('SELECT * FROM stores WHERE id = ?').get(id)) };
     });
 
-    // ---------------- Giữ dữ liệu có thời hạn (xoá thông tin cá nhân và nhật ký cũ) ----------------
+    // ---------------- Giữ dữ liệu có thời hạn (xóa thông tin cá nhân và nhật ký cũ) ----------------
     s.get('/integrations/retention', async (req) => { chainOnly(req); return { config: retentionConfig(db), defaults: RETENTION_DEFAULTS, last: getSetting(db, 'retention_last', null) }; });
     s.put('/integrations/retention', async (req) => {
       chainOnly(req);
@@ -270,7 +270,7 @@ export default async function adminRoutes(app) {
       return { last };
     });
 
-    // ---------------- Xoá dữ liệu cá nhân theo yêu cầu của một khách ----------------
+    // ---------------- Xóa dữ liệu cá nhân theo yêu cầu của một khách ----------------
     s.post('/privacy/erase-preview', async (req) => {
       chainOnly(req);
       const r = previewErase(ctx, req.body?.email);
@@ -280,7 +280,7 @@ export default async function adminRoutes(app) {
     s.post('/privacy/erase', async (req) => {
       chainOnly(req);
       const email = String(req.body?.email ?? '').trim().toLowerCase();
-      if (String(req.body?.confirm ?? '').trim().toLowerCase() !== email) throw bad('CONFIRM_MISMATCH', 'Nhập lại đúng email để xác nhận xoá');
+      if (String(req.body?.confirm ?? '').trim().toLowerCase() !== email) throw bad('CONFIRM_MISMATCH', 'Nhập lại đúng email để xác nhận xóa');
       const r = eraseCustomer(ctx, email, { actor: req.user.id, note: req.body?.note });
       if (r.error) throw bad('BAD_EMAIL', r.error);
       return r;
@@ -333,12 +333,12 @@ export default async function adminRoutes(app) {
             last24h: { claimed: n(''), paid: n(`AND pos_status = 'paid'`), cancelled: n(`AND pos_status = 'cancelled'`), differs: n(`AND pos_amount IS NOT NULL AND pos_amount != total`), waiting: n(`AND pos_status = 'claimed'`) } };
         })(),
         isProd: config.isProd,
-        hasClassicStores: !!db.prepare(`SELECT 1 FROM store_config WHERE checkout_mode = 'classic' LIMIT 1`).get(), // luồng cũ đang khoá: chỉ khi còn chi nhánh dùng mới hiện thẻ chuyển khoản QR và hoá đơn của BRG
+        hasClassicStores: !!db.prepare(`SELECT 1 FROM store_config WHERE checkout_mode = 'classic' LIMIT 1`).get(), // luồng cũ đang khóa: chỉ khi còn chi nhánh dùng mới hiện thẻ chuyển khoản QR và hóa đơn của BRG
         // Nguồn giá: bảng giá nhập bằng CSV (bản giả lập chạy trên chính bảng này) cho tới khi nối API giá thật.
         priceSource: ctx.pos.name === 'mock' ? 'csv' : ctx.pos.name,
         note: ctx.pos.name !== 'mock' ? null
           : config.isProd ? 'Giá và khuyến mãi đang lấy từ bảng giá nhập bằng file CSV (npm run import-products). Chưa nối API giá theo chi nhánh nên giá không tự cập nhật.'
-          : 'Dsmart POS và hoá đơn điện tử đang chạy bản giả lập. Gắn hệ thống thật bằng cách viết adapter tương ứng (xem docs/07).'
+          : 'Dsmart POS và hóa đơn điện tử đang chạy bản giả lập. Gắn hệ thống thật bằng cách viết adapter tương ứng (xem docs/07).'
       };
     });
     s.post('/integrations/pos/sync', async (req) => {
@@ -350,7 +350,7 @@ export default async function adminRoutes(app) {
     });
     s.post('/integrations/invoices/retry', async (req) => { chainOnly(req); return retryPendingInvoices(db, ctx.invoicer); });
 
-    // ---------------- Khoá API cho Dsmart POS gọi vào ----------------
+    // ---------------- Khóa API cho Dsmart POS gọi vào ----------------
     s.get('/pos/keys', async (req) => {
       chainOnly(req);
       return { keys: db.prepare('SELECT id, name, prefix, store_id, active, created_by, created_at, last_used_at FROM integration_keys ORDER BY id DESC').all()
@@ -359,18 +359,18 @@ export default async function adminRoutes(app) {
     s.post('/pos/keys', async (req) => {
       chainOnly(req);
       const name = String(req.body?.name || '').trim();
-      if (!name) throw bad('NAME_REQUIRED', 'Đặt tên cho khoá (ví dụ tên phần mềm Dsmart POS)');
+      if (!name) throw bad('NAME_REQUIRED', 'Đặt tên cho khóa (ví dụ tên phần mềm Dsmart POS)');
       const storeId = req.body?.storeId ? String(req.body.storeId).toUpperCase() : null;
       if (storeId) getStoreConfig(db, storeId);
       const k = newKey();
       const r = db.prepare('INSERT INTO integration_keys(name,key_hash,prefix,store_id,created_by,created_at) VALUES(?,?,?,?,?,?)').run(name.slice(0, 60), k.hash, k.prefix, storeId, req.user.id, nowIso());
       audit(db, { storeId, actorType: 'admin', actorId: req.user.id, action: 'pos.key_created', entity: 'integration_key', entityId: String(r.lastInsertRowid), data: { name } });
-      return { id: r.lastInsertRowid, key: k.raw, prefix: k.prefix, note: 'Khoá chỉ hiện một lần, hãy chép và gửi cho nhà cung cấp Dsmart POS' };
+      return { id: r.lastInsertRowid, key: k.raw, prefix: k.prefix, note: 'Khóa chỉ hiện một lần, hãy chép và gửi cho nhà cung cấp Dsmart POS' };
     });
     s.delete('/pos/keys/:id', async (req) => {
       chainOnly(req);
       const r = db.prepare('UPDATE integration_keys SET active = 0 WHERE id = ?').run(Number(req.params.id));
-      if (!r.changes) throw notFound('KEY_NOT_FOUND', 'Không tìm thấy khoá');
+      if (!r.changes) throw notFound('KEY_NOT_FOUND', 'Không tìm thấy khóa');
       audit(db, { actorType: 'admin', actorId: req.user.id, action: 'pos.key_revoked', entity: 'integration_key', entityId: String(req.params.id) });
       return { ok: true };
     });
@@ -411,7 +411,7 @@ export default async function adminRoutes(app) {
       if (b.sync) ctx.pos.sync(id);
       return { ok: true };
     });
-    // Công cụ thử nghiệm: đóng vai Dsmart POS gọi API (nhận giỏ, báo thanh toán, báo huỷ) mà không cần khoá API.
+    // Công cụ thử nghiệm: đóng vai Dsmart POS gọi API (nhận giỏ, báo thanh toán, báo hủy) mà không cần khóa API.
     s.post('/dev/pos-simulate', async (req) => {
       chainOnly(req);
       if (config.isProd) throw forbidden('DEV_ONLY', 'Chỉ dùng ở môi trường thử');
@@ -490,7 +490,7 @@ export default async function adminRoutes(app) {
       if (role !== 'chain_admin') { if (!storeId) throw bad('STORE_REQUIRED', 'Chọn chi nhánh cho tài khoản này'); getStoreConfig(db, storeId); } else storeId = null;
       if (!String(b.name || '').trim()) throw bad('NAME_REQUIRED', 'Nhập họ tên');
       const isAdminRole = role === 'chain_admin' || role === 'branch_admin';
-      // PIN dùng để vào app nhân viên: bắt buộc với nhân viên, tuỳ chọn với quản trị.
+      // PIN dùng để vào app nhân viên: bắt buộc với nhân viên, tùy chọn với quản trị.
       if ((!isAdminRole || b.pin) && !validPin(b.pin)) throw bad('BAD_PIN', 'PIN gồm 4–6 chữ số');
       if (isAdminRole && !strongPassword(b.password)) throw bad('WEAK_PASSWORD', 'Mật khẩu tối thiểu 8 ký tự, có cả chữ và số');
       let id = String(b.id || '').trim().toUpperCase();
@@ -509,7 +509,7 @@ export default async function adminRoutes(app) {
     s.put('/users/:id', async (req) => {
       const u = userScoped(req);
       const b = req.body || {};
-      if (u.id === req.user.id && b.active === false) throw conflict('SELF_LOCK', 'Không thể tự khoá tài khoản của mình');
+      if (u.id === req.user.id && b.active === false) throw conflict('SELF_LOCK', 'Không thể tự khóa tài khoản của mình');
       let role = u.role;
       if (b.role !== undefined) {
         if (!ROLES.includes(b.role)) throw bad('BAD_ROLE', 'Vai trò không hợp lệ');
@@ -588,33 +588,33 @@ export default async function adminRoutes(app) {
       const events = [];
       if (started) events.push({ ts: started.ts, tone: 'info', text: 'Khách bắt đầu phiên mua sắm' });
       const sc = scans.find((x) => x.type === 'scan'), rm = scans.find((x) => x.type === 'remove'), qy = scans.find((x) => x.type === 'qty'), fl = scans.find((x) => x.type === 'scan_fail');
-      if (sc) events.push({ ts: sc.last, tone: 'info', text: `Quét ${sc.n} lần, giữ ${tx.item_count} mặt hàng${rm ? `, xoá ${rm.n} lần` : ''}${qy ? `, sửa số lượng ${qy.n} lần` : ''}${fl ? `, ${fl.n} lần quét lỗi` : ''}` });
+      if (sc) events.push({ ts: sc.last, tone: 'info', text: `Quét ${sc.n} lần, giữ ${tx.item_count} mặt hàng${rm ? `, xóa ${rm.n} lần` : ''}${qy ? `, sửa số lượng ${qy.n} lần` : ''}${fl ? `, ${fl.n} lần quét lỗi` : ''}` });
       for (const a of db.prepare(`SELECT * FROM audit_events WHERE entity='transaction' AND entity_id = ? ORDER BY id`).all(tx.id)) {
         const d = a.data ? JSON.parse(a.data) : {};
         const who = a.actor_id?.startsWith('Dsmart POS:') ? `Dsmart POS (${a.actor_id.slice(4)})` : a.actor_type === 'staff' ? `NV ${a.actor_id}` : a.actor_type === 'admin' ? `Quản trị ${a.actor_id}` : a.actor_type === 'customer' ? 'Khách' : 'Hệ thống';
         const map = {
-          'cart.locked': ['info', `Khoá giỏ, chọn ${d.method === 'cash' ? 'tiền mặt' : 'chuyển khoản'}, ${d.total?.toLocaleString('vi-VN')}₫`],
+          'cart.locked': ['info', `Khóa giỏ, chọn ${d.method === 'cash' ? 'tiền mặt' : 'chuyển khoản'}, ${d.total?.toLocaleString('vi-VN')}₫`],
           'cart.unlocked': ['info', 'Khách quay lại sửa giỏ hàng'],
-          'cart.cancelled': ['warn', `Nhân viên huỷ giỏ chờ thu${d.reason ? `: ${d.reason}` : ''}`],
+          'cart.cancelled': ['warn', `Nhân viên hủy giỏ chờ thu${d.reason ? `: ${d.reason}` : ''}`],
           'payment.collected': ['ok', d.source === 'pos'
-            ? `${who} báo đã thanh toán ${d.amount?.toLocaleString('vi-VN')}₫ (${({ cash: 'tiền mặt', qr_transfer: 'chuyển khoản', card: 'thẻ', ewallet: 'ví điện tử' })[d.method] || 'cách khác'})${d.invoiceNo ? `, hoá đơn ${d.invoiceNo}` : ''}`
+            ? `${who} báo đã thanh toán ${d.amount?.toLocaleString('vi-VN')}₫ (${({ cash: 'tiền mặt', qr_transfer: 'chuyển khoản', card: 'thẻ', ewallet: 'ví điện tử' })[d.method] || 'cách khác'})${d.invoiceNo ? `, hóa đơn ${d.invoiceNo}` : ''}`
             : `${who} thu ${d.method === 'cash' ? `tiền mặt${d.cashReceived ? `, khách đưa ${d.cashReceived.toLocaleString('vi-VN')}₫, thối ${d.change?.toLocaleString('vi-VN')}₫` : ''}` : 'chuyển khoản (đã đối chiếu)'}`],
           'payment.refunded': ['warn', `${who} hoàn trả ${d.amount?.toLocaleString('vi-VN')}₫${d.reason ? `: ${d.reason}` : ''}`],
-          'pos.paid_after_cancel': ['warn', `Dsmart POS báo đã thu ${d.amount?.toLocaleString('vi-VN')}₫ sau khi khách sửa giỏ (giỏ cũ đã bị khách huỷ trên điện thoại)`],
+          'pos.paid_after_cancel': ['warn', `Dsmart POS báo đã thu ${d.amount?.toLocaleString('vi-VN')}₫ sau khi khách sửa giỏ (giỏ cũ đã bị khách hủy trên điện thoại)`],
           'pos.claimed': ['info', `${who} nhận giỏ vào đơn Dsmart POS ${d.posOrderRef}${d.cashier ? `, thu ngân ${d.cashier}` : ''}`],
           'pos.amount_differs': ['warn', `Số tiền Dsmart POS ${d.posAmount?.toLocaleString('vi-VN')}₫ khác tạm tính ${d.brgTotal?.toLocaleString('vi-VN')}₫`],
           'pos.released': ['warn', `${who} nhả giỏ vì Dsmart POS không báo kết quả: ${d.reason}`],
-          'pos.cancel_after_exit': ['warn', `Dsmart POS huỷ đơn sau khi khách đã ra: ${d.reason}`],
+          'pos.cancel_after_exit': ['warn', `Dsmart POS hủy đơn sau khi khách đã ra: ${d.reason}`],
           'payment.extra_collected': ['ok', `${who} thu bổ sung ${d.amount?.toLocaleString('vi-VN')}₫`],
-          'invoice.issued': ['ok', `Hoá đơn điện tử ${d.number} (${d.type === 'company' ? 'công ty' : 'bán lẻ'})`],
-          'invoice.failed': ['warn', `Xuất hoá đơn lỗi: ${d.error}`],
+          'invoice.issued': ['ok', `Hóa đơn điện tử ${d.number} (${d.type === 'company' ? 'công ty' : 'bán lẻ'})`],
+          'invoice.failed': ['warn', `Xuất hóa đơn lỗi: ${d.error}`],
           'gate.check_required': ['warn', `${who} quét QR ở cổng, được chọn kiểm tra ngẫu nhiên`],
           'check.match': ['ok', `${who} kiểm tra ngẫu nhiên: khớp`],
           'check.mismatch': ['warn', `${who} kiểm tra ngẫu nhiên: chênh lệch${d.amount ? ` ${d.amount.toLocaleString('vi-VN')}₫` : ''}${d.note ? ` (${d.note})` : ''}`],
           'check.resolved_allow': ['ok', `${who} duyệt cho qua${d.note ? `: ${d.note}` : ''}`],
           'check.resolved_deny': ['warn', `${who} từ chối cho qua${d.note ? `: ${d.note}` : ''}`],
           'gate.exited': ['ok', a.actor_id === 'SYSTEM' ? `Hệ thống ghi nhận khách ra (${d.gate || 'không có bảo vệ'})` : `${who} quét QR ở ${d.gate || 'cổng ra'}, cho qua`],
-          'transaction.voided': ['warn', `${who} huỷ giao dịch: ${d.reason}`]
+          'transaction.voided': ['warn', `${who} hủy giao dịch: ${d.reason}`]
         };
         const m = map[a.action]; events.push({ ts: a.ts, tone: m?.[0] || 'info', text: m?.[1] || a.action });
       }

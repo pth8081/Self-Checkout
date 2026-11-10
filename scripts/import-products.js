@@ -2,7 +2,7 @@
 // Dùng: npm run import-products -- <file.csv> [--replace]
 // Cột (dòng đầu là tên cột, dấu phẩy hoặc chấm phẩy): store, sku, barcode, name, price, unit, active, age_restricted, promo_min_qty, promo_off, stock
 //   store: mã chi nhánh BRG (ví dụ Q7). price, promo_off: đồng. active, age_restricted: 1 hoặc 0 (mặc định 1 và 0).
-// --replace: xoá sản phẩm cũ của các chi nhánh có trong file trước khi nhập.
+// --replace: xóa sản phẩm cũ của các chi nhánh có trong file trước khi nhập.
 import fs from 'node:fs';
 import './load-env.js';
 import { config } from '../server/config.js';

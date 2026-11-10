@@ -14,7 +14,7 @@
 | PWA-06 | Sau thanh toán, lưu QR biên nhận cục bộ để hiển thị được khi mất mạng | FR-CUS-07 |
 | PWA-07 | Có `manifest` và cho phép "Thêm vào màn hình chính" nhưng **không bắt buộc** cài đặt | |
 | PWA-08 | Cập nhật phiên bản không làm hỏng phiên mua sắm đang chạy (cập nhật khi hết phiên / hỏi người dùng) | |
-| PWA-09 | Khoá màn hình ngủ khi đang quét (Wake Lock nếu hỗ trợ) | |
+| PWA-09 | Khóa màn hình ngủ khi đang quét (Wake Lock nếu hỗ trợ) | |
 | PWA-10 | Ma trận trình duyệt hỗ trợ tối thiểu, có kiểm thử trên thiết bị thật | NFR-14 |
 
 ## 2. Cấu trúc ứng dụng (quyết định cần chốt)
@@ -30,7 +30,7 @@
 
 Danh sách đầy đủ 52 màn hình ở [10](10-man-hinh.md); bản vẽ ở [thiet-ke/man-hinh.html](thiet-ke/man-hinh.html).
 
-**Khách (M01–M26):** Chào/nhận diện chi nhánh → Hướng dẫn nhanh → Quét → Giỏ hàng → Chọn cách trả → Chuyển khoản QR hoặc mã giỏ hàng → QR biên nhận → Hoá đơn.
+**Khách (M01–M26):** Chào/nhận diện chi nhánh → Hướng dẫn nhanh → Quét → Giỏ hàng → Chọn cách trả → Chuyển khoản QR hoặc mã giỏ hàng → QR biên nhận → Hóa đơn.
 **Nhân viên (N01–N14):** Đăng nhập → Quét mã giỏ hàng và thu tiền → Quét QR ra cổng → Kiểm tra ngẫu nhiên → Ghi chênh lệch → Đối soát cuối ca.
 **Quản trị (A01–A12):** Tổng quan, chi nhánh và cờ tính năng, tích hợp, báo cáo, phân quyền; trong ngày, truy vết, ca, tỷ lệ kiểm tra, đối soát, mã không tìm thấy.
 
@@ -42,7 +42,7 @@ TODO: wireframe, luồng lỗi (không có quyền camera, mã không đọc đ�
 |--------|----------|-------------------------------|
 | Safari iOS không đủ hỗ trợ `BarcodeDetector` | Quét chậm/không quét được nếu chỉ dùng API gốc | Thư viện giải mã dự phòng; thử độ trễ trên iPhone cũ |
 | Background Sync không có trên iOS | Không tự đồng bộ nền | Đồng bộ khi mở lại app / có mạng trở lại (foreground) |
-| Trình duyệt có thể xoá dữ liệu cục bộ khi thiếu bộ nhớ hoặc ít dùng (đặc biệt iOS) | Mất giỏ | Xin lưu trữ bền (`storage.persist`), giỏ cũng ghi lên backend khi có mạng |
+| Trình duyệt có thể xóa dữ liệu cục bộ khi thiếu bộ nhớ hoặc ít dùng (đặc biệt iOS) | Mất giỏ | Xin lưu trữ bền (`storage.persist`), giỏ cũng ghi lên backend khi có mạng |
 | Trình duyệt trong app (Zalo, Facebook, camera hệ điều hành mở link) có thể chặn camera/service worker | Link QR mở trong webview bị lỗi | Phát hiện webview, hướng dẫn mở bằng Safari/Chrome |
 | GĐ1: khách đổi app giữa chừng (mở app ngân hàng để chuyển khoản) rồi quay lại | Mất ngữ cảnh trang | Trạng thái giỏ và giao dịch lưu ở backend; mở lại thì vào M07/M18 |
 | GĐ2: thanh toán ví chuyển sang app khác rồi quay lại | Mất ngữ cảnh trang | Trạng thái giao dịch lưu ở backend; trang kết quả tra theo `transactionId` |

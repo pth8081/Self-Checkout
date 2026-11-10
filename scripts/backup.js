@@ -24,7 +24,7 @@ chk.pragma('journal_mode = DELETE'); // bản sao là một file duy nhất, kh�
 const res = chk.pragma('integrity_check', { simple: true });
 const stores = chk.prepare('SELECT COUNT(*) n FROM stores').get().n;
 chk.close();
-if (res !== 'ok') { fs.rmSync(dest, { force: true }); console.error(`Bản sao hỏng (${res}), đã xoá.`); process.exit(1); }
+if (res !== 'ok') { fs.rmSync(dest, { force: true }); console.error(`Bản sao hỏng (${res}), đã xóa.`); process.exit(1); }
 
 const files = fs.readdirSync(dir).filter((f) => /^brg-\d{8}-\d{4}\.db$/.test(f)).sort();
 for (const f of files.slice(0, Math.max(0, files.length - keep))) fs.rmSync(path.join(dir, f));

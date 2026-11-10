@@ -88,8 +88,8 @@ export function txStatus(t) {
   if (t.status === 'awaiting_counter') return { text: 'Chờ thu tiền', tone: 'warn' };
   if (t.status === 'paid' && t.extraDue > 0) return { text: 'Còn thu bổ sung', tone: 'warn' };
   if (t.status === 'paid') return { text: t.exitStatus === 'checking' ? 'Đang kiểm tra' : 'Đã thu tiền', tone: t.exitStatus === 'checking' ? 'info' : 'brand' };
-  if (t.status === 'cancelled') return { text: 'Đã huỷ', tone: '' };
-  if (t.status === 'voided') return { text: 'Đã huỷ thu', tone: 'err' };
+  if (t.status === 'cancelled') return { text: 'Đã hủy', tone: '' };
+  if (t.status === 'voided') return { text: 'Đã hủy thu', tone: 'err' };
   return { text: t.status, tone: '' };
 }
 
