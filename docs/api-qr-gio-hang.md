@@ -6,6 +6,21 @@ Tài liệu này gửi cho đơn vị làm phần mềm Dsmart POS. Có ba việ
 2. **Gọi API lấy danh sách mặt hàng** theo mã giỏ (mã vạch, số lượng), rồi tạo đơn hàng và tính tiền (mục 2 và 3).
 3. **Gọi API báo thanh toán thành công** về BRG Scan & Checkout (mục 4 và 5). BRG Scan & Checkout trả lại kết quả cho khách và lưu bill.
 
+## Tóm tắt: Dsmart POS cần gọi những API nào
+
+Có **hai API bắt buộc**: (1) **lấy thông tin hàng hóa** sau khi quét mã QR, (2) **cập nhật thanh toán thành công** sau khi thu tiền. Các API còn lại dùng khi có tình huống tương ứng. Tài liệu API riêng, gọn, cho lập trình viên Dsmart: `brg-api-dsmart-pos.docx`.
+
+| Việc Dsmart POS làm | API | Bắt buộc | Mục |
+|---------------------|-----|----------|-----|
+| Quét mã QR, đọc mã điểm và mã giỏ, kiểm tra mã điểm | Không gọi API | Bắt buộc | 2 |
+| **Lấy thông tin hàng hóa** (mã vạch, số lượng) | `GET /api/pos/v1/baskets/{mã giỏ}?pointCode=...` | **Bắt buộc** | 2 |
+| Tạo đơn, tính giá và khuyến mãi, thu tiền, phát hành hóa đơn điện tử | Không gọi API (việc trên Dsmart POS) | Bắt buộc | 1 |
+| **Cập nhật thanh toán thành công** (kèm bill, link hóa đơn, link giao dịch) | `POST /api/pos/v1/baskets/{mã giỏ}/paid` | **Bắt buộc** | 4 |
+| Báo đơn đang tính ở quầy thay đổi | `POST .../update` | Nên có | 6.1b |
+| Gửi bổ sung link hóa đơn điện tử, link giao dịch | `POST .../invoice` | Khi hóa đơn phát hành chậm | 4 |
+| Hủy đơn (khách đổi ý, chưa thu tiền) | `POST .../cancelled` | Khi có hủy | 6.2 |
+| Hoàn trả một phần sau khi đã thanh toán | `POST .../refund` | Khi có hoàn trả | 6.3 |
+
 ## Hóa đơn điện tử và link giao dịch: do Dsmart POS gửi kèm
 
 **Dsmart POS phát hành hóa đơn điện tử và gửi link về cho BRG Scan & Checkout.** Khi báo thanh toán, Dsmart POS gửi kèm hai link (không bắt buộc, nên có):
