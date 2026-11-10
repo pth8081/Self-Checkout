@@ -1,5 +1,7 @@
 # API giá và sản phẩm theo chi nhánh (cho BRG Scan & Checkout đọc)
 
+> **Đã có API giá của đối tác.** BRG dùng API giá bán theo mã vạch của đối tác thay cho bản đặc tả dưới đây, xem [api-gia-brgmart.md](api-gia-brgmart.md). Bản dưới đây giữ lại để tham khảo.
+
 **Mục đích:** khi khách quét mã vạch, BRG Scan & Checkout phải hiện đúng tên và giá **của chi nhánh khách đang đứng**. Hệ thống của bạn là nguồn giá; BRG Scan & Checkout chỉ đọc, không ghi.
 
 Phần này tách khỏi [api-pos](api-pos.md) (Dsmart POS gọi vào BRG Scan & Checkout). Ở đây là BRG Scan & Checkout gọi ra.

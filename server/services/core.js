@@ -43,6 +43,7 @@ function itemView(it) {
   const discount = lineDiscount(it);
   return {
     id: it.id, sku: it.sku, barcode: it.barcode, name: it.name, price: it.unit_price, qty: it.qty,
+    listPrice: it.list_price && it.list_price > it.unit_price ? it.list_price : null, noPrice: !!it.no_price,
     lineTotal: it.unit_price * it.qty - discount, discount, ageRestricted: !!it.age_restricted,
     promo: promoLabel(it.promo_min_qty, it.promo_off), promoMin: it.promo_min_qty, promoOff: it.promo_off
   };
@@ -154,12 +155,19 @@ function recordUnknown(db, storeId, barcode) {
       status = CASE WHEN status = 'resolved' THEN 'new' ELSE status END`).run(storeId, barcode, nowIso());
 }
 
-function runOp(ctx, session, op) {
+function runOp(ctx, session, op, prices) {
   const { db, pos } = ctx;
   if (op.type === 'scan') {
     const n = normalizeBarcode(op.barcode);
     if (!n.ok) { logScan(db, session, 'scan_fail', n.code, 'invalid'); return { ok: false, code: 'INVALID_BARCODE', message: 'Không đọc được mã vạch, hãy quét lại' }; }
-    const p = pos.lookup(session.store_id, n.variants);
+    let p = pos.lookup(session.store_id, n.variants);
+    // API giá bật mà không tra được giá (hết thời gian, lỗi, hoặc chưa có giá): vẫn cho vào giỏ ở dạng "chưa có giá" để thu ngân tính đủ
+    const why = prices?.get(n.code);
+    if (!p && (why === 'notfound' || why === 'error')) {
+      if (why === 'notfound') recordUnknown(db, session.store_id, n.code);
+      const sku = `NB-${n.code}`;
+      p = { sku, barcode: n.code, name: `Mã vạch ${n.code}`, price: 0, list_price: null, active: 1, age_restricted: 0, promo_min_qty: 0, promo_off: 0, no_price: 1 };
+    }
     if (!p) { recordUnknown(db, session.store_id, n.code); logScan(db, session, 'scan_fail', n.code, 'not_found'); return { ok: false, code: 'NOT_FOUND', barcode: n.code, message: 'Sản phẩm chưa có trong hệ thống của chi nhánh' }; }
     if (!p.active) { logScan(db, session, 'scan_fail', n.code, 'inactive'); return { ok: false, code: 'INACTIVE', barcode: n.code, name: p.name, message: 'Sản phẩm này đang ngừng bán' }; }
     const cur = db.prepare('SELECT * FROM cart_items WHERE session_id = ? AND sku = ?').get(session.id, p.sku);
@@ -169,8 +177,8 @@ function runOp(ctx, session, op) {
     const want = (cur?.qty || 0) + 1;
     if (want > 99) return { ok: false, code: 'BAD_QTY', message: 'Số lượng tối đa mỗi mặt hàng là 99' };
     if (cur) db.prepare('UPDATE cart_items SET qty = ? WHERE id = ?').run(want, cur.id);
-    else db.prepare(`INSERT INTO cart_items(session_id,sku,barcode,name,unit_price,qty,promo_min_qty,promo_off,age_restricted,added_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?)`).run(session.id, p.sku, p.barcode, p.name, p.price, 1, p.promo_min_qty, p.promo_off, p.age_restricted, nowIso());
+    else db.prepare(`INSERT INTO cart_items(session_id,sku,barcode,name,unit_price,qty,promo_min_qty,promo_off,age_restricted,added_at,list_price,no_price)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(session.id, p.sku, p.barcode, p.name, p.price, 1, p.promo_min_qty, p.promo_off, p.age_restricted, nowIso(), p.list_price ?? null, p.no_price ? 1 : 0);
     logScan(db, session, 'scan', n.code);
     const item = itemView(db.prepare('SELECT * FROM cart_items WHERE session_id = ? AND sku = ?').get(session.id, p.sku));
     return { ok: true, item };
@@ -194,7 +202,7 @@ function runOp(ctx, session, op) {
 }
 
 /** Áp dụng lô thao tác (quét, đổi số lượng, xóa). Mỗi thao tác có id nên gửi lại không bị trùng. */
-export function applyOps(ctx, session, ops) {
+export function applyOps(ctx, session, ops, prices) {
   const { db } = ctx;
   if (session.status !== 'active') throw conflict('SESSION_LOCKED', 'Giỏ hàng đã khóa, hãy quay lại giỏ để sửa');
   if (!Array.isArray(ops) || ops.length > 100) throw bad('BAD_OPS', 'Danh sách thao tác không hợp lệ');
@@ -205,7 +213,7 @@ export function applyOps(ctx, session, ops) {
       if (!opId) { results.push({ id: opId, ok: false, code: 'BAD_OP' }); continue; }
       const done = db.prepare('SELECT result FROM processed_ops WHERE session_id = ? AND op_id = ?').get(session.id, opId);
       if (done) { results.push({ ...JSON.parse(done.result), id: opId, duplicate: true }); continue; }
-      const r = { ...runOp(ctx, session, op), id: opId };
+      const r = { ...runOp(ctx, session, op, prices), id: opId };
       db.prepare('INSERT INTO processed_ops(session_id,op_id,result) VALUES(?,?,?)').run(session.id, opId, JSON.stringify(r));
       results.push(r);
     }
@@ -385,13 +393,13 @@ export function lockBasket(ctx, session, { ref, email } = {}) {
   return db.transaction(() => {
     for (const it of items) {
       const c = cur.get(it.sku);
-      if (c && c.active) db.prepare('UPDATE cart_items SET unit_price=?, promo_min_qty=?, promo_off=?, name=? WHERE id=?').run(c.price, c.promo_min_qty, c.promo_off, c.name, it.id);
+      if (c && c.active && !it.no_price) db.prepare('UPDATE cart_items SET unit_price=?, promo_min_qty=?, promo_off=?, name=? WHERE id=?').run(c.price, c.promo_min_qty, c.promo_off, c.name, it.id);
     }
     const fresh = itemsOf(db, session.id); // mặt hàng ngừng bán vẫn nằm trong giỏ để Dsmart POS quyết định
     const t = totals(fresh);
     const seq = nextCounter(db, session.store_id, 'tx');
     const id = `SG-${session.store_id}-${String(seq).padStart(4, '0')}`;
-    const snapshot = fresh.map((i) => ({ sku: i.sku, barcode: i.barcode, name: i.name, price: i.unit_price, qty: i.qty, discount: lineDiscount(i), ageRestricted: !!i.age_restricted }));
+    const snapshot = fresh.map((i) => ({ sku: i.sku, barcode: i.barcode, name: i.name, price: i.unit_price, listPrice: i.list_price || null, noPrice: !!i.no_price, qty: i.qty, discount: lineDiscount(i), ageRestricted: !!i.age_restricted }));
     const ts = nowIso();
     db.prepare(`INSERT INTO transactions(id,session_id,store_id,device_id,cart_code,transfer_content,subtotal,discount,total,method,status,
       check_required,items_json,item_count,age_restricted,created_at,guard_skipped,bill_email) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)

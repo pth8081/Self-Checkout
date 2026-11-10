@@ -1,6 +1,8 @@
 import { config } from '../config.js';
 import { getSetting, setSetting } from '../db.js';
 import { previewErase, eraseCustomer } from '../services/privacy.js';
+import { readPoints, matchPoints, applyPoints } from '../services/points.js';
+import { priceConfig, savePriceConfig, callPriceApi } from '../services/price-api.js';
 import { retentionConfig, validateRetention, runRetention, RETENTION_KEY, RETENTION_DEFAULTS } from '../services/retention.js';
 import { publicSettings, saveSettings, SECURE_MODES, TLS_MODES, explainMailError } from '../services/mailer.js';
 import { cartDiffOf } from '../services/bill.js';
@@ -171,11 +173,12 @@ export default async function adminRoutes(app) {
       const b = req.body || {};
       if (b.enabled !== undefined || b.posCode !== undefined) chainOnly(req);
       const posCode = b.posCode === undefined ? st.pos_code : cleanPosCode(b.posCode, id);
+      if (b.posCode !== undefined && posCode && posCode !== st.pos_code && db.prepare('SELECT 1 FROM price_points LIMIT 1').get() && !db.prepare('SELECT 1 FROM price_points WHERE lower(ma_diem) = lower(?)').get(posCode)) throw conflict('POS_CODE_NOT_IN_LIST', 'Mã điểm này không có trong danh sách mã điểm đã nhập từ file. Kiểm tra lại, hoặc nhập lại file ở trang Tích hợp');
       if (!posCode && st.enabled && (b.enabled === undefined || b.enabled) && db.prepare("SELECT 1 FROM store_config WHERE store_id = ? AND checkout_mode = 'basket'").get(id)) throw conflict('NO_POS_CODE', 'Chi nhánh đang bật nên không được xóa Mã điểm. Hãy tắt chi nhánh trước');
       if (b.enabled === true) {
         const c = db.prepare('SELECT * FROM store_config WHERE store_id = ?').get(id);
         if (c.checkout_mode !== 'basket' && c.payment_source !== 'pos' && !c.pay_cash && !(c.pay_qr && c.bank_bin && c.bank_account)) throw conflict('NO_PAYMENT', 'Hãy bật ít nhất một cách thanh toán dùng được trước khi bật chi nhánh');
-        if (!db.prepare('SELECT 1 FROM product_cache WHERE store_id = ? LIMIT 1').get(id)) throw conflict('NO_PRODUCTS', 'Chi nhánh chưa có dữ liệu sản phẩm, hãy đồng bộ Dsmart POS trước');
+        if (!priceConfig(db).enabled && !db.prepare('SELECT 1 FROM product_cache WHERE store_id = ? LIMIT 1').get(id)) throw conflict('NO_PRODUCTS', 'Chi nhánh chưa có dữ liệu sản phẩm, hãy đồng bộ Dsmart POS trước');
         if (c.checkout_mode === 'basket' && !posCode) throw conflict('NO_POS_CODE', 'Hãy nhập Mã điểm của chi nhánh (mã trong hệ thống giá và Dsmart POS) trước khi bật');
       }
       db.prepare('UPDATE stores SET name = ?, address = ?, enabled = ?, pos_code = ? WHERE id = ?')
@@ -268,6 +271,57 @@ export default async function adminRoutes(app) {
       const last = runRetention(ctx);
       audit(db, { actorType: 'admin', actorId: req.user.id, action: 'retention.run_manual', entity: 'settings', entityId: RETENTION_KEY, data: last.done });
       return { last };
+    });
+
+    // ---------------- Mã điểm của hệ thống giá (nhập từ file, ghép với chi nhánh) ----------------
+    s.get('/pos-points', async (req) => {
+      chainOnly(req);
+      const rows = db.prepare(`SELECT p.ma_diem code, p.name, p.store_id storeId, s.name storeName, p.imported_at importedAt FROM price_points p LEFT JOIN stores s ON s.id = p.store_id ORDER BY p.ma_diem LIMIT 500`).all();
+      const n = db.prepare('SELECT COUNT(*) n, COUNT(store_id) m FROM price_points').get();
+      return { total: n.n, matched: n.m, rows };
+    });
+    const pointsFile = (req) => {
+      const text = String(req.body?.text ?? '');
+      if (text.length > 2_000_000) throw bad('FILE_TOO_BIG', 'File quá lớn');
+      const parsed = readPoints(text);
+      if (parsed.error) throw bad('BAD_FILE', parsed.error);
+      return parsed;
+    };
+    s.post('/pos-points/preview', async (req) => {
+      chainOnly(req);
+      const parsed = pointsFile(req);
+      return { columns: parsed.columns, ...matchPoints(db, parsed) };
+    });
+    s.post('/pos-points/apply', async (req) => {
+      chainOnly(req);
+      const parsed = pointsFile(req);
+      const r = applyPoints(db, parsed);
+      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'pos_points.imported', entity: 'settings', entityId: 'pos_points', data: { saved: r.saved, assigned: r.assigned, ...r.summary } });
+      return r;
+    });
+
+    // ---------------- API giá bán của đối tác ----------------
+    s.get('/integrations/price-api', async (req) => {
+      chainOnly(req);
+      return { config: priceConfig(db), lastError: ctx.priceError || null, points: db.prepare('SELECT COUNT(*) n FROM price_points').get().n };
+    });
+    s.put('/integrations/price-api', async (req) => {
+      chainOnly(req);
+      const r = savePriceConfig(db, req.body || {});
+      if (r.error) throw bad('BAD_PRICE_API', r.error);
+      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'price_api.saved', entity: 'settings', entityId: 'price_api', data: { enabled: r.config.enabled, url: r.config.url, timeoutSec: r.config.timeoutSec, cacheMin: r.config.cacheMin } });
+      return r;
+    });
+    s.post('/integrations/price-api/test', async (req) => {
+      chainOnly(req);
+      const barcode = String(req.body?.barcode || '').trim();
+      const st = db.prepare('SELECT id, pos_code FROM stores WHERE id = ?').get(String(req.body?.storeId || '').toUpperCase());
+      if (!barcode) throw bad('BARCODE_REQUIRED', 'Nhập mã vạch cần tra');
+      if (!st) throw notFound('STORE_NOT_FOUND', 'Không tìm thấy chi nhánh');
+      if (!st.pos_code) throw conflict('NO_POS_CODE', 'Chi nhánh này chưa có mã điểm');
+      const t0 = Date.now();
+      const r = await callPriceApi(db, st.pos_code, barcode);
+      return { ...r, maDiem: st.pos_code, ms: Date.now() - t0 };
     });
 
     // ---------------- Xóa dữ liệu cá nhân theo yêu cầu của một khách ----------------

@@ -33,7 +33,7 @@ function ScanSheet({ result, onClose, onManual, onHelp }) {
   return html`<div class="overlay" style="background:transparent;pointer-events:none"><div class="sheet" style="pointer-events:auto">
     <${Pill} tone="ok"><${Icon} name="check" size=${14}/>Đã thêm vào giỏ<//>
     <div class="row"><div class="tile" style=${`--h:${fmt.tone(it.sku.length * 13)};width:56px;height:56px`}>${it.name.slice(0, 1)}</div>
-      <div class="grow"><b>${it.name}</b><div class="muted small num">${fmt.money(it.price)}${it.promo ? ` · ${it.promo}` : ''}</div></div>
+      <div class="grow"><b>${it.name}</b><div class="muted small num">${unitText(it)}</div></div>
       <div class="stepper"><button onClick=${() => result.dec(it)} aria-label="Giảm"><${Icon} name="minus" size=${16}/></button><span class="num">${result.qty ?? it.qty}</span><button onClick=${() => result.inc(it)} aria-label="Tăng"><${Icon} name="plus" size=${16}/></button></div></div>
     ${it.ageRestricted && html`<${Banner} icon="info">Sản phẩm giới hạn độ tuổi. Nhân viên sẽ kiểm tra giấy tờ khi thanh toán.<//>`}
     <div class="row"><span class="muted grow">Tổng giỏ hàng · ${result.count} mặt hàng</span><b class="num" style="font-size:18px">${fmt.money(result.total)}</b></div>
@@ -137,6 +137,11 @@ export function Manual({ s, store }) {
     </div></div></div>`;
 }
 
+/** Đơn giá một mặt hàng: giá gốc gạch ngang kèm giá khuyến mại (khi API giá báo), hoặc "chưa có giá". */
+const unitText = (it) => (it.noPrice ? html`<span>Chưa có giá, thu ngân sẽ tính</span>`
+  : it.listPrice ? html`<s style="opacity:.7">${fmt.money(it.listPrice)}</s> <b style="color:var(--ok)">${fmt.money(it.price)}</b> <${Pill} tone="ok">Khuyến mại<//>${it.promo ? ` · ${it.promo}` : ''}`
+  : html`${fmt.money(it.price)}${it.promo ? ` · ${it.promo}` : ''}`);
+
 const REASONS = { price: 'Giá thay đổi', stock: 'Số lượng còn lại thay đổi', inactive: 'Ngừng bán', promo: 'Khuyến mãi thay đổi' };
 export function ChangesSheet({ changes, onAccept, onBack, busy }) {
   return html`<${Sheet} onClose=${onBack}>
@@ -166,14 +171,15 @@ export function Cart({ s, store }) {
       ${!online && html`<${Banner} icon="wifioff" title="Mất kết nối">Giỏ hàng đã được lưu trên máy. Bạn vẫn quét tiếp được. Hệ thống tự đồng bộ khi có mạng.<//>`}
       ${s.issues.map((i) => html`<${Banner} tone="err" icon="alert" title=${i.code === 'NOT_FOUND' ? 'Có sản phẩm không có trong hệ thống' : 'Không thêm được một sản phẩm'}>
         <span class="num">Mã ${i.barcode}</span>${i.name ? ` · ${i.name}` : ''}. ${i.message}.<br/><button class="btn sm line" style="margin-top:8px" onClick=${() => dismissIssue(i.id)}>Đã biết</button><//>`)}
+      ${cart.items.some((x) => x.noPrice) && html`<${Banner} tone="warn" icon="alert" title=${`${cart.items.filter((x) => x.noPrice).length} mặt hàng chưa tra được giá`}>Hệ thống giá đang bận hoặc chưa có giá của mặt hàng này. Bạn vẫn thanh toán bình thường, thu ngân tính đủ tại quầy.<//>`}
       ${cart.ageRestricted && html`<${Banner} icon="info" title="Có sản phẩm giới hạn độ tuổi">Nhân viên sẽ kiểm tra giấy tờ khi bạn thanh toán.<//>`}
       ${empty ? html`<${Empty} icon="bag" title="Giỏ hàng đang trống" text="Quét mã vạch của sản phẩm đầu tiên để bắt đầu."><button class="btn primary auto" style="margin-top:8px;padding:0 28px" onClick=${() => go('/scan')}><${Icon} name="camera"/>Mở camera quét</button><//>` : html`
         <div class="card" style="padding:8px 16px"><div class="list">
           ${cart.items.map((it) => html`<div class="item" key=${it.id} style="align-items:flex-start">
             <div class="tile" style=${`--h:${fmt.tone(it.sku.length * 13)}`}>${it.name.slice(0, 1)}</div>
             <div class="grow stack" style="gap:8px">
-              <div class="row" style="align-items:flex-start"><div class="grow name">${it.name}</div><div class="b num">${fmt.money(it.lineTotal)}</div></div>
-              <div class="row"><div class="grow small muted num">${fmt.money(it.price)}${it.promo ? ` · ${it.promo}` : ''}</div>
+              <div class="row" style="align-items:flex-start"><div class="grow name">${it.name}</div>${it.noPrice ? html`<${Pill} tone="warn">Chưa có giá<//>` : html`<div class="b num">${fmt.money(it.lineTotal)}</div>`}</div>
+              <div class="row"><div class="grow small muted num">${unitText(it)}</div>
                 <div class="stepper"><button onClick=${() => (it.qty <= 1 ? setConfirm(it) : change(it, it.qty - 1))} aria-label=${`Giảm ${it.name}`}><${Icon} name=${it.qty <= 1 ? 'trash' : 'minus'} size=${16}/></button><span class="num">${it.qty}</span><button onClick=${() => change(it, it.qty + 1)} aria-label=${`Tăng ${it.name}`}><${Icon} name="plus" size=${16}/></button></div></div></div></div>`)}
           ${cart.pending.map((p) => html`<div class="item"><div class="tile" style="--h:40"><${Icon} name="clock" size=${18}/></div><div class="grow"><div class="name num">Mã ${p.barcode}</div><div class="small muted">Chờ đồng bộ để lấy tên và giá</div></div><${Pill} tone="warn">× ${p.qty}<//></div>`)}
         </div></div>

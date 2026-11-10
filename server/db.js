@@ -142,6 +142,10 @@ CREATE TABLE IF NOT EXISTS statements (
   id INTEGER PRIMARY KEY AUTOINCREMENT, store_id TEXT NOT NULL, date TEXT NOT NULL,
   lines TEXT NOT NULL, uploaded_by TEXT, created_at TEXT NOT NULL
 );
+-- Danh sách mã điểm (maDiem) của hệ thống giá bên đối tác, nhập từ file ở trang quản trị. store_id: chi nhánh BRG đã ghép.
+CREATE TABLE IF NOT EXISTS price_points (
+  ma_diem TEXT PRIMARY KEY, name TEXT, store_id TEXT, imported_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS integration_keys (
   id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, key_hash TEXT NOT NULL UNIQUE, prefix TEXT NOT NULL,
@@ -151,6 +155,7 @@ CREATE TABLE IF NOT EXISTS integration_keys (
 
 /** Thêm cột còn thiếu cho CSDL tạo từ phiên bản cũ (CREATE TABLE IF NOT EXISTS không tự thêm cột). */
 const MIGRATIONS = [
+  ['product_cache', 'list_price', 'INTEGER'], ['cart_items', 'list_price', 'INTEGER'], ['cart_items', 'no_price', 'INTEGER NOT NULL DEFAULT 0'],
   ['transactions', 'cancel_reason', 'TEXT'], ['transactions', 'pii_purged_at', 'TEXT'],
   ['transactions', 'extra_qty', 'INTEGER NOT NULL DEFAULT 0'], ['transactions', 'extra_value', 'INTEGER NOT NULL DEFAULT 0'], ['transactions', 'less_qty', 'INTEGER NOT NULL DEFAULT 0'],
   ['transactions', 'pos_draft_json', 'TEXT'],

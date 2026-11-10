@@ -333,6 +333,86 @@ function DevTools({ stores }) {
 }
 
 
+// ---- API giá bán của đối tác: tra giá theo mã vạch khi khách quét ----
+function PriceApiCard({ stores }) {
+  const st = useAsync(() => api.get('/integrations/price-api'), []);
+  const [f, setF] = useState(null);
+  const [busy, run] = useBusy();
+  const [err, setErr] = useState('');
+  const [t, setT] = useState({ storeId: '', barcode: '' });
+  const [res, setRes] = useState(null);
+  const d = st.data;
+  useEffect(() => { if (d && f === null) setF({ url: d.config.url, key: '', timeoutSec: String(d.config.timeoutSec), cacheMin: String(d.config.cacheMin), enabled: d.config.enabled }); }, [d]);
+  useEffect(() => { if (stores?.length && !t.storeId) setT((x) => ({ ...x, storeId: (stores.find((x) => x.posCode) || stores[0]).id })); }, [stores]);
+  if (!d || f === null) return html`<div class="card"><${Spinner}/></div>`;
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const save = (extra = {}) => run(async () => {
+    setErr('');
+    try { await api.put('/integrations/price-api', { url: f.url, key: f.key || undefined, timeoutSec: f.timeoutSec, cacheMin: f.cacheMin, enabled: f.enabled, ...extra }); setF(null); await st.reload(); }
+    catch (x) { setErr(x.message); throw x; }
+  }, 'Đã lưu cấu hình API giá');
+  const test = () => run(async () => { setRes(null); setRes(await api.post('/integrations/price-api/test', { storeId: t.storeId, barcode: t.barcode })); });
+  const le = d.lastError;
+  return html`<div class="card">
+    <div class="cardhead"><div class="ico-tile"><${Icon} name="barcode"/></div><div class="grow"><h2>API giá bán (đối tác)</h2>
+      <div class="small muted">Khi khách quét mã vạch, hệ thống tra giá theo <code>maVach</code> và <code>maDiem</code> (mã điểm của chi nhánh). Giá hiện trên điện thoại là tạm tính, số tiền cuối do Dsmart POS tính lại.</div>
+      ${d.config.enabled ? html`<${Pill} tone="ok"><span class="dot"></span>Đang dùng<//>` : html`<${Pill} tone="warn">Chưa bật<//>`}</div></div>
+    <div class="two">
+      <${Field} label="Địa chỉ API" hint="Chỉ nhập địa chỉ, không kèm ?maVach=... Ví dụ https://api.brgmart.vn/api/v1/reports/gia-ban/run"><input class="input" value=${f.url} onInput=${set('url')}/><//>
+      <${Field} label="Khóa API (X-API-Key)" hint=${d.config.hasKey ? 'Đã lưu khóa. Bỏ trống để giữ khóa cũ, nhập mới để thay' : 'Chưa có khóa'}><input class="input" type="password" autocomplete="off" value=${f.key} placeholder=${d.config.hasKey ? '••••••••••••' : ''} onInput=${set('key')}/><//>
+      <${Field} label="Thời gian chờ mỗi lần tra (giây)" hint="Quá thời gian thì dùng giá đã lưu, chưa có thì hiện Chưa có giá"><input class="input" inputmode="numeric" value=${f.timeoutSec} onInput=${set('timeoutSec')}/><//>
+      <${Field} label="Giữ giá đã tra (phút)" hint="Trong thời gian này mọi khách quét cùng mặt hàng không gọi lại API"><input class="input" inputmode="numeric" value=${f.cacheMin} onInput=${set('cacheMin')}/><//></div>
+    <div class="row" style="margin:6px 0"><${Switch} checked=${f.enabled} label="Dùng API giá để tra giá khi khách quét" onChange=${(v) => setF({ ...f, enabled: v })}/><span>Dùng API giá để tra giá khi khách quét</span></div>
+    ${err && html`<div class="errtext" role="alert">${err}</div>`}
+    ${le && html`<${Banner} tone="warn" icon="alert" title="Lần tra giá lỗi gần nhất">${fmt.dateTime(le.at)}: ${le.message}<//>`}
+    <div class="card flat" style="margin:12px 0;padding:12px 16px"><b>Kiểm tra thử</b>
+      <div class="row wrap" style="gap:8px;margin:8px 0">
+        <select class="input" style="max-width:240px" value=${t.storeId} onChange=${(e) => setT({ ...t, storeId: e.target.value })}>${(stores || []).map((x) => html`<option value=${x.id} key=${x.id}>${x.name} (${x.posCode || 'chưa có mã điểm'})</option>`)}</select>
+        <input class="input" style="max-width:220px" placeholder="Mã vạch" inputmode="numeric" value=${t.barcode} onInput=${(e) => setT({ ...t, barcode: e.target.value })}/>
+        <button class="btn primary sm" disabled=${busy || !t.barcode.trim()} onClick=${test}>Tra giá</button></div>
+      ${res && (res.status === 'ok' ? html`<div class="small num" style="line-height:1.7">Mã hàng <b>${res.row.sku}</b> · ${res.row.name}<br/>Giá thường <b>${fmt.money(res.row.list_price)}</b>${res.row.price !== res.row.list_price ? html` · Giá khuyến mại <b style="color:var(--ok)">${fmt.money(res.row.price)}</b>` : ''} · mã điểm ${res.maDiem} · trả lời trong ${(res.ms / 1000).toFixed(1)} giây</div>`
+        : res.status === 'notfound' ? html`<div class="small">Không có giá cho mã vạch này ở mã điểm ${res.maDiem}.</div>` : html`<div class="small errtext">${res.message}</div>`)}</div>
+    <div class="row wrap" style="gap:8px"><button class="btn primary sm" disabled=${busy} onClick=${() => save()}>Lưu</button></div></div>`;
+}
+
+const PT_STATUS = { ok: ['Sẽ gán', 'ok'], same: ['Đã đúng', ''], nomatch: ['Chưa ghép', 'warn'], dup: ['Lặp trong file', 'err'], bad: ['Mã không hợp lệ', 'err'], clash: ['Trùng chi nhánh', 'err'] };
+// ---- Mã điểm của hệ thống giá: nhập từ file, ghép với chi nhánh ----
+function PointsCard() {
+  const st = useAsync(() => api.get('/pos-points'), []);
+  const [text, setText] = useState('');
+  const [fname, setFname] = useState('');
+  const [pv, setPv] = useState(null);
+  const [busy, run] = useBusy();
+  const [err, setErr] = useState('');
+  const d = st.data;
+  const pick = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setErr(''); setPv(null); setFname(file.name);
+    try { const t = await file.text(); setText(t); await run(async () => { try { setPv(await api.post('/pos-points/preview', { text: t })); } catch (x) { setErr(x.message); throw x; } }); }
+    catch (x) { setErr(x.message || 'Không đọc được file'); }
+  };
+  const apply = () => run(async () => {
+    try { const r = await api.post('/pos-points/apply', { text }); setPv(null); setText(''); setFname(''); await st.reload(); toast(`Đã lưu ${r.saved} mã điểm, gán cho ${r.assigned} chi nhánh`, 'ok'); }
+    catch (x) { setErr(x.message); throw x; }
+  });
+  const sm = pv?.summary;
+  return html`<div class="card">
+    <div class="cardhead"><div class="ico-tile"><${Icon} name="store"/></div><div class="grow"><h2>Mã điểm (file của đối tác)</h2>
+      <div class="small muted">Nhập file danh sách mã điểm giống bên đối tác để ghép với chi nhánh. Mã điểm này dùng để tra giá và đối chiếu với Dsmart POS. File CSV hoặc TXT (UTF-8), dòng đầu là tên cột: <code>maDiem</code> (bắt buộc), <code>maChiNhanh</code> hoặc <code>tenDiem</code> để ghép chi nhánh.</div>
+      ${d ? html`<${Pill} tone=${d.total ? 'ok' : 'warn'}>${d.total ? `${d.total} mã điểm, ${d.matched} đã ghép chi nhánh` : 'Chưa nhập file'}<//>` : ''}</div></div>
+    <div class="row wrap" style="gap:8px;margin:8px 0"><input type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" onChange=${pick} aria-label="Chọn file mã điểm"/>${fname && html`<span class="small muted">${fname}</span>`}</div>
+    ${err && html`<div class="errtext" role="alert">${err}</div>`}
+    ${pv && html`<div class="small" style="margin:8px 0">Đọc ${sm.total} dòng: ${['ok', 'same', 'nomatch', 'dup', 'bad', 'clash'].filter((k) => sm[k]).map((k) => `${sm[k]} ${PT_STATUS[k][0].toLowerCase()}`).join(', ')}.</div>
+      <div class="tblwrap" style="max-height:320px;overflow:auto"><table class="tbl"><thead><tr><th>Dòng</th><th>Mã điểm</th><th>Tên trong file</th><th>Chi nhánh BRG</th><th>Kết quả</th></tr></thead>
+        <tbody>${pv.rows.slice(0, 300).map((r) => html`<tr key=${r.line}><td>${r.line}</td><td><b>${r.code}</b></td><td>${r.name || r.storeRef || '–'}</td><td>${r.storeName ? `${r.storeName} (${r.storeId})` : '–'}</td>
+          <td><${Pill} tone=${PT_STATUS[r.status][1]}>${PT_STATUS[r.status][0]}<//>${r.note ? html` <span class="xs muted">${r.note}</span>` : ''}</td></tr>`)}</tbody></table></div>
+      ${pv.rows.length > 300 && html`<div class="xs muted">Chỉ hiện 300 dòng đầu, khi áp dụng sẽ xử lý toàn bộ file.</div>`}
+      <div class="row wrap" style="margin-top:12px;gap:8px"><button class="btn primary sm" disabled=${busy || !(sm.ok || sm.nomatch || sm.same)} onClick=${apply}>Áp dụng ${sm.ok || 0} chi nhánh và lưu ${(sm.ok || 0) + (sm.same || 0) + (sm.nomatch || 0)} mã điểm</button>
+        <button class="btn line sm" disabled=${busy} onClick=${() => { setPv(null); setText(''); setFname(''); }}>Bỏ</button></div>`}
+    ${d && d.rows.length > 0 && !pv && html`<details style="margin-top:8px"><summary class="small b">Danh sách mã điểm đã nhập (${d.total})</summary>
+      <div class="tblwrap" style="max-height:260px;overflow:auto;margin-top:8px"><table class="tbl"><thead><tr><th>Mã điểm</th><th>Tên</th><th>Chi nhánh BRG</th></tr></thead><tbody>${d.rows.map((r) => html`<tr key=${r.code}><td><b>${r.code}</b></td><td>${r.name || '–'}</td><td>${r.storeName ? `${r.storeName} (${r.storeId})` : html`<span class="muted">chưa ghép</span>`}</td></tr>`)}</tbody></table></div></details>`}</div>`;
+}
+
 // ---- Giữ dữ liệu: xóa thông tin cá nhân và nhật ký cũ ----
 function RetentionCard() {
   const st = useAsync(() => api.get('/integrations/retention'), []);
@@ -458,6 +538,8 @@ export function Integrations({ stores }) {
       ${d.note && html`<${Banner} tone=${d.isProd ? 'warn' : 'info'} icon="info" title=${d.isProd ? 'Nguồn giá: file CSV' : 'Đang chạy bản giả lập'}>${d.note}<//>`}
       <${PosCard} d=${d} reload=${st.reload}/>
       <${PosApiCard} d=${d} stores=${stores} reload=${st.reload}/>
+      <${PointsCard}/>
+      <${PriceApiCard} stores=${stores}/>
       <${EmailCard}/>
       <${RetentionCard}/>
       <${EraseCard}/>

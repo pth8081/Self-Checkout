@@ -296,7 +296,7 @@ export function basketStatus(ctx, scope, code, query = {}) {
   inScope(scope, tx);
   const st = db.prepare('SELECT pos_code FROM stores WHERE id = ?').get(tx.store_id);
   if (!st?.pos_code || st.pos_code.toLowerCase() !== point.toLowerCase()) throw conflict('POINT_MISMATCH', 'Mã điểm không khớp với cửa hàng của giỏ này. Không thanh toán');
-  const items = JSON.parse(tx.items_json).map((i) => ({ barcode: i.barcode, name: i.name, qty: i.qty, unitPrice: i.price }));
+  const items = JSON.parse(tx.items_json).map((i) => ({ barcode: i.barcode, name: i.noPrice ? null : i.name, qty: i.qty, unitPrice: i.noPrice ? null : i.price }));
   return { code: tx.cart_code, pointCode: st.pos_code, transactionId: tx.id, status: tx.status, reason: tx.cancel_reason || undefined, posOrderRef: tx.pos_order_ref,
     createdAt: tx.created_at, itemCount: tx.item_count, total: tx.total, items, paidAmount: tx.pos_amount, billStored: !!tx.pos_bill_json };
 }

@@ -133,7 +133,7 @@ Kết quả:
 }
 ```
 
-- `items`: dựng đơn từ `barcode` và `qty`. `name` và `unitPrice` chỉ để hiển thị tham khảo, **Dsmart POS tự tính giá** theo hệ thống của mình. `total` là tạm tính của BRG Scan & Checkout, chỉ để đối chiếu, **không dùng làm số tiền thu**.
+- `items`: dựng đơn từ `barcode` và `qty`. Mặt hàng mà hệ thống giá chưa có giá thì `name` và `unitPrice` là `null`: Dsmart POS tự tra tên và tính giá theo mã vạch. `name` và `unitPrice` chỉ để hiển thị tham khảo, **Dsmart POS tự tính giá** theo hệ thống của mình. `total` là tạm tính của BRG Scan & Checkout, chỉ để đối chiếu, **không dùng làm số tiền thu**.
 - `status`: chỉ khi là `awaiting_counter` mới tạo đơn. `cancelled` (kèm `reason: "expired"` nếu mã quá hạn, mục 6.6) hoặc `paid` thì báo thu ngân và **không tạo đơn**.
 - Lỗi: `409 POINT_MISMATCH` (mã điểm khác cửa hàng của giỏ, **không trả hàng**), `400 POINT_REQUIRED` (thiếu `pointCode`), `403 STORE_FORBIDDEN` (khóa API không dùng cho chi nhánh này).
 - **`404 BASKET_NOT_FOUND`**: máy chủ không có giỏ với mã này. Điện thoại chỉ hiện mã QR **sau khi máy chủ đã nhận giỏ**, nên với mã đọc đúng thì không gặp lỗi này. Nếu gặp, thử lại sau 1 đến 2 giây một lần; vẫn không được thì báo thu ngân "Mã không hợp lệ, nhờ khách bấm Thanh toán lại".

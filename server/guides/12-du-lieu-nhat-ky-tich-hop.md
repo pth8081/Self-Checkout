@@ -8,6 +8,25 @@ access: chain
 
 # Dữ liệu, nhật ký và tích hợp
 
+## Mã điểm: nhập file của đối tác
+
+Mã điểm (`maDiem`) của chi nhánh phải trùng với mã điểm bên hệ thống giá và Dsmart POS. Thay vì nhập từng chi nhánh, quản trị chuỗi nhập **file danh sách mã điểm** ở trang **Tích hợp, thẻ "Mã điểm (file của đối tác)"**.
+
+1. Chuẩn bị file CSV hoặc TXT (UTF-8), dòng đầu là tên cột: `maDiem` (bắt buộc), `maChiNhanh` hoặc `tenDiem` (để ghép với chi nhánh). Ví dụ: `maDiem;maChiNhanh;tenDiem` rồi `001;Q7;Chi nhánh Quận 7`.
+2. Chọn file. Hệ thống **xem trước** từng dòng: Sẽ gán, Đã đúng, Chưa ghép, Lặp trong file, Mã không hợp lệ, Trùng chi nhánh. Xem trước chưa đổi gì.
+3. Bấm **Áp dụng**. Chi nhánh khớp nhận mã điểm; dòng chưa ghép vẫn được lưu vào danh sách. Nhập lại file nhiều lần được.
+
+Sau khi đã nhập file, mã điểm gõ tay ở trang Chi nhánh phải nằm trong danh sách này.
+
+## API giá bán của đối tác
+
+Khi khách quét mã vạch, hệ thống tra giá qua API giá của đối tác (theo `maVach` và mã điểm chi nhánh). Cấu hình ở trang **Tích hợp, thẻ "API giá bán (đối tác)"**: địa chỉ API, khóa API, thời gian chờ (mặc định 3 giây), thời gian giữ giá (mặc định 5 phút), công tắc bật, và nút **Tra giá** để thử.
+
+- Giá hiện trên điện thoại là **tạm tính**; Dsmart POS tính lại khi thu tiền.
+- Hàng có khuyến mại hiện giá gốc gạch ngang kèm giá khuyến mại.
+- API không trả lời hoặc lỗi: dùng giá đã lưu gần nhất; chưa có thì mặt hàng vào giỏ ở dạng **"Chưa có giá"** (không tính vào tạm tính, thu ngân tính đủ). Mã không có giá (`404`) ghi vào trang **Mã không tìm thấy**.
+- Khóa sai hoặc chưa được cấp quyền: thẻ hiện cảnh báo "Lần tra giá lỗi gần nhất".
+
 ## Link hóa đơn điện tử và link giao dịch
 
 **Dsmart POS phát hành hóa đơn điện tử** và gửi link về cùng lúc báo thanh toán: link **hóa đơn điện tử** và link **chi tiết giao dịch** của khách. Bạn **không cần cấu hình gì** ở trang này. Từ đó hai nút **Xem hóa đơn điện tử** và **Xem chi tiết giao dịch** tự hiện ở: màn hình sau thanh toán, màn bill, đơn trong lịch sử, email bill và bill PDF. Giao dịch nào Dsmart POS chưa gửi link thì nút chưa hiện; khi Dsmart POS gửi bổ sung (hóa đơn phát hành chậm) nút tự xuất hiện.

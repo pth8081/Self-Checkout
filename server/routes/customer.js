@@ -4,6 +4,7 @@ import {
   getStoreConfig, storeView, createOrResumeSession, sessionView, applyOps, lockSession, lockBasket, finishBasket, unlockSession, abandonSession, txView
 } from '../services/core.js';
 import { issueInvoice } from '../services/invoice.js';
+import { prefetchPrices, ensurePrice } from '../services/price-api.js';
 import { billOf, billPdf } from '../services/bill.js';
 import { sendBillEmailBg } from '../services/bill-email.js';
 import { parseBillToken } from '../services/qr.js';
@@ -65,6 +66,7 @@ export default async function customerRoutes(app) {
     getStoreConfig(db, storeId);
     const n = normalizeBarcode(req.query.barcode);
     if (!n.ok) return { found: false, invalid: true };
+    await ensurePrice(ctx, storeId, n.variants);
     const p = ctx.pos.lookup(storeId, n.variants);
     if (!p) return { found: false };
     return { found: true, product: { name: p.name, barcode: p.barcode, price: p.price, unit: p.unit, active: !!p.active, inStock: p.stock > 0,
@@ -90,7 +92,8 @@ export default async function customerRoutes(app) {
   app.get('/sessions/:id', async (req) => ({ session: sessionView(ctx, session(req).id) }));
   app.post('/sessions/:id/ops', async (req) => {
     const s = session(req);
-    const results = applyOps(ctx, s, req.body?.ops);
+    const prices = await prefetchPrices(ctx, s, req.body?.ops, normalizeBarcode);
+    const results = applyOps(ctx, s, req.body?.ops, prices);
     return { session: sessionView(ctx, s.id), results };
   });
   app.post('/sessions/:id/lock', async (req) => {
