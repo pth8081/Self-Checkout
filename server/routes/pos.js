@@ -1,7 +1,7 @@
 import { nowIso, unauthorized } from '../util.js';
 import { hashKey, previewCart, claimCart, orderStatus, orderPaid, orderCancelled, basketPaid, basketCancelled, basketStatus, basketRefund, basketUpdate } from '../services/pos-api.js';
 
-/** API cho Dsmart POS gọi. Xác thực bằng khoá API (Authorization: Bearer <khoá> hoặc X-Api-Key). Chỉ dùng qua HTTPS. */
+/** API cho Dsmart POS gọi. Xác thực bằng khoá API trong header X-Api-Key (chuẩn dùng trong tài liệu; vẫn nhận Authorization: Bearer <khoá> cho tương thích). Chỉ dùng qua HTTPS. */
 export default async function posRoutes(app) {
   const { db } = app.ctx;
   const ctx = app.ctx;

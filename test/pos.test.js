@@ -28,6 +28,10 @@ test('khoá API: bắt buộc, thu hồi được, mỗi khoá giới hạn theo
   const app = await makeApp();
   const { admin, key } = await setup(app, { posMode: false });
   assert.equal((await call(app, 'GET', `${POS}/health`)).status, 401);
+  // chuẩn dùng trong tài liệu: header X-Api-Key (Authorization: Bearer vẫn nhận để tương thích)
+  const viaHeader = await app.inject({ method: 'GET', url: `${POS}/health`, headers: { 'x-api-key': key } });
+  assert.equal(viaHeader.statusCode, 200);
+  assert.equal((await app.inject({ method: 'GET', url: `${POS}/health`, headers: { 'x-api-key': 'sai-khoa' } })).statusCode, 401);
   assert.equal((await pos(app, 'sai-khoa', 'GET', '/health')).body.error, 'BAD_API_KEY');
   const h = await pos(app, key, 'GET', '/health');
   assert.equal(h.status, 200);

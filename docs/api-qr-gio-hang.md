@@ -86,9 +86,16 @@ BRG2|SP-0107|Q7-LM3K2AB|1793845800|28C3
 
 ### Lấy danh sách mặt hàng: API
 
-`GET /api/pos/v1/baskets/{mã giỏ}?pointCode={mã điểm}`
+`GET https://scan.hcrc.vn/api/pos/v1/baskets/{mã giỏ}?pointCode={mã điểm}`
 
-Gọi ngay sau khi quét và kiểm tra mã điểm. `pointCode` là mã điểm **đọc từ mã QR**, bắt buộc. Kết quả:
+Gọi ngay sau khi quét và kiểm tra mã điểm. `pointCode` là mã điểm **đọc từ mã QR**, bắt buộc. Cùng header `X-Api-Key` như mọi lệnh khác:
+
+```bash
+curl -H "X-Api-Key: brgpos_xxxxxxxx" \
+  "https://scan.hcrc.vn/api/pos/v1/baskets/Q7-LM3K2AB?pointCode=SP-0107"
+```
+
+Kết quả:
 
 ```json
 {
@@ -175,7 +182,7 @@ static string Crc16(string s) {
 
 ## 4. API báo thanh toán thành công
 
-Xác thực: header `Authorization: Bearer <khoá API>` (hoặc `X-Api-Key`). Chỉ gọi qua HTTPS. Nội dung JSON, UTF-8.
+Xác thực: mọi lệnh gọi đều gửi khoá API trong header `X-Api-Key: <khoá API>`. Chỉ gọi qua HTTPS. Nội dung JSON, UTF-8.
 
 `POST /api/pos/v1/baskets/{mã giỏ}/paid`
 
@@ -263,7 +270,7 @@ Ví dụ gọi thử:
 
 ```bash
 curl -X POST "https://scan.hcrc.vn/api/pos/v1/baskets/Q7-LM3K2AB/paid" \
-  -H "Authorization: Bearer brgpos_xxxxxxxx" -H "Content-Type: application/json" \
+  -H "X-Api-Key: brgpos_xxxxxxxx" -H "Content-Type: application/json" \
   -d '{"posOrderRef":"POS-1","pointCode":"SP-0107","amount":60800,"method":"cash"}'
 ```
 

@@ -35,7 +35,7 @@ const routes = {
 if (!routes[cmd]) { console.error(`Lệnh không có: ${cmd}`); process.exit(2); }
 const [method, path, body] = routes[cmd]();
 const res = await fetch(`${base}/api/pos/v1${path}`, {
-  method, headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined
+  method, headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined
 });
 const text = await res.text();
 console.log(`HTTP ${res.status}`);
