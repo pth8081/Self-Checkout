@@ -155,7 +155,7 @@ export function Stores({ me, reloadStores, setStoreId }) {
       ${msg.code === 'NO_POS_KEY' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => go('/integrations')}><${Icon} name="link" size=${18}/>Đi tới mục Tích hợp để tạo khóa</button></div>`}
       ${msg.code === 'CARTS_PENDING' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => { if (msg.storeId) setStoreId(msg.storeId); go('/transactions'); }}>Xem giao dịch</button></div>`}<//>`}
     <${Async} state=${st}>${(d) => html`<div class="card">
-      <div class="toolbar" style="margin-bottom:10px"><input class="input sm grow" style="max-width:340px" type="search" placeholder="Tìm chi nhánh theo tên, mã, địa chỉ, mã điểm" aria-label="Tìm chi nhánh" value=${q} onInput=${(e) => setQ(e.target.value)}/>
+      <div class="toolbar" style="margin-bottom:10px"><input class="input sm grow" style="max-width:340px;min-width:min(240px,100%);flex:1 1 240px" type="search" placeholder="Tìm chi nhánh theo tên, mã, địa chỉ, mã điểm" aria-label="Tìm chi nhánh" value=${q} onInput=${(e) => setQ(e.target.value)}/>
         <span class="small muted">${(() => { const n = q.trim() ? d.stores.filter((s) => `${s.name} ${s.id} ${s.address || ''} ${s.posCode || ''}`.toLowerCase().includes(q.trim().toLowerCase())).length : d.stores.length; return `${n}/${d.stores.length} chi nhánh`; })()}</span>
         <span class="grow"></span><label class="row small" style="gap:8px"><${Switch} checked=${compact} label="Thu gọn bảng" onChange=${setCompact}/>Thu gọn</label></div>
       <div class="tblwrap"><table class=${`tbl ${compact ? 'compact' : ''}`}>
