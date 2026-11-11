@@ -142,7 +142,7 @@ const WIDTH = { email: 320 };
  * Cột nằm trong khóa chính, UNIQUE, chỉ mục hoặc khóa ngoại dùng NVARCHAR(128) (giới hạn khóa của SQL Server), cột khác NVARCHAR(MAX).
  */
 export function schemaToTsql(schema, migrations, extraIndexes = []) {
-  const stmts = statements(schema);
+  const stmts = statements(schema.replace(/^\s*--.*$/gm, ''));
   const keyCols = new Set();
   const addKeys = (list) => list.split(',').map((c) => c.trim().replace(/\s+(ASC|DESC)$/i, '').toLowerCase()).forEach((c) => keyCols.add(c));
   for (const st of [...stmts, ...extraIndexes]) {
