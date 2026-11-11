@@ -2,6 +2,10 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 1.4 (2026-11-11)
+
+- Sửa nạp .env cho các lệnh (create-admin, import...): bỏ ghi chú cuối dòng như MSSQL_TRUST_CERT=1 # ghi chú
+
 ## 1.3 (2026-11-11)
 
 - Sửa lỗi Promise.withResolvers is not a function khi dùng SQL Server trên Node 20
