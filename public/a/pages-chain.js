@@ -196,7 +196,7 @@ function PosCard({ d, reload }) {
   const saveLimit = (s) => run(async () => { await api.put(`/stores/${s.id}/config`, { posStaleMinutes: Number(vals[s.id]) }); await reload(); }, 'Đã lưu ngưỡng cảnh báo');
   return html`<div class="card">
     <div class="cardhead"><div class="ico-tile"><${Icon} name="barcode"/></div><div class="grow"><h2>Dsmart POS (giá & tồn kho)</h2>
-      <div class="small muted">Nguồn giá: ${d.pos.adapter === 'mock' ? (d.isProd ? 'bảng giá nhập bằng file CSV' : 'Dsmart POS giả lập') : d.pos.adapter}</div></div>
+      <div class="small muted">Nguồn giá: ${d.pos.adapter === 'mock' ? (d.isProd ? 'bảng giá nhập bằng file CSV' : 'Dsmart POS giả lập') : d.pos.adapter}. Tồn kho lấy từ API của đối tác: cấu hình ở thẻ <b>Tồn kho (API đối tác)</b> ngay bên dưới.</div></div>
       <${Pill} tone="ok"><span class="dot"></span>Đã kết nối<//>
       <button class="btn sm primary" disabled=${busy} onClick=${() => sync(null)}><${Icon} name="refresh" size=${18}/>Đồng bộ tất cả</button></div>
     <div class="tblwrap"><table class="tbl"><thead><tr><th>Chi nhánh</th><th>Mã điểm (hệ thống giá)</th><th>Đồng bộ gần nhất</th><th>Độ trễ</th><th>Ngưỡng cảnh báo (phút)</th><th class="r">Mã vạch không khớp (24 giờ)</th><th></th></tr></thead>
@@ -421,6 +421,7 @@ function PriceApiCard({ stores }) {
 
 // ---- Tồn kho: đồng bộ từ API tồn kho của đối tác, kiểm tra và đối chiếu ----
 function StockApiCard() {
+  // (thẻ cấu hình đồng bộ tồn kho: địa chỉ API, khóa, chu kỳ; kiểm tra kết nối, đồng bộ ngay, kết quả, đối chiếu)
   const st = useAsync(() => api.get('/integrations/stock-api'), []);
   const [f, setF] = useState(null);
   const [busy, run] = useBusy();
@@ -446,7 +447,7 @@ function StockApiCard() {
   });
   const find = () => run(async () => { setFound(null); setFound((await api.get(`/integrations/stock-api/lookup?q=${encodeURIComponent(q.trim())}`)).rows); });
   const last = d.last;
-  return html`<div class="card">
+  return html`<div class="card" id="stock-api">
     <div class="cardhead"><div class="ico-tile"><${Icon} name="barcode"/></div><div class="grow"><h2>Tồn kho (API đối tác)</h2>
       <div class="small muted">Đồng bộ tồn kho của tất cả siêu thị từ API tồn kho của đối tác (gọi theo trang), ghép với chi nhánh bằng <code>maDiem</code> (mã điểm). Dữ liệu đối tác cập nhật mỗi 15 phút, nên chu kỳ đồng bộ tối thiểu là 15 phút.</div>
       ${d.syncing ? html`<${Pill} tone="warn">Đang đồng bộ…<//>` : d.config.enabled ? html`<${Pill} tone="ok"><span class="dot"></span>Đang dùng<//>` : html`<${Pill} tone="warn">Chưa bật<//>`}</div></div>
@@ -644,10 +645,10 @@ export function Integrations({ stores }) {
     <${Async} state=${st}>${(d) => html`
       ${d.note && html`<${Banner} tone=${d.isProd ? 'warn' : 'info'} icon="info" title=${d.isProd ? 'Nguồn giá: file CSV' : 'Đang chạy bản giả lập'}>${d.note}<//>`}
       <${PosCard} d=${d} reload=${st.reload}/>
+      <${StockApiCard}/>
       <${PosApiCard} d=${d} stores=${stores} reload=${st.reload}/>
       <${PointsCard}/>
       <${PriceApiCard} stores=${stores}/>
-      <${StockApiCard}/>
       <${EmailCard}/>
       <${RetentionCard}/>
       <${EraseCard}/>
