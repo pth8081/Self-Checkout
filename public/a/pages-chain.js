@@ -358,7 +358,7 @@ function PriceApiCard({ stores }) {
       <div class="small muted">Khi khách quét mã vạch, hệ thống tra giá theo <code>maVach</code> và <code>maDiem</code> (mã điểm của chi nhánh). Giá hiện trên điện thoại là tạm tính, số tiền cuối do Dsmart POS tính lại.</div>
       ${d.config.enabled ? html`<${Pill} tone="ok"><span class="dot"></span>Đang dùng<//>` : html`<${Pill} tone="warn">Chưa bật<//>`}</div></div>
     <div class="two">
-      <${Field} label="Địa chỉ API" hint="Chỉ nhập địa chỉ, không kèm ?maVach=... Ví dụ https://api.brgmart.vn/api/v1/reports/gia-ban/run"><input class="input" value=${f.url} onInput=${set('url')}/><//>
+      <${Field} label="Địa chỉ API" hint="Chỉ nhập địa chỉ, không kèm ?maVach=... Ví dụ https://api.hcrc.vn/api/v1/reports/gia-ban/run"><input class="input" value=${f.url} onInput=${set('url')}/><//>
       <${Field} label="Khóa API (X-API-Key)" hint=${d.config.hasKey ? 'Đã lưu khóa. Bỏ trống để giữ khóa cũ, nhập mới để thay' : 'Chưa có khóa'}><input class="input" type="password" autocomplete="off" value=${f.key} placeholder=${d.config.hasKey ? '••••••••••••' : ''} onInput=${set('key')}/><//>
       <${Field} label="Thời gian chờ mỗi lần tra (giây)" hint="Quá thời gian thì dùng giá đã lưu, chưa có thì hiện Chưa có giá"><input class="input" inputmode="numeric" value=${f.timeoutSec} onInput=${set('timeoutSec')}/><//>
       <${Field} label="Giữ giá đã tra (phút)" hint="Trong thời gian này mọi khách quét cùng mặt hàng không gọi lại API"><input class="input" inputmode="numeric" value=${f.cacheMin} onInput=${set('cacheMin')}/><//></div>

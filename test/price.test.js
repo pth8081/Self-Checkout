@@ -48,13 +48,13 @@ test('cấu hình API giá: chỉ https (trừ máy nội bộ), phải có khó
   const app = await makeApp({ basket: true });
   const admin = (await adminLogin(app)).body.token;
   const put = (body, token = admin) => call(app, 'PUT', '/api/a/integrations/price-api', { token, body });
-  assert.equal((await put({ url: 'http://api.brgmart.vn/x' })).body.error, 'BAD_PRICE_API');
-  assert.equal((await put({ url: 'https://api.brgmart.vn/x?maVach=1' })).body.error, 'BAD_PRICE_API');
+  assert.equal((await put({ url: 'http://api.hcrc.vn/x' })).body.error, 'BAD_PRICE_API');
+  assert.equal((await put({ url: 'https://api.hcrc.vn/x?maVach=1' })).body.error, 'BAD_PRICE_API');
   assert.equal((await put({ enabled: true })).body.error, 'BAD_PRICE_API'); // chưa có địa chỉ và khóa
-  assert.equal((await put({ url: 'https://api.brgmart.vn/api/v1/reports/gia-ban/run', key: 'bi-mat-123', enabled: true })).status, 200);
+  assert.equal((await put({ url: 'https://api.hcrc.vn/api/v1/reports/gia-ban/run', key: 'bi-mat-123', enabled: true })).status, 200);
   const g = await call(app, 'GET', '/api/a/integrations/price-api', { token: admin });
   assert.equal(g.body.config.hasKey, true); assert.ok(!JSON.stringify(g.body).includes('bi-mat-123'));
-  assert.equal((await put({ url: 'https://api.brgmart.vn/api/v1/reports/gia-ban/run' })).body.config.hasKey, true); // bỏ trống khóa thì giữ khóa cũ
+  assert.equal((await put({ url: 'https://api.hcrc.vn/api/v1/reports/gia-ban/run' })).body.config.hasKey, true); // bỏ trống khóa thì giữ khóa cũ
   const q7 = (await adminLogin(app, 'QT0007')).body.token;
   assert.equal((await put({ enabled: false }, q7)).status, 403);
   await app.close();
