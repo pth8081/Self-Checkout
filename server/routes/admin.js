@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { config } from '../config.js';
 import { getSetting, setSetting } from '../db.js';
 import { previewErase, eraseCustomer } from '../services/privacy.js';
@@ -57,7 +58,7 @@ export default async function adminRoutes(app) {
     if (user.totp_secret) {
       if (req.body?.totp) { // gửi kèm mã trong cùng yêu cầu (dùng cho công cụ gọi API)
         if (!verifyTotp(user.totp_secret, req.body.totp)) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
-        return finishLogin(user);
+        return finishLogin(user, 'password', req);
       }
       return { totpRequired: true, stepToken: sign({ uid: user.id, kind: 'admin-totp' }, 5 / 60) };
     }
@@ -66,13 +67,49 @@ export default async function adminRoutes(app) {
       const secret = randomSecret();
       return { mfaSetup: true, secret, uri: otpauthUri(secret, user.email || user.username || user.id), confirmToken: sign({ uid: user.id, kind: 'admin-2fa', secret }, 10 / 60) };
     }
-    return finishLogin(user);
+    return finishLogin(user, 'password', req);
   });
-  const finishLogin = (user, how = 'password') => {
-    recordOk(db, user);
-    audit(db, { storeId: user.store_id, actorType: 'admin', actorId: user.id, action: 'admin.login', data: { how } });
-    return { token: sign({ uid: user.id, kind: 'admin' }, 8), user: userView(user) };
+  const deviceOf = (req) => {
+    const ua = String(req.headers['user-agent'] || '');
+    const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\/|Opera/.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Trình duyệt khác';
+    const os = /Windows/.test(ua) ? 'Windows' : /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
+    return { device: os ? `${browser} trên ${os}` : browser, ip: req.ip || '' };
   };
+  const idleMs = () => Math.max(1, Number(process.env.ADMIN_SESSION_IDLE_MIN || 120)) * 60_000;
+  /**
+   * Hoàn tất đăng nhập. Chỉ một phiên tại một thời điểm: nếu tài khoản đang có phiên hoạt động ở thiết bị khác thì chưa cấp phiên mới,
+   * trả `sessionConflict` kèm mã xác nhận (5 phút). Người dùng bấm đồng ý (POST /login/takeover) thì phiên mới được cấp và phiên cũ bị đăng xuất.
+   */
+  const finishLogin = (user, how = 'password', req = null, force = false) => {
+    const policy = securityPolicy(db);
+    const info = user.session_info ? JSON.parse(user.session_info) : null;
+    const active = policy.singleSession && user.session_id && user.session_seen && Date.now() - Date.parse(user.session_seen) < idleMs();
+    if (active && !force) {
+      return { sessionConflict: true, takeoverToken: sign({ uid: user.id, kind: 'admin-takeover', how, n: crypto.randomBytes(6).toString('hex') }, 5 / 60),
+        other: { device: info?.device || 'Thiết bị khác', ip: info?.ip || '', since: info?.at || null, lastSeen: user.session_seen } };
+    }
+    const sid = crypto.randomUUID();
+    const here = req ? deviceOf(req) : { device: '', ip: '' };
+    db.prepare('UPDATE staff SET session_id = ?, session_seen = ?, session_info = ? WHERE id = ?').run(sid, nowIso(), JSON.stringify({ ...here, at: nowIso() }), user.id);
+    recordOk(db, user);
+    audit(db, { storeId: user.store_id, actorType: 'admin', actorId: user.id, action: 'admin.login', data: { how, replaced: !!active ? (info?.device || true) : undefined } });
+    return { token: sign({ uid: user.id, kind: 'admin', sid }, 8), user: userView(user) };
+  };
+  const spentTakeover = new Set();
+  app.post('/login/takeover', async (req) => {
+    const p = verify(String(req.body?.takeoverToken || ''));
+    if (!p || p.kind !== 'admin-takeover' || spentTakeover.has(p.n)) throw unauthorized('EXPIRED', 'Phiên xác nhận đã hết hạn, hãy đăng nhập lại');
+    const user = db.prepare('SELECT * FROM staff WHERE id = ?').get(p.uid);
+    if (!user || !user.active || !isManager(user)) throw unauthorized();
+    spentTakeover.add(p.n); setTimeout(() => spentTakeover.delete(p.n), 6 * 60_000).unref?.();
+    return finishLogin(user, p.how, req, true);
+  });
+  app.post('/logout', async (req) => {
+    // Đăng xuất chủ động: xóa phiên nếu đúng là phiên đang dùng (không báo lỗi khi token hết hạn).
+    const p = verify(String((req.headers.authorization || '').replace(/^Bearer /, '')));
+    if (p?.kind === 'admin' && p.sid) db.prepare('UPDATE staff SET session_id = NULL, session_seen = NULL, session_info = NULL WHERE id = ? AND session_id = ?').run(p.uid, p.sid);
+    return { ok: true };
+  });
   // Bước 2 khi tài khoản đã bật xác thực 2 bước: nhập mã 6 số từ app.
   app.post('/login/totp', async (req) => {
     const p = verify(String(req.body?.stepToken || ''));
@@ -81,7 +118,7 @@ export default async function adminRoutes(app) {
     if (!user || !user.active || !isManager(user) || !user.totp_secret) throw unauthorized();
     checkLocked(user);
     if (!verifyTotp(user.totp_secret, String(req.body?.code || ''))) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
-    return finishLogin(user);
+    return finishLogin(user, 'password', req);
   });
   // Bước 2 của lần thiết lập xác thực 2 bước đầu tiên: nhập mã 6 số từ app để xác nhận, rồi mới được vào.
   app.post('/login/2fa-confirm', async (req) => {
@@ -94,7 +131,7 @@ export default async function adminRoutes(app) {
     if (!verifyTotp(p.secret, String(req.body?.code || ''))) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
     db.prepare('UPDATE staff SET totp_secret = ? WHERE id = ?').run(p.secret, user.id);
     audit(db, { storeId: user.store_id, actorType: 'admin', actorId: user.id, action: 'user.totp_on', entity: 'user', entityId: user.id, data: { firstLogin: true } });
-    return finishLogin(db.prepare('SELECT * FROM staff WHERE id = ?').get(user.id));
+    return finishLogin(db.prepare('SELECT * FROM staff WHERE id = ?').get(user.id), 'password', req);
   });
   // Đăng nhập bằng vân tay / khuôn mặt: không cần mật khẩu, mã hình và mã 2 bước vì thiết bị đã xác minh người dùng bằng khóa riêng.
   const passkeyErr = (e) => (e.code === 'NO_ORIGIN' ? bad('NO_ORIGIN', e.message) : unauthorized('BAD_PASSKEY', e.message || 'Đăng nhập bằng thiết bị không thành công'));
@@ -111,7 +148,7 @@ export default async function adminRoutes(app) {
     const user = db.prepare('SELECT * FROM staff WHERE id = ?').get(rec.record.staff_id);
     if (!user || !user.active || !isManager(user)) throw unauthorized('BAD_PASSKEY', 'Tài khoản đã bị khóa hoặc không còn quyền quản trị');
     db.prepare('UPDATE passkeys SET counter = ?, last_used_at = ? WHERE id = ?').run(rec.counter, nowIso(), rec.record.id);
-    return finishLogin(user, 'passkey');
+    return finishLogin(user, 'passkey', req);
   });
 
   app.register(async (s) => {
@@ -767,7 +804,7 @@ export default async function adminRoutes(app) {
       chainOnly(req);
       const cur = getSetting(db, 'security', {});
       const next = { ...cur };
-      for (const k of ['require2fa', 'requireCaptcha']) if (typeof req.body?.[k] === 'boolean') next[k] = req.body[k];
+      for (const k of ['require2fa', 'requireCaptcha', 'singleSession']) if (typeof req.body?.[k] === 'boolean') next[k] = req.body[k];
       setSetting(db, 'security', next);
       audit(db, { actorType: 'admin', actorId: req.user.id, action: 'security.policy_changed', entity: 'settings', entityId: 'security', data: securityPolicy(db) });
       return { policy: securityPolicy(db) };

@@ -74,6 +74,15 @@ export function authenticate(db, kind) {
     const user = db.prepare('SELECT * FROM staff WHERE id = ?').get(p.uid);
     if (!user || !user.active) throw unauthorized('INACTIVE', 'Tài khoản đã bị khóa');
     if (kind === 'admin' && !isManager(user)) throw forbidden();
+    if (kind === 'admin') {
+      // Một phiên đăng nhập tại một thời điểm: đăng nhập ở thiết bị khác sẽ đổi mã phiên, phiên cũ bị từ chối ở lần gọi sau.
+      if (securityPolicy(db).singleSession && (p.sid || null) !== (user.session_id || null)) {
+        throw unauthorized('SESSION_REPLACED', 'Tài khoản vừa đăng nhập ở một thiết bị khác nên phiên này đã bị đăng xuất. Hãy đăng nhập lại nếu đó không phải bạn.');
+      }
+      if (user.session_id && (!user.session_seen || Date.now() - Date.parse(user.session_seen) > 60_000)) {
+        const ts = nowIso(); db.prepare('UPDATE staff SET session_seen = ? WHERE id = ?').run(ts, user.id); user.session_seen = ts;
+      }
+    }
     req.user = user;
   };
 }
@@ -97,6 +106,7 @@ export function securityPolicy(db) {
   const s = getSetting(db, 'security', {});
   return {
     require2fa: typeof s.require2fa === 'boolean' ? s.require2fa : process.env.REQUIRE_ADMIN_2FA !== '0',
-    requireCaptcha: typeof s.requireCaptcha === 'boolean' ? s.requireCaptcha : process.env.REQUIRE_CAPTCHA !== '0'
+    requireCaptcha: typeof s.requireCaptcha === 'boolean' ? s.requireCaptcha : process.env.REQUIRE_CAPTCHA !== '0',
+    singleSession: typeof s.singleSession === 'boolean' ? s.singleSession : process.env.SINGLE_SESSION !== '0'
   };
 }

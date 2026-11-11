@@ -835,7 +835,8 @@ function SecurityPolicyCard() {
   return html`<div class="card"><div class="cardhead"><div class="ico-tile green"><${Icon} name="lock"/></div><div class="grow"><h2>Chính sách bảo mật đăng nhập</h2>
     <div class="small muted">Áp dụng cho mọi tài khoản quản trị. Đăng nhập bằng vân tay / khuôn mặt (passkey) đã gồm xác minh người dùng nên không cần mã hình và mã 2 bước.</div></div></div>
     <div class="row" style="margin:8px 0"><${Switch} checked=${d.require2fa} label="Bắt buộc xác thực 2 bước" onChange=${(v) => set('require2fa', v)}/><span><b>Bắt buộc xác thực 2 bước</b><div class="xs muted">Bật: tài khoản chưa có 2 bước phải thiết lập ngay khi đăng nhập, và không ai gỡ được 2 bước. Tắt: ai cũng gỡ hoặc không dùng 2 bước được.</div></span></div>
-    <div class="row" style="margin:8px 0"><${Switch} checked=${d.requireCaptcha} label="Bắt buộc mã hình 4 số khi đăng nhập" onChange=${(v) => set('requireCaptcha', v)}/><span><b>Bắt buộc mã hình 4 số khi đăng nhập</b><div class="xs muted">Hạn chế chương trình tự dò mật khẩu. Mỗi hình chỉ thử được một lần.</div></span></div></div>`;
+    <div class="row" style="margin:8px 0"><${Switch} checked=${d.requireCaptcha} label="Bắt buộc mã hình 4 số khi đăng nhập" onChange=${(v) => set('requireCaptcha', v)}/><span><b>Bắt buộc mã hình 4 số khi đăng nhập</b><div class="xs muted">Hạn chế chương trình tự dò mật khẩu. Mỗi hình chỉ thử được một lần.</div></span></div>
+    <div class="row" style="margin:8px 0"><${Switch} checked=${d.singleSession} label="Mỗi tài khoản chỉ đăng nhập một thiết bị" onChange=${(v) => set('singleSession', v)}/><span><b>Mỗi tài khoản chỉ đăng nhập một thiết bị</b><div class="xs muted">Bật: đăng nhập ở thiết bị mới phải xác nhận và sẽ đăng xuất thiết bị đang dùng. Tắt: nhiều thiết bị dùng cùng lúc được.</div></span></div></div>`;
 }
 
 export function Users({ me, stores, onMe }) {

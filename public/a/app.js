@@ -1,6 +1,6 @@
 // Web quản trị BRG Scan & Checkout (chuỗi + chi nhánh).
-import { html, render, useState, useEffect, useMemo, useCallback, useRoute, go, toast, Toasts, Header, Drawer, Icon, Logo, Spinner, OfflineBar, Field, registerSW, ErrorBox, QR, copyText } from '/shared/lib.js';
-import { api, S, store, ROLE_VI, passkeyGet } from '/a/common.js';
+import { html, render, useState, useEffect, useMemo, useCallback, useRoute, go, toast, Toasts, Header, Drawer, Icon, Logo, Spinner, OfflineBar, Field, registerSW, ErrorBox, QR, copyText, fmt } from '/shared/lib.js';
+import { api, S, store, ROLE_VI, passkeyGet, Banner } from '/a/common.js';
 import { Overview, Stores, Integrations, Reports, Users, Audit } from '/a/pages-chain.js';
 import { GuideList, GuideDoc } from '/a/guides.js';
 import { Today, Transactions, TxDetail, PosOrders, Plans, RandomCheck, Reconcile, Unknown } from '/a/pages-store.js';
@@ -42,6 +42,7 @@ function Login({ onLogin, notice }) {
   const [totp, setTotp] = useState('');
   const [step, setStep] = useState(null); // { stepToken }: đã đúng mật khẩu, chờ mã xác thực 2 bước
   const [setup, setSetup] = useState(null); // { secret, uri, confirmToken }: lần đầu đăng nhập phải thiết lập xác thực 2 bước
+  const [conflict, setConflict] = useState(null); // { takeoverToken, other }: tài khoản đang đăng nhập ở thiết bị khác, chờ người dùng đồng ý
   const [cap, setCap] = useState(null); // { required, id, svg }
   const [capText, setCapText] = useState('');
   const [err, setErr] = useState('');
@@ -56,7 +57,7 @@ function Login({ onLogin, notice }) {
     if (step) {
       if (!/^\d{6}$/.test(totp)) return setErr('Mã xác thực gồm 6 chữ số');
       setBusy(true);
-      try { const r = await api.post('/login/totp', { stepToken: step.stepToken, code: totp }); await onLogin(r.token); }
+      try { const r = await api.post('/login/totp', { stepToken: step.stepToken, code: totp }); if (r.sessionConflict) { setConflict(r); return; } await onLogin(r.token); }
       catch (x) {
         if (x.code === 'EXPIRED') { setStep(null); setTotp(''); setPassword(''); setErr(x.message); loadCap(); }
         else { setErr(x.message); setTotp(''); }
@@ -70,6 +71,7 @@ function Login({ onLogin, notice }) {
       const r = await api.post('/login', { account: account.trim(), password, captchaId: cap?.required ? cap.id : undefined, captcha: cap?.required ? capText.trim() : undefined });
       if (r.mfaSetup) { setSetup(r); setTotp(''); return; }
       if (r.totpRequired) { setStep(r); setTotp(''); return; }
+      if (r.sessionConflict) { setConflict(r); return; }
       await onLogin(r.token);
     } catch (x) {
       setErr(x.code === 'LOCKED' ? (x.message || 'Tài khoản bị khóa tạm vì nhập sai nhiều lần. Hãy thử lại sau ít phút.') : (x.message || 'Đăng nhập không thành công'));
@@ -82,7 +84,7 @@ function Login({ onLogin, notice }) {
     setErr('');
     if (!/^\d{6}$/.test(totp)) return setErr('Mã xác thực gồm 6 chữ số');
     setBusy(true);
-    try { const r = await api.post('/login/2fa-confirm', { confirmToken: setup.confirmToken, code: totp }); await onLogin(r.token); }
+    try { const r = await api.post('/login/2fa-confirm', { confirmToken: setup.confirmToken, code: totp }); if (r.sessionConflict) { setConflict(r); return; } await onLogin(r.token); }
     catch (x) {
       if (x.code === 'EXPIRED' || x.code === 'ALREADY_2FA') { setSetup(null); setTotp(''); setPassword(''); setErr(x.message); loadCap(); }
       else { setErr(x.message); setTotp(''); }
@@ -97,11 +99,28 @@ function Login({ onLogin, notice }) {
       const o = await api.post('/login/passkey/options', { account: account.trim() || undefined });
       const cred = await passkeyGet(o.options);
       const r = await api.post('/login/passkey', { challengeToken: o.challengeToken, credential: cred });
+      if (r.sessionConflict) { setConflict(r); return; }
       await onLogin(r.token);
     } catch (x) {
       setErr(x.name === 'NotAllowedError' ? 'Đã hủy hoặc hết thời gian chờ xác minh trên thiết bị' : (x.message || 'Đăng nhập bằng thiết bị không thành công'));
     } finally { setBusy(false); }
   };
+  const takeover = async () => {
+    if (busy) return;
+    setErr(''); setBusy(true);
+    try { const r = await api.post('/login/takeover', { takeoverToken: conflict.takeoverToken }); await onLogin(r.token); }
+    catch (x) { setConflict(null); setStep(null); setSetup(null); setPassword(''); setErr(x.message || 'Phiên xác nhận đã hết hạn, hãy đăng nhập lại'); loadCap(); }
+    finally { setBusy(false); }
+  };
+  if (conflict) return html`<div class="login"><div class="card">
+    <div class="row"><${Logo} size=${44}/><div><h1 style="font-size:22px">Tài khoản đang đăng nhập ở nơi khác</h1></div></div>
+    <${Banner} tone="warn" icon="alert" title="Đang có một thiết bị đăng nhập tài khoản này">
+      <div class="small" style="line-height:1.7">Thiết bị: <b>${conflict.other.device}</b>${conflict.other.ip ? ` (địa chỉ ${conflict.other.ip})` : ''}<br/>${conflict.other.since ? html`Đăng nhập lúc: <b>${fmt.dateTime(conflict.other.since)}</b><br/>` : ''}${conflict.other.lastSeen ? html`Hoạt động gần nhất: <b>${fmt.dateTime(conflict.other.lastSeen)}</b>` : ''}</div><//>
+    <p class="muted">Mỗi tài khoản chỉ đăng nhập ở một thiết bị tại một thời điểm. Bấm <b>Đồng ý</b> để đăng nhập ở đây và <b>đăng xuất thiết bị kia</b>.</p>
+    ${err && html`<div class="banner err" role="alert"><${Icon} name="alert"/><div class="grow">${err}</div></div>`}
+    <button class="btn primary" type="button" disabled=${busy} onClick=${takeover}>${busy ? html`<${Spinner} sm/>` : 'Đồng ý, đăng nhập ở đây'}</button>
+    <button class="btn txt" type="button" onClick=${() => { setConflict(null); setStep(null); setSetup(null); setPassword(''); setTotp(''); setErr(''); loadCap(); }}>Hủy</button>
+  </div></div>`;
   if (setup) return html`<div class="login"><form class="card" onSubmit=${confirm2fa} noValidate>
     <div class="row"><${Logo} size=${44}/><div><h1 style="font-size:22px">Thiết lập xác thực 2 bước</h1><div class="small muted">Bắt buộc với tài khoản quản trị</div></div></div>
     <div class="small">1. Cài app xác thực trên điện thoại (Google Authenticator, Microsoft Authenticator, Authy…).<br/>2. Quét mã QR bên dưới, hoặc nhập mã bí mật thủ công.<br/>3. Nhập mã 6 số hiện trong app để hoàn tất.</div>
@@ -202,11 +221,12 @@ function App() {
   const [bootErr, setBootErr] = useState(null);
 
   const logout = useCallback((msg) => {
+    if (S.token) fetch('/api/a/logout', { method: 'POST', headers: { Authorization: `Bearer ${S.token}` }, keepalive: true }).catch(() => {}); // báo máy chủ xóa phiên (không chờ)
     S.token = null; store.set(TOKEN_KEY, null); setSession(null); setBoot(false);
     setNotice(typeof msg === 'string' ? msg : '');
     if (location.hash && location.hash !== '#/') history.replaceState(null, '', '#/');
   }, []);
-  S.onLogout = () => logout('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.');
+  S.onLogout = (data) => logout(data?.error === 'SESSION_REPLACED' ? data.message : 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.');
 
   const loadMe = useCallback(async () => {
     const [r, cfg] = await Promise.all([api.get('/me'), api.get('/stores').catch(() => ({ stores: [] }))]);

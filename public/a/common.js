@@ -5,7 +5,7 @@ export const S = { token: null, onLogout: null };
 export const api = createApi({
   base: '/api/a',
   headers: () => (S.token ? { Authorization: `Bearer ${S.token}` } : {}),
-  onUnauthorized: () => S.onLogout?.()
+  onUnauthorized: (data) => S.onLogout?.(data)
 });
 
 export const store = {

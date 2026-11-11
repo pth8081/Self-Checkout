@@ -306,3 +306,39 @@ test('đổi và gỡ xác thực 2 bước: chính chủ phải nhập mã hi�
   assert.equal((await call(app, 'PUT', '/api/a/security', { token: (await adminLogin(app, 'QT0007')).body.token, body: { require2fa: true } })).status, 403);
   await app.close();
 });
+
+test('một phiên đăng nhập tại một thời điểm: đăng nhập lần hai phải xác nhận, xác nhận thì phiên cũ bị đăng xuất; đăng xuất, quá hạn nhàn rỗi và tắt chính sách thì không hỏi', async () => {
+  process.env.SINGLE_SESSION = '1';
+  try {
+    const app = await makeApp();
+    const A = await adminLogin(app);
+    assert.equal(A.status, 200); const tokA = A.body.token;
+    assert.equal((await call(app, 'GET', '/api/a/overview', { token: tokA })).status, 200);
+    // thiết bị thứ hai: chưa được cấp phiên, phải xác nhận
+    const B = await call(app, 'POST', '/api/a/login', { body: { account: 'QT0001', password: 'Admin@123' }, headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0 Safari/537.36' } });
+    assert.equal(B.status, 200, JSON.stringify(B.body));
+    assert.equal(B.body.sessionConflict, true);
+    assert.ok(B.body.takeoverToken && !B.body.token);
+    assert.ok(B.body.other.device);
+    assert.equal((await call(app, 'GET', '/api/a/overview', { token: tokA })).status, 200); // phiên cũ vẫn dùng được cho tới khi xác nhận
+    assert.equal((await call(app, 'POST', '/api/a/login/takeover', { body: { takeoverToken: 'rac' } })).status, 401);
+    const T = await call(app, 'POST', '/api/a/login/takeover', { body: { takeoverToken: B.body.takeoverToken } });
+    assert.equal(T.status, 200, JSON.stringify(T.body)); const tokB = T.body.token;
+    assert.ok(tokB);
+    assert.equal((await call(app, 'POST', '/api/a/login/takeover', { body: { takeoverToken: B.body.takeoverToken } })).status, 401); // dùng một lần
+    const old = await call(app, 'GET', '/api/a/overview', { token: tokA });
+    assert.equal(old.status, 401); assert.equal(old.body.error, 'SESSION_REPLACED');
+    assert.equal((await call(app, 'GET', '/api/a/overview', { token: tokB })).status, 200);
+    // đăng xuất chủ động thì lần sau vào thẳng
+    assert.equal((await call(app, 'POST', '/api/a/logout', { token: tokB })).status, 200);
+    const C = await adminLogin(app); assert.ok(C.body.token && !C.body.sessionConflict);
+    // phiên nhàn rỗi quá hạn thì không hỏi
+    app.ctx.db.prepare("UPDATE staff SET session_seen = '2020-01-01T00:00:00.000Z' WHERE id = 'QT0001'").run();
+    const D = await adminLogin(app); assert.ok(D.body.token && !D.body.sessionConflict);
+    // tắt chính sách thì nhiều thiết bị cùng vào được
+    await call(app, 'PUT', '/api/a/security', { token: D.body.token, body: { singleSession: false } });
+    const E = await adminLogin(app); assert.ok(E.body.token);
+    assert.equal((await call(app, 'GET', '/api/a/overview', { token: D.body.token })).status, 200);
+    await app.close();
+  } finally { process.env.SINGLE_SESSION = '0'; }
+});
