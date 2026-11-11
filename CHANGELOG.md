@@ -2,6 +2,18 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 3.3 (2026-11-11)
+
+- Responsive điện thoại: bảng tự xếp thành thẻ trên màn hình hẹp (quản trị, nhân viên, khách), nút không bị bóp chữ; khách thấy thanh toán thành công nhanh hơn (3 giây)
+
+## 3.2 (2026-11-11)
+
+- Trang Chi nhánh trên điện thoại: ô tìm kiếm rộng đủ dùng
+
+## 3.1 (2026-11-11)
+
+- Giao diện luôn sáng trên điện thoại (không đổi sang nền tối theo chế độ tối): khách, nhân viên, quản trị; màn quét hàng dùng nút trắng, khung quét màu cam
+
 ## 3.0 (2026-11-11)
 
 - Gỡ hẳn tính năng đồng bộ tồn kho từ API đối tác (không dùng đến): bỏ thẻ cấu hình, API, công việc nền, bảng stock_levels; tự xóa cấu hình và khóa API đã lưu

@@ -42,7 +42,7 @@ export function Basket({ s, store }) {
   const [askMore, setAskMore] = useState(false);
   // Tự hỏi máy chủ vài giây một lần (nếu Dsmart POS báo đã thanh toán thì hiện), và gửi lại khi có mạng.
   useEffect(() => {
-    const t = setInterval(() => { if (navigator.onLine && s.session) { syncBasket().then(() => refreshSession()).catch(() => {}); } }, 6000);
+    const t = setInterval(() => { if (navigator.onLine && s.session) { syncBasket().then(() => refreshSession()).catch(() => {}); } }, 3000);
     return () => clearInterval(t);
   }, [!!s.session]);
   // Thu ngân hủy đơn trên Dsmart POS trước khi thu tiền: máy chủ trả giỏ về trạng thái đang quét. Báo khách và cho sửa giỏ.

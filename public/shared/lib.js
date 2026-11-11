@@ -440,3 +440,30 @@ export function registerSW(path, scope) {
     addEventListener('online', check);
   }).catch(() => {});
 }
+
+/**
+ * Bảng tự thích ứng điện thoại: gắn nhãn cột (data-label) cho từng ô của mọi bảng `.tbl` để CSS trên màn hình hẹp xếp mỗi dòng thành một thẻ
+ * (nhãn cột bên trái, giá trị bên phải) thay vì cuộn ngang. Chạy lại mỗi khi trang thay đổi.
+ */
+export function labelTables(root = document) {
+  for (const t of root.querySelectorAll('table.tbl')) {
+    const labels = [...t.querySelectorAll('thead th')].map((h) => [...h.querySelectorAll('*'), h].flatMap((n) => [...n.childNodes].filter((c) => c.nodeType === 3).map((c) => c.textContent.trim())).filter(Boolean).join(' ').replace(/\s+/g, ' '));
+    if (!labels.length) continue;
+    for (const tr of t.querySelectorAll('tbody tr')) {
+      let i = 0;
+      for (const td of tr.children) {
+        if (td.tagName !== 'TD') continue;
+        const span = td.colSpan || 1;
+        const want = span > 1 ? '' : labels[i] || '';
+        if (td.getAttribute('data-label') !== want) td.setAttribute('data-label', want);
+        i += span;
+      }
+    }
+  }
+}
+if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
+  let queued = false;
+  const run = () => { queued = false; try { labelTables(); } catch { /* bỏ qua */ } };
+  new MutationObserver(() => { if (!queued) { queued = true; requestAnimationFrame(run); } }).observe(document.documentElement, { childList: true, subtree: true });
+  run();
+}
