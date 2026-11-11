@@ -242,7 +242,7 @@ export default async function customerRoutes(app) {
       throw bad('CODE_WRONG', 'Mã chưa đúng');
     }
     db.prepare('DELETE FROM identity_codes WHERE device_id = ? AND email = ?').run(req.deviceId, email);
-    db.prepare('INSERT OR REPLACE INTO device_emails(device_id,email,verified_at) VALUES(?,?,?)').run(req.deviceId, email, nowIso());
+    db.prepare('INSERT INTO device_emails(device_id,email,verified_at) VALUES(?,?,?) ON CONFLICT(device_id,email) DO UPDATE SET verified_at=excluded.verified_at').run(req.deviceId, email, nowIso());
     return { linked: true, email };
   });
   void forbidden;

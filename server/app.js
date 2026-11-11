@@ -13,7 +13,7 @@ import adminRoutes from './routes/admin.js';
 import posRoutes from './routes/pos.js';
 
 /** Dựng ứng dụng. Tham số cho phép thay CSDL, RNG, adapter khi kiểm thử. */
-export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = false, pos, invoicer, mailer, trustProxy = false } = {}) {
+export function buildApp({ dbFile = config.db, rng = Math.random, logger = false, pos, invoicer, mailer, trustProxy = false } = {}) {
   const db = openDb(dbFile);
   const ctx = { db, rng };
   ctx.pos = pos || createMockPos(db);
@@ -35,6 +35,7 @@ export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = f
     if (err.validation || err.statusCode === 400) return reply.code(400).send({ error: 'BAD_REQUEST', message: 'Dữ liệu gửi lên không hợp lệ' });
     if (err.statusCode && err.statusCode < 500) return reply.code(err.statusCode).send({ error: 'ERROR', message: err.message });
     req.log.error(err);
+    if (process.env.BRG_DEBUG) console.error('[BRG_DEBUG]', req.method, req.url, err?.message);
     return reply.code(500).send({ error: 'SERVER_ERROR', message: 'Có lỗi hệ thống, vui lòng thử lại' });
   });
 

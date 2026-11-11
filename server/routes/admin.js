@@ -88,7 +88,7 @@ export default async function adminRoutes(app) {
         COALESCE(SUM(CASE WHEN method NOT IN ('cash','qr_transfer') THEN amount END),0) other
         FROM payments p WHERE voided_at IS NULL AND ${sqlLocalDate('collected_at')} = ? ${w}`).get(...a);
       const w2 = storeId ? 'AND store_id = ?' : '';
-      const c = db.prepare(`SELECT COUNT(*) checks, COALESCE(SUM(result='mismatch'),0) mismatches FROM exit_checks WHERE ${sqlLocalDate('created_at')} = ? ${w2}`).get(...a);
+      const c = db.prepare(`SELECT COUNT(*) checks, COALESCE(SUM(CASE WHEN result='mismatch' THEN 1 ELSE 0 END),0) mismatches FROM exit_checks WHERE ${sqlLocalDate('created_at')} = ? ${w2}`).get(...a);
       // Hàng thu ngân thêm ở quầy so với giỏ khách quét (khách lấy mà chưa quét) và khách bớt
       const x = db.prepare(`SELECT COUNT(CASE WHEN extra_qty > 0 THEN 1 END) extraTx, COALESCE(SUM(extra_qty),0) extraQty, COALESCE(SUM(extra_value),0) extraValue, COUNT(CASE WHEN less_qty > 0 THEN 1 END) lessTx
         FROM transactions WHERE status = 'paid' AND ${sqlLocalDate('paid_at')} = ? ${w2}`).get(...a);
@@ -727,7 +727,7 @@ export default async function adminRoutes(app) {
       const storeId = storeOf(req);
       const st = storeRow(db.prepare('SELECT * FROM stores WHERE id = ?').get(storeId));
       const since = new Date(Date.now() - 7 * 86400_000).toISOString();
-      const c = db.prepare(`SELECT COUNT(*) checks, COALESCE(SUM(result='mismatch'),0) mismatches FROM exit_checks WHERE store_id = ? AND created_at >= ?`).get(storeId, since);
+      const c = db.prepare(`SELECT COUNT(*) checks, COALESCE(SUM(CASE WHEN result='mismatch' THEN 1 ELSE 0 END),0) mismatches FROM exit_checks WHERE store_id = ? AND created_at >= ?`).get(storeId, since);
       const tx = db.prepare(`SELECT COUNT(*) n FROM transactions WHERE store_id = ? AND status='paid' AND paid_at >= ?`).get(storeId, since).n;
       return { storeId, rules: { rate: st.config.randomCheckRate, firstTime: st.config.rateFirstTime, highValue: st.config.rateHighValue, threshold: st.config.highValueThreshold },
         last7: { transactions: tx, checks: c.checks, mismatches: c.mismatches, mismatchRate: c.checks ? c.mismatches / c.checks : 0 } };

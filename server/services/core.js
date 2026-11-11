@@ -446,7 +446,7 @@ export function shiftStats(db, shift) {
   const pay = db.prepare(`SELECT method, kind, COUNT(*) n, COALESCE(SUM(amount),0) s FROM payments
     WHERE shift_id = ? AND voided_at IS NULL GROUP BY method, kind`).all(shift.id);
   const sum = (m) => pay.filter((p) => p.method === m).reduce((a, p) => a + p.s, 0);
-  const checks = db.prepare(`SELECT COUNT(*) n, SUM(result='mismatch') mm FROM exit_checks WHERE staff_id = ? AND created_at BETWEEN ? AND ?`)
+  const checks = db.prepare(`SELECT COUNT(*) n, SUM(CASE WHEN result='mismatch' THEN 1 ELSE 0 END) mm FROM exit_checks WHERE staff_id = ? AND created_at BETWEEN ? AND ?`)
     .get(shift.staff_id, shift.started_at, to);
   const gate = db.prepare(`SELECT COUNT(*) n FROM gate_scans WHERE staff_id = ? AND outcome='valid' AND ts BETWEEN ? AND ?`)
     .get(shift.staff_id, shift.started_at, to);

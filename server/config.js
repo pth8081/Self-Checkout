@@ -9,12 +9,26 @@ if (isProd && !process.env.APP_SECRET) {
   throw new Error('APP_SECRET là bắt buộc khi chạy production');
 }
 
+// CSDL: mặc định SQLite (một file). DB_DRIVER=mssql để dùng SQL Server (xem hướng dẫn triển khai).
+const env = process.env;
+export const dbDriver = (env.DB_DRIVER || 'sqlite').toLowerCase();
+if (!['sqlite', 'mssql'].includes(dbDriver)) throw new Error('DB_DRIVER chỉ nhận sqlite hoặc mssql');
+const mssql = dbDriver === 'mssql' ? {
+  driver: 'mssql', server: env.MSSQL_SERVER, port: Number(env.MSSQL_PORT || 1433), database: env.MSSQL_DATABASE || 'brg',
+  user: env.MSSQL_USER, password: env.MSSQL_PASSWORD,
+  encrypt: env.MSSQL_ENCRYPT !== '0', trustServerCertificate: env.MSSQL_TRUST_CERT === '1',
+  requestTimeoutSec: Number(env.MSSQL_REQUEST_TIMEOUT || 30), connectTimeoutSec: Number(env.MSSQL_CONNECT_TIMEOUT || 15)
+} : null;
+if (mssql && (!mssql.server || !mssql.user || !mssql.password)) throw new Error('DB_DRIVER=mssql cần MSSQL_SERVER, MSSQL_USER và MSSQL_PASSWORD');
+
 export const config = {
   root,
   isProd,
   port: Number(process.env.PORT || 3000),
   host: process.env.HOST || '0.0.0.0',
   dbFile: process.env.DB_FILE || path.join(root, 'data', 'brg.db'),
+  dbDriver,
+  db: mssql || (process.env.DB_FILE || path.join(root, 'data', 'brg.db')), // đối số cho openDb
   publicDir: path.join(root, 'public'),
   // Khóa ký token đăng nhập và QR biên nhận.
   secret: process.env.APP_SECRET || 'dev-only-secret-change-me',

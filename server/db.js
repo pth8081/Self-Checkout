@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
+import { openMssql } from './mssql/db.js';
 
-const SCHEMA = `
+export const SCHEMA = `
 CREATE TABLE IF NOT EXISTS stores (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, address TEXT DEFAULT '',
   enabled INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
@@ -154,7 +155,7 @@ CREATE TABLE IF NOT EXISTS integration_keys (
 `;
 
 /** Thêm cột còn thiếu cho CSDL tạo từ phiên bản cũ (CREATE TABLE IF NOT EXISTS không tự thêm cột). */
-const MIGRATIONS = [
+export const MIGRATIONS = [
   ['product_cache', 'list_price', 'INTEGER'], ['cart_items', 'list_price', 'INTEGER'], ['cart_items', 'no_price', 'INTEGER NOT NULL DEFAULT 0'],
   ['transactions', 'cancel_reason', 'TEXT'], ['transactions', 'pii_purged_at', 'TEXT'],
   ['transactions', 'extra_qty', 'INTEGER NOT NULL DEFAULT 0'], ['transactions', 'extra_value', 'INTEGER NOT NULL DEFAULT 0'], ['transactions', 'less_qty', 'INTEGER NOT NULL DEFAULT 0'],
@@ -169,6 +170,10 @@ const MIGRATIONS = [
   ['transactions', 'pos_cashier', 'TEXT'], ['transactions', 'pos_terminal', 'TEXT'], ['transactions', 'pos_amount', 'INTEGER'],
   ['transactions', 'pos_invoice_no', 'TEXT'], ['transactions', 'buyer_json', 'TEXT'], ['transactions', 'guard_skipped', 'INTEGER NOT NULL DEFAULT 0']
 ];
+export const EXTRA_INDEXES = [
+  'CREATE INDEX IF NOT EXISTS idx_tx_pos_ref ON transactions(pos_order_ref)',
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_stores_pos_code ON stores(pos_code) WHERE pos_code <> ''"
+];
 function migrate(db) {
   for (const [table, col, def] of MIGRATIONS) {
     if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
@@ -177,7 +182,9 @@ function migrate(db) {
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_stores_pos_code ON stores(pos_code) WHERE pos_code <> ''");
 }
 
+/** Mở CSDL: chuỗi (đường dẫn file hoặc ':memory:') là SQLite; đối tượng { driver: 'mssql', ... } là SQL Server. */
 export function openDb(file) {
+  if (file && typeof file === 'object' && file.driver === 'mssql') return openMssql(file, { schema: SCHEMA, migrations: MIGRATIONS, extraIndexes: EXTRA_INDEXES });
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new Database(file);
   db.pragma('journal_mode = WAL');
