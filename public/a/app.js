@@ -90,7 +90,9 @@ function Login({ onLogin, notice }) {
   };
   const passkey = async () => {
     if (busy) return;
-    setErr(''); setBusy(true);
+    setErr('');
+    if (!window.PublicKeyCredential) return setErr(location.protocol !== 'https:' && location.hostname !== 'localhost' ? 'Đăng nhập bằng vân tay / khuôn mặt chỉ dùng được khi mở trang bằng https (địa chỉ hiện tại là http).' : 'Trình duyệt này không hỗ trợ đăng nhập bằng vân tay / khuôn mặt. Hãy dùng Chrome, Safari, Edge bản mới.');
+    setBusy(true);
     try {
       const o = await api.post('/login/passkey/options', { account: account.trim() || undefined });
       const cred = await passkeyGet(o.options);
@@ -125,7 +127,7 @@ function Login({ onLogin, notice }) {
     ${err && html`<div class="banner err" role="alert"><${Icon} name="alert"/><div class="grow">${err}</div></div>`}
     <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : step ? 'Xác nhận' : 'Đăng nhập'}</button>
     ${step && html`<button class="btn txt" type="button" onClick=${() => { setStep(null); setTotp(''); setErr(''); setPassword(''); loadCap(); }}>Quay lại</button>`}
-    ${!step && window.PublicKeyCredential && html`<button class="btn line" type="button" disabled=${busy} onClick=${passkey}><${Icon} name="shield"/>Đăng nhập bằng vân tay / Face ID</button>`}
+    ${!step && html`<button class="btn line" type="button" disabled=${busy} onClick=${passkey}><${Icon} name="shield"/>Đăng nhập bằng vân tay / Face ID</button>`}
     <div class="hint">Sai nhiều lần liên tiếp sẽ bị khóa tạm. Mọi lần đăng nhập đều được ghi lại.</div>
   </form></div>`;
 }

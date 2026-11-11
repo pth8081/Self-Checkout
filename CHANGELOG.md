@@ -2,6 +2,10 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 2.4 (2026-11-11)
+
+- Nút đăng nhập vân tay / Face ID luôn hiện; nếu trình duyệt hoặc địa chỉ http không hỗ trợ thì báo rõ lý do
+
 ## 2.3 (2026-11-11)
 
 - Thông báo có phiên bản mới trên trình duyệt (khách, nhân viên, quản trị): kiểm tra định kỳ, nút Cập nhật ngay / Để sau, không tự tải lại trang
