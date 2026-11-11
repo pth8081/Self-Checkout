@@ -2,6 +2,10 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 2.7 (2026-11-11)
+
+- Sửa trang Tích hợp: danh sách chi nhánh ở ô Kiểm tra thử hiện đúng mã điểm đã nhập, và tự cập nhật sau khi nhập file mã điểm
+
 ## 2.6 (2026-11-11)
 
 - Trang Tích hợp: thẻ Tồn kho (API đối tác) đặt ngay dưới thẻ Dsmart POS và có chỉ dẫn

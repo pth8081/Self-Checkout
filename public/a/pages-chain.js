@@ -485,7 +485,7 @@ function StockApiCard() {
 
 const PT_STATUS = { ok: ['Sẽ gán', 'ok'], same: ['Đã đúng', ''], nomatch: ['Chưa ghép', 'warn'], dup: ['Lặp trong file', 'err'], bad: ['Mã không hợp lệ', 'err'], clash: ['Trùng chi nhánh', 'err'] };
 // ---- Mã điểm của hệ thống giá: nhập từ file, ghép với chi nhánh ----
-function PointsCard() {
+function PointsCard({ onChanged }) {
   const st = useAsync(() => api.get('/pos-points'), []);
   const [text, setText] = useState('');
   const [fname, setFname] = useState('');
@@ -500,7 +500,7 @@ function PointsCard() {
     catch (x) { setErr(x.message || 'Không đọc được file'); }
   };
   const apply = () => run(async () => {
-    try { const r = await api.post('/pos-points/apply', { text }); setPv(null); setText(''); setFname(''); await st.reload(); toast(`Đã lưu ${r.saved} mã điểm, gán cho ${r.assigned} chi nhánh`, 'ok'); }
+    try { const r = await api.post('/pos-points/apply', { text }); setPv(null); setText(''); setFname(''); await st.reload(); onChanged?.(); toast(`Đã lưu ${r.saved} mã điểm, gán cho ${r.assigned} chi nhánh`, 'ok'); }
     catch (x) { setErr(x.message); throw x; }
   });
   const sm = pv?.summary;
@@ -639,15 +639,15 @@ function EmailCard() {
     <div class="hint">Mật khẩu được mã hóa khi lưu và không hiện lại. Nên dùng một tài khoản email riêng chỉ để gửi thư tự động. Với Gmail hoặc Microsoft 365 hãy dùng mật khẩu ứng dụng.</div></div>`;
 }
 
-export function Integrations({ stores }) {
+export function Integrations({ stores, reloadStores }) {
   const st = useAsync(() => api.get('/integrations'), []);
   return html`<div class="stack-lg"><${PageHead} title="Tích hợp" sub="Giám sát và cấu hình Dsmart POS, chuyển khoản QR và hóa đơn điện tử."/>
     <${Async} state=${st}>${(d) => html`
       ${d.note && html`<${Banner} tone=${d.isProd ? 'warn' : 'info'} icon="info" title=${d.isProd ? 'Nguồn giá: file CSV' : 'Đang chạy bản giả lập'}>${d.note}<//>`}
-      <${PosCard} d=${d} reload=${st.reload}/>
+      <${PosCard} d=${d} reload=${async () => { await st.reload(); reloadStores?.(); }}/>
       <${StockApiCard}/>
       <${PosApiCard} d=${d} stores=${stores} reload=${st.reload}/>
-      <${PointsCard}/>
+      <${PointsCard} onChanged=${reloadStores}/>
       <${PriceApiCard} stores=${stores}/>
       <${EmailCard}/>
       <${RetentionCard}/>

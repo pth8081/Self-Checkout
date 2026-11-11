@@ -186,7 +186,7 @@ function Shell({ session, setSession, reloadStores, logout }) {
   switch (page) {
     case 'overview': view = chain && html`<${Overview} stores=${stores} setStoreId=${setStoreId}/>`; break;
     case 'stores': view = html`<${Stores} me=${me} reloadStores=${reloadStores} setStoreId=${setStoreId}/>`; break;
-    case 'integrations': view = chain && html`<${Integrations} stores=${stores}/>`; break;
+    case 'integrations': view = chain && html`<${Integrations} stores=${stores} reloadStores=${reloadStores}/>`; break;
     case 'reports': view = html`<${Reports} me=${me} stores=${stores}/>`; break;
     case 'users': view = html`<${Users} me=${me} stores=${stores} onMe=${(u) => setSession({ ...session, me: u })}/>`; break;
     case 'audit': view = html`<${Audit} me=${me} stores=${stores}/>`; break;
@@ -232,7 +232,7 @@ function App() {
     const [r, cfg] = await Promise.all([api.get('/me'), api.get('/stores').catch(() => ({ stores: [] }))]);
     const byId = Object.fromEntries(cfg.stores.map((x) => [x.id, x]));
     // Gộp cấu hình (thu tiền qua Dsmart POS, bảo vệ cổng ra) vào danh sách chi nhánh để các trang dùng chung.
-    setSession({ me: r.user, stores: r.stores.map((x) => ({ ...x, address: byId[x.id]?.address, config: byId[x.id]?.config || {} })), permissions: r.permissions });
+    setSession({ me: r.user, stores: r.stores.map((x) => ({ ...x, address: byId[x.id]?.address, posCode: byId[x.id]?.posCode || '', config: byId[x.id]?.config || {} })), permissions: r.permissions });
   }, []);
   const start = useCallback(async () => {
     const t = store.get(TOKEN_KEY);
