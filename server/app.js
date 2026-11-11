@@ -15,6 +15,8 @@ import posRoutes from './routes/pos.js';
 /** Dựng ứng dụng. Tham số cho phép thay CSDL, RNG, adapter khi kiểm thử. */
 export function buildApp({ dbFile = config.db, rng = Math.random, logger = false, pos, invoicer, mailer, trustProxy = false } = {}) {
   const db = openDb(dbFile);
+  // Dọn cấu hình của tính năng đồng bộ tồn kho đã gỡ (có thể còn khóa API đã mã hóa trong bảng cấu hình của bản 2.1 đến 2.9).
+  try { db.prepare("DELETE FROM settings WHERE key IN ('stock_api', 'stock_api_last')").run(); } catch { /* bỏ qua */ }
   const ctx = { db, rng };
   ctx.pos = pos || createMockPos(db);
   ctx.invoicer = invoicer || createMockInvoicer(db);

@@ -1,4 +1,3 @@
-import { stockOf } from '../services/stock-api.js';
 import { config } from '../config.js';
 import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, randomCode } from '../util.js';
 import {
@@ -70,7 +69,7 @@ export default async function customerRoutes(app) {
     await ensurePrice(ctx, storeId, n.variants);
     const p = ctx.pos.lookup(storeId, n.variants);
     if (!p) return { found: false };
-    return { found: true, product: { name: p.name, barcode: p.barcode, price: p.price, unit: p.unit, active: !!p.active, inStock: stockOf(db, storeId, p) > 0,
+    return { found: true, product: { name: p.name, barcode: p.barcode, price: p.price, unit: p.unit, active: !!p.active, inStock: p.stock > 0,
       promo: promoLabel(p.promo_min_qty, p.promo_off) } };
   });
 

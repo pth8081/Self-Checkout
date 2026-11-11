@@ -22,7 +22,6 @@ Cách đọc: đi từ trên xuống. Mỗi tài liệu có **trạng thái** (`
 | 17 | [Mã QR giỏ hàng cho Dsmart POS](api-qr-gio-hang.md) | Định dạng mã QR ngắn (mã điểm, mã giỏ), API lấy danh sách mặt hàng, việc Dsmart POS cần làm | Mới |
 | 16 | [API giá theo chi nhánh (BRG đọc)](api-gia-chi-nhanh.md) | Đặc tả ban đầu, đã được thay bằng API giá của đối tác ở dòng dưới | Cũ |
 | 18 | [Tra giá bằng API giá của đối tác](api-gia-brgmart.md) | Cách BRG tra giá theo mã vạch, xử lý khi lỗi, file mã điểm, cấu hình ở trang Tích hợp | Mới |
-| 19 | [Đồng bộ tồn kho từ API đối tác](dong-bo-ton-kho.md) | Cấu hình, cách đồng bộ theo trang, cách kiểm tra đã đồng bộ đúng | Mới |
 | — | [Bản thiết kế giao diện](thiet-ke/man-hinh.html) | Mở bằng trình duyệt để xem 52 màn hình | Nháp |
 | — | [Thuật ngữ](thuat-ngu.md) | | |
 | — | [ADR](adr/) | Các quyết định kiến trúc | |
