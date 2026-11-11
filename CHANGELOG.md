@@ -2,6 +2,10 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 1.9 (2026-11-11)
+
+- Tên đăng nhập kiểu AD (anh.dp) cho tài khoản quản trị: đặt ở trang Tài khoản hoặc npm run set-username; đăng nhập bằng tên, mã tài khoản hoặc email
+
 ## 1.8 (2026-11-11)
 
 - Thêm lệnh npm run rename-account để đổi mã tài khoản (tên đăng nhập), cập nhật cả nhật ký và dữ liệu liên quan

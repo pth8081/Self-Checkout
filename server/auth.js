@@ -76,3 +76,17 @@ export function authenticate(db, kind) {
     req.user = user;
   };
 }
+
+/** Tên đăng nhập kiểu AD (anh.dp): chữ thường, số, dấu chấm, gạch dưới, gạch ngang; 3 đến 40 ký tự; bắt đầu bằng chữ hoặc số. */
+export const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{2,39}$/;
+export function cleanUsername(v) {
+  const u = String(v ?? '').trim().toLowerCase();
+  if (!u) return null;
+  if (!USERNAME_RE.test(u)) return false;
+  return u;
+}
+/** Tên đăng nhập đã được dùng (trùng mã tài khoản, email hoặc tên đăng nhập của người khác) thì trả true. */
+export function usernameTaken(db, username, exceptId) {
+  const row = db.prepare('SELECT id FROM staff WHERE (id = ? COLLATE NOCASE OR email = ? COLLATE NOCASE OR username = ? COLLATE NOCASE) AND id <> ?').get(username, username, username, exceptId || '');
+  return !!row;
+}

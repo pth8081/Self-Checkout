@@ -160,3 +160,22 @@ test('mã điểm của chi nhánh: nhập, không trùng, chỉ quản trị ch
   assert.equal(i.body.pos.stores.find((s) => s.id === 'Q7').posCode, 'SP-0107');
   await app.close();
 });
+
+test('tên đăng nhập kiểu AD (anh.dp): đặt được, đăng nhập bằng tên, mã hoặc email; trùng và sai định dạng bị từ chối; chỉ quản trị chuỗi đổi', async () => {
+  const app = await makeApp();
+  const admin = (await adminLogin(app)).body.token;
+  const mk = (extra) => call(app, 'POST', '/api/a/users', { token: admin, body: { role: 'chain_admin', name: 'Anh DP', password: 'Matkhau123', pin: '1234', ...extra } });
+  assert.equal((await mk({ username: 'Anh DP' })).body.error, 'BAD_USERNAME');
+  const ok = await mk({ username: 'Anh.DP', email: 'anh@congty.vn' });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal(ok.body.user.username, 'anh.dp');
+  const id = ok.body.user.id;
+  for (const acct of ['anh.dp', 'ANH.DP', id, 'anh@congty.vn']) assert.equal((await call(app, 'POST', '/api/a/login', { body: { account: acct, password: 'Matkhau123' } })).status, 200, acct);
+  assert.equal((await mk({ username: 'anh.dp' })).body.error, 'USERNAME_TAKEN');
+  assert.equal((await mk({ username: id.toLowerCase() })).body.error, 'USERNAME_TAKEN');
+  const ch = await call(app, 'PUT', `/api/a/users/${id}`, { token: admin, body: { username: 'dp.anh' } });
+  assert.equal(ch.body.user.username, 'dp.anh');
+  assert.equal((await call(app, 'POST', '/api/a/login', { body: { account: 'anh.dp', password: 'Matkhau123' } })).status, 401);
+  assert.equal((await call(app, 'PUT', `/api/a/users/${id}`, { token: admin, body: { username: '' } })).body.user.username, null);
+  await app.close();
+});

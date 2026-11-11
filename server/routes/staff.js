@@ -6,7 +6,7 @@ import {
 } from '../services/core.js';
 
 export const userView = (u) => ({
-  id: u.id, name: u.name, role: u.role, storeId: u.store_id, email: u.email, active: !!u.active,
+  id: u.id, name: u.name, username: u.username || null, role: u.role, storeId: u.store_id, email: u.email, active: !!u.active,
   hasTotp: !!u.totp_secret, canCash: canCash(u), canGate: canGate(u), isManager: isManager(u)
 });
 

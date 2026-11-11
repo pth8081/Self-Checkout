@@ -7,7 +7,7 @@ import { retentionConfig, validateRetention, runRetention, RETENTION_KEY, RETENT
 import { publicSettings, saveSettings, SECURE_MODES, TLS_MODES, explainMailError } from '../services/mailer.js';
 import { cartDiffOf } from '../services/bill.js';
 import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, sqlLocalDate, money, normCode, unauthorized } from '../util.js';
-import { authenticate, sign, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager } from '../auth.js';
+import { authenticate, sign, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager, cleanUsername, usernameTaken } from '../auth.js';
 import { verifyTotp, randomSecret, otpauthUri } from '../services/totp.js';
 import { audit } from '../services/audit.js';
 import { retryPendingInvoices } from '../services/invoice.js';
@@ -40,7 +40,7 @@ export default async function adminRoutes(app) {
   // ---------------- Đăng nhập (mật khẩu + mã xác thực 2 bước nếu đã bật) ----------------
   app.post('/login', async (req) => {
     const account = String(req.body?.account || '').trim();
-    const user = db.prepare('SELECT * FROM staff WHERE (id = ? COLLATE NOCASE OR email = ? COLLATE NOCASE)').get(account, account);
+    const user = db.prepare('SELECT * FROM staff WHERE (id = ? COLLATE NOCASE OR email = ? COLLATE NOCASE OR username = ? COLLATE NOCASE)').get(account, account, account);
     const fail = () => unauthorized('BAD_LOGIN', 'Tài khoản hoặc mật khẩu chưa đúng');
     if (!user || !user.active || !user.pw_hash || !isManager(user)) throw fail();
     checkLocked(user);
@@ -547,6 +547,9 @@ export default async function adminRoutes(app) {
       // PIN dùng để vào app nhân viên: bắt buộc với nhân viên, tùy chọn với quản trị.
       if ((!isAdminRole || b.pin) && !validPin(b.pin)) throw bad('BAD_PIN', 'PIN gồm 4–6 chữ số');
       if (isAdminRole && !strongPassword(b.password)) throw bad('WEAK_PASSWORD', 'Mật khẩu tối thiểu 8 ký tự, có cả chữ và số');
+      const username = cleanUsername(b.username);
+      if (username === false) throw bad('BAD_USERNAME', 'Tên đăng nhập gồm 3–40 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang (ví dụ anh.dp)');
+      if (username && usernameTaken(db, username)) throw conflict('USERNAME_TAKEN', 'Tên đăng nhập này đã có người dùng');
       let id = String(b.id || '').trim().toUpperCase();
       if (!id) {
         const prefix = isAdminRole ? 'QT' : 'NV';
@@ -555,8 +558,8 @@ export default async function adminRoutes(app) {
       }
       if (!/^[A-Z0-9]{3,10}$/.test(id)) throw bad('BAD_ID', 'Mã tài khoản gồm 3–10 chữ hoa hoặc số');
       if (db.prepare('SELECT 1 FROM staff WHERE id = ?').get(id)) throw conflict('DUPLICATE', 'Mã tài khoản đã tồn tại');
-      db.prepare(`INSERT INTO staff(id,store_id,name,role,email,pin_hash,pw_hash,created_at) VALUES(?,?,?,?,?,?,?,?)`)
-        .run(id, storeId, b.name.trim(), role, b.email || null, b.pin ? hashSecret(b.pin) : null, isAdminRole ? hashSecret(b.password) : null, nowIso());
+      db.prepare(`INSERT INTO staff(id,store_id,name,role,email,username,pin_hash,pw_hash,created_at) VALUES(?,?,?,?,?,?,?,?,?)`)
+        .run(id, storeId, b.name.trim(), role, b.email || null, username, b.pin ? hashSecret(b.pin) : null, isAdminRole ? hashSecret(b.password) : null, nowIso());
       audit(db, { storeId, actorType: 'admin', actorId: req.user.id, action: 'user.created', entity: 'user', entityId: id, data: { role } });
       return { user: userView(db.prepare('SELECT * FROM staff WHERE id = ?').get(id)) };
     });
@@ -570,8 +573,15 @@ export default async function adminRoutes(app) {
         if (req.user.role === 'branch_admin' && !STAFF_ROLES.includes(b.role)) throw forbidden();
         role = b.role;
       }
-      db.prepare('UPDATE staff SET name=?, email=?, role=?, active=?, failed=0, locked_until=CASE WHEN ? = 1 THEN NULL ELSE locked_until END WHERE id=?')
-        .run(b.name?.trim() || u.name, b.email ?? u.email, role, b.active === undefined ? u.active : (b.active ? 1 : 0), b.active ? 1 : 0, u.id);
+      let username = u.username || null;
+      if (b.username !== undefined) {
+        if (req.user.role !== 'chain_admin') throw forbidden('CHAIN_ONLY', 'Chỉ quản trị chuỗi đổi tên đăng nhập');
+        username = cleanUsername(b.username);
+        if (username === false) throw bad('BAD_USERNAME', 'Tên đăng nhập gồm 3–40 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang (ví dụ anh.dp)');
+        if (username && usernameTaken(db, username, u.id)) throw conflict('USERNAME_TAKEN', 'Tên đăng nhập này đã có người dùng');
+      }
+      db.prepare('UPDATE staff SET username=?, name=?, email=?, role=?, active=?, failed=0, locked_until=CASE WHEN ? = 1 THEN NULL ELSE locked_until END WHERE id=?')
+        .run(username, b.name?.trim() || u.name, b.email ?? u.email, role, b.active === undefined ? u.active : (b.active ? 1 : 0), b.active ? 1 : 0, u.id);
       audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.updated', entity: 'user', entityId: u.id, data: { role: b.role, active: b.active } });
       return { user: userView(db.prepare('SELECT * FROM staff WHERE id = ?').get(u.id)) };
     });

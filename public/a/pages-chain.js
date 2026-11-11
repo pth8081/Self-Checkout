@@ -588,7 +588,7 @@ const strongPw = (p) => p.length >= 8 && /[A-Za-z]/.test(p) && /\d/.test(p);
 function AddUser({ me, stores, onClose, onDone }) {
   const chain = me.role === 'chain_admin';
   const roles = chain ? ['cashier', 'gate', 'cashier_gate', 'branch_admin', 'chain_admin'] : STAFF_ROLES;
-  const [f, setF] = useState({ role: 'cashier', name: '', email: '', storeId: me.storeId || stores[0]?.id || '', pin: '', password: '' });
+  const [f, setF] = useState({ role: 'cashier', name: '', email: '', username: '', storeId: me.storeId || stores[0]?.id || '', pin: '', password: '' });
   const [err, setErr] = useState('');
   const [busy, run] = useBusy();
   const set = (k, digits) => (e) => setF({ ...f, [k]: digits ? e.target.value.replace(/\D/g, '') : e.target.value });
@@ -598,7 +598,7 @@ function AddUser({ me, stores, onClose, onDone }) {
     if (!f.name.trim()) return setErr('Nhập họ tên');
     if (!/^\d{4,6}$/.test(f.pin)) return setErr('PIN gồm 4–6 chữ số');
     if (isAdm && !strongPw(f.password)) return setErr('Mật khẩu tối thiểu 8 ký tự, có cả chữ và số');
-    const body = { role: f.role, name: f.name, pin: f.pin, email: f.email || undefined, storeId: f.role === 'chain_admin' ? undefined : f.storeId };
+    const body = { role: f.role, name: f.name, pin: f.pin, email: f.email || undefined, username: f.username.trim() || undefined, storeId: f.role === 'chain_admin' ? undefined : f.storeId };
     if (isAdm) body.password = f.password;
     const r = await run(async () => { try { return await api.post('/users', body); } catch (x) { setErr(x.message); throw x; } }, null);
     if (r) { toast(`Đã tạo tài khoản ${r.user.id}`, 'ok'); onDone(); onClose(); }
@@ -608,6 +608,7 @@ function AddUser({ me, stores, onClose, onDone }) {
     <${Field} label="Vai trò"><select class="input" value=${f.role} onChange=${set('role')} aria-label="Vai trò">${roles.map((r) => html`<option value=${r} key=${r}>${ROLE_VI[r]}</option>`)}</select><//>
     <${Field} label="Họ tên"><input class="input" value=${f.name} onInput=${set('name')} aria-label="Họ tên" autofocus/><//>
     ${f.role !== 'chain_admin' && chain && html`<${Field} label="Chi nhánh"><select class="input" value=${f.storeId} onChange=${set('storeId')} aria-label="Chi nhánh">${stores.map((s) => html`<option value=${s.id} key=${s.id}>${s.name}</option>`)}</select><//>`}
+    ${isAdm && chain && html`<${Field} label="Tên đăng nhập (tùy chọn)" hint="Dạng anh.dp: chữ thường không dấu, số, dấu chấm, gạch dưới. Không nhập thì đăng nhập bằng mã tài khoản hoặc email"><input class="input" value=${f.username} onInput=${set('username')} aria-label="Tên đăng nhập" autocapitalize="none" autocomplete="off"/><//>`}
     ${isAdm && html`<${Field} label="Email (dùng để đăng nhập quản trị)"><input class="input" type="email" value=${f.email} onInput=${set('email')} aria-label="Email"/><//>`}
     <${Field} label="Mã PIN (4–6 số)" hint=${isAdm ? 'PIN dùng cho ứng dụng nhân viên' : 'Nhân viên dùng PIN để đăng nhập ứng dụng thu ngân và cổng'}><input class="input" inputmode="numeric" type="password" autocomplete="new-password" maxlength="6" value=${f.pin} onInput=${set('pin', true)} aria-label="Mã PIN"/><//>
     ${isAdm && html`<${Field} label="Mật khẩu (tối thiểu 8 ký tự, có chữ và số)"><input class="input" type="password" autocomplete="new-password" value=${f.password} onInput=${set('password')} aria-label="Mật khẩu"/><//>`}
@@ -630,6 +631,8 @@ function ManageUser({ me, u, storeName, onClose, onDone, onMe }) {
   const doLock = async () => { const r = await run(async () => { await api.put(`/users/${u.id}`, { active: !u.active }); await done(); }, u.active ? 'Đã khóa tài khoản' : 'Đã mở khóa tài khoản'); if (r) onClose(); };
   const doPin = async (e) => { e.preventDefault(); setErr(''); if (!/^\d{4,6}$/.test(val)) return setErr('PIN gồm 4–6 chữ số');
     const r = await run(async () => { try { await api.post(`/users/${u.id}/reset-pin`, { pin: val }); } catch (x) { setErr(x.message); throw x; } }, 'Đã đặt lại PIN'); if (r) onClose(); };
+  const doUsername = async (e) => { e.preventDefault(); setErr('');
+    const r = await run(async () => { try { await api.put(`/users/${u.id}`, { username: val.trim() }); await done(); } catch (x) { setErr(x.message); throw x; } }, 'Đã lưu tên đăng nhập'); if (r) onClose(); };
   const doPw = async (e) => { e.preventDefault(); setErr(''); if (!strongPw(val)) return setErr('Mật khẩu tối thiểu 8 ký tự, có cả chữ và số');
     const r = await run(async () => { try { await api.post(`/users/${u.id}/reset-password`, { password: val }); } catch (x) { setErr(x.message); throw x; } }, 'Đã đặt lại mật khẩu'); if (r) onClose(); };
   const totpOn = async () => { const r = await run(async () => { const x = await api.post(`/users/${u.id}/totp`, { enable: true }); await done(); if (self) onMe({ ...me, hasTotp: true }); return x; }); if (r && r !== true) setSecret(r); };
@@ -637,10 +640,11 @@ function ManageUser({ me, u, storeName, onClose, onDone, onMe }) {
   useEffect(() => { if (u.auto && !u.hasTotp) totpOn(); }, []);
   if (secret) return html`<${Totp} secret=${secret} onClose=${onClose}/>`;
   return html`<${Sheet} center onClose=${onClose}><div class="stack">
-    <div class="row"><div class="avatar">${u.name.slice(0, 1).toUpperCase()}</div><div class="grow"><h2>${u.name}</h2><div class="small muted">${u.id} · ${ROLE_VI[u.role]}${storeName ? ` · ${storeName}` : ''}</div></div></div>
+    <div class="row"><div class="avatar">${u.name.slice(0, 1).toUpperCase()}</div><div class="grow"><h2>${u.name}</h2><div class="small muted">${u.id}${u.username ? ` · ${u.username}` : ''} · ${ROLE_VI[u.role]}${storeName ? ` · ${storeName}` : ''}</div></div></div>
     ${mode === '' && html`<div class="stack">
       ${!self && html`<button class="btn line" onClick=${() => setMode('lock')}><${Icon} name="lock"/>${u.active ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}</button>`}
       <button class="btn line" onClick=${() => { setMode('pin'); setVal(''); setErr(''); }}><${Icon} name="kbd"/>Đặt lại mã PIN</button>
+      ${chain && isAdm && html`<button class="btn line" onClick=${() => { setMode('username'); setVal(u.username || ''); setErr(''); }}><${Icon} name="kbd"/>Đổi tên đăng nhập</button>`}
       ${chain && isAdm && html`<button class="btn line" onClick=${() => { setMode('pw'); setVal(''); setErr(''); }}><${Icon} name="lock"/>Đặt lại mật khẩu</button>`}
       ${isAdm && (self || chain) && html`<button class="btn line" onClick=${() => (u.hasTotp ? setMode('totp-off') : totpOn())}><${Icon} name="shield"/>${u.hasTotp ? 'Tắt xác thực 2 bước' : 'Bật xác thực 2 bước'}</button>`}
       <button class="btn txt" onClick=${onClose}>Đóng</button></div>`}
@@ -648,6 +652,8 @@ function ManageUser({ me, u, storeName, onClose, onDone, onMe }) {
       <button class=${`btn ${u.active ? 'danger' : 'primary'}`} disabled=${busy} onClick=${doLock}>${u.active ? 'Khóa tài khoản' : 'Mở khóa'}</button><button class="btn txt" onClick=${() => setMode('')}>Quay lại</button></div>`}
     ${mode === 'pin' && html`<form class="stack" onSubmit=${doPin}><${Field} label="Mã PIN mới (4–6 số)" error=${err}><input class="input" inputmode="numeric" type="password" autocomplete="new-password" maxlength="6" value=${val} onInput=${(e) => setVal(e.target.value.replace(/\D/g, ''))} aria-label="Mã PIN mới" autofocus/><//>
       <button class="btn primary" type="submit" disabled=${busy}>Đặt lại PIN</button><button class="btn txt" type="button" onClick=${() => setMode('')}>Quay lại</button></form>`}
+    ${mode === 'username' && html`<form class="stack" onSubmit=${doUsername}><${Field} label="Tên đăng nhập" error=${err} hint="Dạng anh.dp: chữ thường không dấu, số, dấu chấm, gạch dưới, gạch ngang (3–40 ký tự). Để trống nếu muốn bỏ tên đăng nhập"><input class="input" value=${val} onInput=${(e) => setVal(e.target.value)} aria-label="Tên đăng nhập" autocapitalize="none" autocomplete="off" autofocus/><//>
+      <button class="btn primary" type="submit" disabled=${busy}>Lưu tên đăng nhập</button><button class="btn txt" type="button" onClick=${() => setMode('')}>Quay lại</button></form>`}
     ${mode === 'pw' && html`<form class="stack" onSubmit=${doPw}><${Field} label="Mật khẩu mới" error=${err} hint="Tối thiểu 8 ký tự, có chữ và số"><input class="input" type="password" autocomplete="new-password" value=${val} onInput=${(e) => setVal(e.target.value)} aria-label="Mật khẩu mới" autofocus/><//>
       <button class="btn primary" type="submit" disabled=${busy}>Đặt lại mật khẩu</button><button class="btn txt" type="button" onClick=${() => setMode('')}>Quay lại</button></form>`}
     ${mode === 'totp-off' && html`<div class="stack"><p class="muted">Sau khi tắt, ${self ? 'bạn' : u.name} chỉ cần mật khẩu để đăng nhập quản trị. Nên giữ xác thực 2 bước vì tài khoản này xem được doanh thu và tiền thu.</p>
@@ -680,7 +686,7 @@ export function Users({ me, stores, onMe }) {
       ${mine && html`<button class="btn sm line" onClick=${() => setSel(me.hasTotp ? mine : { ...mine, auto: true })}>${me.hasTotp ? 'Quản lý' : 'Bật xác thực 2 bước'}</button>`}</div></div>
     <${Async} state=${st}>${(d) => html`
       <div class="card"><h2>Tài khoản</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Mã</th><th>Họ tên</th><th>Vai trò</th><th>Chi nhánh</th><th>Trạng thái</th><th></th></tr></thead>
-        <tbody>${d.users.map((u) => html`<tr key=${u.id} class=${u.active ? '' : 'dim'}><td><b>${u.id}</b></td><td>${u.name}${u.email && html`<div class="sub">${u.email}</div>`}</td><td>${ROLE_VI[u.role] || u.role}</td><td>${sname(u.storeId)}</td>
+        <tbody>${d.users.map((u) => html`<tr key=${u.id} class=${u.active ? '' : 'dim'}><td><b>${u.id}</b></td><td>${u.name}${u.username && html`<div class="sub">${u.username}</div>`}${u.email && html`<div class="sub">${u.email}</div>`}</td><td>${ROLE_VI[u.role] || u.role}</td><td>${sname(u.storeId)}</td>
           <td>${u.active ? html`<${Pill} tone="ok">Hoạt động<//>` : html`<${Pill} tone="err">Đã khóa<//>`} ${u.hasTotp && html`<${Pill} tone="info">2FA<//>`}</td>
           <td><button class="btn sm line" onClick=${() => setSel(u)} aria-label=${`Quản lý ${u.name}`}>Quản lý</button></td></tr>`)}</tbody></table></div></div>
       <div class="card"><h2>Phân quyền theo vai trò</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Chức năng</th><th class="tc">Quản trị chuỗi</th><th class="tc">Quản trị chi nhánh</th><th class="tc">Thu ngân</th><th class="tc">Cổng</th></tr></thead>
