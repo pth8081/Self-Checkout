@@ -198,3 +198,23 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .updatebar .btn { width: auto; }
 .updatebar .btn.txt { color: #fff; opacity: .85; }
 .appver { padding: 6px 0 0; letter-spacing: .02em; }
+
+/* ---- Bảng trên điện thoại: mỗi dòng thành một thẻ, nhãn cột bên trái (nhãn lấy từ data-label do labelTables gắn). Thêm class "keep" vào bảng nào muốn giữ dạng bảng cuộn ngang. ---- */
+@media (max-width: 720px) {
+  .tblwrap { overflow-x: visible; }
+  .tbl:not(.keep) { display: block; width: 100%; }
+  .tbl:not(.keep) thead { display: none; }
+  .tbl:not(.keep) tbody { display: flex; flex-direction: column; gap: 10px; }
+  .tbl:not(.keep) tr { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--line); border-radius: 16px; padding: 10px 14px; background: var(--card); }
+  .tbl:not(.keep) td, .tbl:not(.keep) th { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border: 0; text-align: right; white-space: normal; min-width: 0; width: auto; position: static; background: transparent; }
+  .tbl:not(.keep) td::before { content: attr(data-label); flex: 0 0 38%; max-width: 45%; text-align: left; color: var(--muted); font-size: 12px; font-weight: 600; line-height: 1.3; }
+  .tbl:not(.keep) td[data-label=""]::before { display: none; }
+  .tbl:not(.keep) td:first-child { display: block; text-align: left; padding: 2px 0 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px; font-size: 15px; }
+  .tbl:not(.keep) td:first-child::before { display: none; }
+  .tbl:not(.keep) td.tc { text-align: right; }
+  .tbl:not(.keep) td .input, .tbl:not(.keep) td select { max-width: 60%; min-width: 0 !important; }
+  .tbl:not(.keep) td .storecell { min-width: 0; }
+  .tbl:not(.keep) td.wrap, .tbl:not(.keep) th.wrap { min-width: 0; }
+  .tbl:not(.keep) tr.dim { opacity: .6; }
+  .tbl:not(.keep) td:empty { display: none; }
+}
