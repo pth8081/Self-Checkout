@@ -198,3 +198,11 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .login { min-height: 100%; display: grid; place-items: center; padding: 24px 16px; background: radial-gradient(120% 80% at 50% 0%, var(--orange-soft), var(--bg) 60%); }
 .login .card { width: 100%; max-width: 420px; padding: 28px 24px; }
 @media (min-width: 900px) { .hdr { padding-left: 24px; padding-right: 24px; } .page { padding: 24px; } }
+
+/* Thông báo có phiên bản mới */
+.updatebar { position: fixed; left: 12px; right: 12px; bottom: calc(12px + var(--safe-b, 0px)); z-index: 90; max-width: 560px; margin: 0 auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: #1F2430; color: #fff; border-radius: 18px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.28); animation: rise .2s; }
+.updatebar .updatetxt { flex: 1 1 200px; display: flex; flex-direction: column; gap: 2px; font-size: 15px; }
+.updatebar .updatetxt span { font-size: 13px; opacity: .8; }
+.updatebar .btn { width: auto; }
+.updatebar .btn.txt { color: #fff; opacity: .85; }

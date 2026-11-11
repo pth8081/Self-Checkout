@@ -391,6 +391,42 @@ export function Scanner({ kind = 'barcode', onScan, onState, paused = false, sta
 }
 
 // ============================== Service worker ==============================
+/**
+ * Đăng ký service worker và báo khi có phiên bản mới: kiểm tra định kỳ (10 phút), khi quay lại tab và khi có mạng lại.
+ * Bản mới tải xong thì hiện thanh thông báo "Có phiên bản mới ... Cập nhật ngay / Để sau". Không tự tải lại trang để không làm mất thao tác đang làm.
+ */
 export function registerSW(path, scope) {
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register(path, { scope }).catch(() => {});
+  if (!('serviceWorker' in navigator)) return;
+  let current = null; // phiên bản máy chủ lúc mở trang
+  const health = () => fetch('/api/health', { cache: 'no-store' }).then((r) => r.json()).then((j) => j.version || null).catch(() => null);
+  health().then((v) => { current = v; });
+  let asked = false; // chỉ tải lại trang khi chính người dùng bấm Cập nhật (lần cài đặt đầu tiên cũng có controllerchange)
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (asked) location.reload(); });
+  navigator.serviceWorker.register(path, { scope }).then((reg) => {
+    const offer = async () => {
+      if (document.getElementById('updatebar')) return;
+      const latest = await health();
+      const bar = document.createElement('div');
+      bar.id = 'updatebar'; bar.className = 'updatebar'; bar.setAttribute('role', 'status');
+      const txt = document.createElement('div'); txt.className = 'updatetxt';
+      const b1 = document.createElement('b'); b1.textContent = `Có phiên bản mới${latest ? ` ${latest}` : ''}`;
+      const sub = document.createElement('span'); sub.textContent = current && latest && current !== latest ? `Đang dùng ${current}. Cập nhật để có tính năng và sửa lỗi mới nhất.` : 'Cập nhật để có tính năng và sửa lỗi mới nhất.';
+      txt.append(b1, sub);
+      const go1 = document.createElement('button'); go1.type = 'button'; go1.className = 'btn primary sm'; go1.textContent = 'Cập nhật ngay';
+      const later = document.createElement('button'); later.type = 'button'; later.className = 'btn txt sm'; later.textContent = 'Để sau';
+      go1.onclick = () => { asked = true; go1.disabled = true; go1.textContent = 'Đang cập nhật…'; (reg.waiting || reg.installing)?.postMessage({ type: 'SKIP_WAITING' }); setTimeout(() => location.reload(), 4000); };
+      later.onclick = () => { bar.remove(); setTimeout(() => { if (reg.waiting) offer(); }, 30 * 60_000); };
+      bar.append(txt, go1, later);
+      document.body.appendChild(bar);
+    };
+    if (reg.waiting && navigator.serviceWorker.controller) offer();
+    reg.addEventListener('updatefound', () => {
+      const w = reg.installing;
+      w?.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) offer(); });
+    });
+    const check = () => reg.update().catch(() => {});
+    setInterval(check, 10 * 60_000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    addEventListener('online', check);
+  }).catch(() => {});
 }

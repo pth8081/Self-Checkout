@@ -1,5 +1,5 @@
 // Tạo tự động bởi scripts/build-sw.js, không sửa tay.
-const VERSION = '9a706eafd342';
+const VERSION = 'a301384370e2';
 const CACHE = 'brg-c-' + VERSION;
 const SHELL = [
  "/c/",
@@ -29,8 +29,10 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // Không tự thay bản đang chạy: bản mới chờ (waiting) tới khi người dùng bấm "Cập nhật ngay" trên thông báo (xem registerSW trong shared/lib.js).
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
 });
+self.addEventListener('message', (e) => { if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith('brg-c-') && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
