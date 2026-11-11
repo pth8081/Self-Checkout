@@ -119,6 +119,9 @@ export function Stores({ me, reloadStores, setStoreId }) {
   const [qr, setQr] = useState(null);
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [compact, setCompactRaw] = useState(() => { try { return localStorage.getItem('brg_a_compact') !== '0'; } catch { return true; } }); // mặc định thu gọn
+  const setCompact = (v) => { setCompactRaw(v); try { localStorage.setItem('brg_a_compact', v ? '1' : '0'); } catch { /* bỏ qua */ } };
+  const [q, setQ] = useState('');
   const [ask, setAsk] = useState(null); // { kind: 'source'|'guard', s, value }
   const refresh = async () => { await st.reload(); reloadStores(); };
   const file = async (path) => { try { downloadCsv(await api.get(path)); } catch (x) { toast(x.message || 'Không tải được file', 'err'); } };
@@ -151,15 +154,20 @@ export function Stores({ me, reloadStores, setStoreId }) {
     ${msg && html`<${Banner} tone="err" title="Chưa lưu được"><span role="alert">${msg.message}</span>
       ${msg.code === 'NO_POS_KEY' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => go('/integrations')}><${Icon} name="link" size=${18}/>Đi tới mục Tích hợp để tạo khóa</button></div>`}
       ${msg.code === 'CARTS_PENDING' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => { if (msg.storeId) setStoreId(msg.storeId); go('/transactions'); }}>Xem giao dịch</button></div>`}<//>`}
-    <${Async} state=${st}>${(d) => html`<div class="card"><div class="tblwrap"><table class="tbl">
-      <thead><tr><th>Chi nhánh</th><th class="tc">Scan & Checkout</th><th class="tc">Giỏ QR cho Dsmart POS</th><th>Thu tiền</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Bảo vệ cổng ra</th><th class="tc">Online</th><th></th></tr></thead>
-      <tbody>${d.stores.map((s) => {
+    <${Async} state=${st}>${(d) => html`<div class="card">
+      <div class="toolbar" style="margin-bottom:10px"><input class="input sm grow" style="max-width:340px" type="search" placeholder="Tìm chi nhánh theo tên, mã, địa chỉ, mã điểm" aria-label="Tìm chi nhánh" value=${q} onInput=${(e) => setQ(e.target.value)}/>
+        <span class="small muted">${(() => { const n = q.trim() ? d.stores.filter((s) => `${s.name} ${s.id} ${s.address || ''} ${s.posCode || ''}`.toLowerCase().includes(q.trim().toLowerCase())).length : d.stores.length; return `${n}/${d.stores.length} chi nhánh`; })()}</span>
+        <span class="grow"></span><label class="row small" style="gap:8px"><${Switch} checked=${compact} label="Thu gọn bảng" onChange=${setCompact}/>Thu gọn</label></div>
+      <div class="tblwrap"><table class=${`tbl ${compact ? 'compact' : ''}`}>
+      <thead><tr><th>Chi nhánh</th><th class="tc">Scan & Checkout</th><th class="tc">Giỏ QR cho Dsmart POS</th><th>Thu tiền</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Bảo vệ cổng ra</th><th class="tc col-online">Online</th></tr></thead>
+      <tbody>${(q.trim() ? d.stores.filter((s) => `${s.name} ${s.id} ${s.address || ''} ${s.posCode || ''}`.toLowerCase().includes(q.trim().toLowerCase())) : d.stores).map((s) => {
         const basket = s.config.checkoutMode === 'basket'; // giỏ QR: Dsmart POS thu tiền, không bảo vệ; các luồng cũ bị khóa
         const pos = isPos(s.config) || basket;
         const dis = !chain || !!busyKey;
         const sw = (key, checked, path, body, label, extra = {}) => html`<${Switch} checked=${checked} disabled=${dis || extra.off} label=${`${label} ${s.name}`} onChange=${(v) => toggle(`${s.id}${key}`, path, body(v))}/>`;
-        const mute = (node) => (pos ? html`<span class="soon">${node}Dùng Dsmart POS</span>` : node);
-        return html`<tr key=${s.id}><td><b>${s.name}</b><div class="sub">${s.id} · ${s.address || 'Chưa có địa chỉ'}</div></td>
+        const mute = (node) => (pos ? html`<span class="soon">${node}<span class="soonlbl">Dùng Dsmart POS</span></span>` : node);
+        return html`<tr key=${s.id}><td><div class="storecell"><div class="grow"><b>${s.name}</b><div class="sub">${s.id}${s.posCode ? ` · ${s.posCode}` : ''}${compact ? '' : ` · ${s.address || 'Chưa có địa chỉ'}`}</div></div>
+            <button class="btn sm line qrbtn" onClick=${() => setQr(s)} title="Mã QR dán cổng vào" aria-label=${`Mã QR dán cổng vào ${s.name}`}><${Icon} name="qr" size=${18}/><span class="qrlbl">Mã QR</span></button></div></td>
           <td class="tc">${sw('e', s.enabled, `/stores/${s.id}`, (v) => ({ enabled: v }), 'Bật Scan & Checkout')}</td>
           <td class="tc">${sw('m', basket, `/stores/${s.id}/config`, (v) => ({ checkoutMode: v ? 'basket' : 'classic' }), 'Giỏ QR cho Dsmart POS')}</td>
           <td><select class="input sm" style="width:auto;min-width:175px" value=${basket ? 'pos' : (s.config.paymentSource || 'manual')} disabled=${dis || basket} aria-label=${`Thu tiền ${s.name}`}
@@ -169,8 +177,7 @@ export function Stores({ me, reloadStores, setStoreId }) {
           <td class="tc">${mute(sw('c', s.config.payCash, `/stores/${s.id}/config`, (v) => ({ payCash: v }), 'Tiền mặt', { off: pos }))}</td>
           <td class="tc">${mute(sw('q', s.config.payQr, `/stores/${s.id}/config`, (v) => ({ payQr: v }), 'Chuyển khoản QR', { off: pos }))}</td>
           <td class="tc"><${Switch} checked=${!basket && s.config.guardCheck !== false} disabled=${dis || basket} label=${`Bảo vệ cổng ra ${s.name}`} onChange=${(v) => onGuard(s, v)}/></td>
-          <td class="tc"><span class="soon"><${Switch} checked=${false} disabled=${true} label=${`Thanh toán online ${s.name}`} onChange=${() => {}}/>Sắp có</span></td>
-          <td><button class="btn sm line" onClick=${() => setQr(s)}><${Icon} name="qr" size=${18}/>Mã QR dán cổng vào</button></td></tr>`;
+          <td class="tc col-online"><span class="soon"><${Switch} checked=${false} disabled=${true} label=${`Thanh toán online ${s.name}`} onChange=${() => {}}/><span class="soonlbl">Sắp có</span></span></td></tr>`;
       })}</tbody></table></div>
       <div class="hint"><b>Giỏ QR cho Dsmart POS</b> (đang dùng): khách bấm thanh toán, điện thoại hiện mã QR ngắn (mã điểm và mã giỏ), thu ngân quét vào Dsmart POS, Dsmart POS lấy danh sách mặt hàng bằng API. Dsmart POS tạo đơn, tính tiền, thu tiền. Các cột bên phải (thu tiền trong BRG, bảo vệ cổng ra) bị khóa và dùng lại được nếu tắt chế độ này.</div>
       <div class="hint">Chi nhánh chỉ bật được khi có ít nhất một cách thanh toán dùng được và đã có dữ liệu sản phẩm từ Dsmart POS. Đổi cách thu tiền cần có khóa API cho Dsmart POS (mục Tích hợp) và không còn giỏ chờ thu.</div></div>`}<//>
