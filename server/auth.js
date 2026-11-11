@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { config } from './config.js';
 import { nowIso, unauthorized, forbidden } from './util.js';
+import { getSetting } from './db.js';
 
 // ---- Mật khẩu / PIN: scrypt + salt ----
 export function hashSecret(secret) {
@@ -89,4 +90,13 @@ export function cleanUsername(v) {
 export function usernameTaken(db, username, exceptId) {
   const row = db.prepare('SELECT id FROM staff WHERE (id = ? COLLATE NOCASE OR email = ? COLLATE NOCASE OR username = ? COLLATE NOCASE) AND id <> ?').get(username, username, username, exceptId || '');
   return !!row;
+}
+
+/** Chính sách bảo mật đăng nhập quản trị. Quản trị chuỗi đổi ở trang Tài khoản; chưa đổi thì theo biến môi trường (mặc định bật cả hai). */
+export function securityPolicy(db) {
+  const s = getSetting(db, 'security', {});
+  return {
+    require2fa: typeof s.require2fa === 'boolean' ? s.require2fa : process.env.REQUIRE_ADMIN_2FA !== '0',
+    requireCaptcha: typeof s.requireCaptcha === 'boolean' ? s.requireCaptcha : process.env.REQUIRE_CAPTCHA !== '0'
+  };
 }

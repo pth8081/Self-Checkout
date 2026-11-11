@@ -2,6 +2,10 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 2.2 (2026-11-11)
+
+- Bảo mật đăng nhập quản trị: mã hình 4 số, đổi/gỡ xác thực 2 bước có xác nhận, chính sách bắt buộc bật tắt được, đăng nhập bằng vân tay / khuôn mặt (passkey WebAuthn)
+
 ## 2.1 (2026-11-11)
 
 - Đồng bộ tồn kho từ API tồn kho của đối tác: cấu hình, chạy định kỳ, kiểm tra kết nối, kết quả từng lần, bảng theo chi nhánh, đối chiếu mặt hàng

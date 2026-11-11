@@ -4,7 +4,8 @@ import { createBridge } from '../server/mssql/bridge.js';
 
 // Chạy toàn bộ kiểm thử trên SQL Server: TEST_DB=mssql MSSQL_SERVER=... MSSQL_USER=... MSSQL_PASSWORD=... npm test
 // Mỗi lần makeApp tạo một CSDL riêng (brg_t_<ngẫu nhiên>) và xóa khi app.close().
-process.env.REQUIRE_ADMIN_2FA ??= '0'; // các kiểm thử cũ đăng nhập quản trị không có 2 bước; kiểm thử riêng bật lại
+process.env.REQUIRE_ADMIN_2FA ??= '0'; // các kiểm thử cũ đăng nhập quản trị không có 2 bước và mã hình; kiểm thử riêng bật lại
+process.env.REQUIRE_CAPTCHA ??= '0';
 const TEST_MSSQL = process.env.TEST_DB === 'mssql';
 function mssqlCfg(database) {
   const e = process.env;

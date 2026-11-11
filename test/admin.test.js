@@ -14,14 +14,20 @@ test('đăng nhập quản trị: sai mật khẩu, khóa tạm sau 5 lần, nh�
   await app.close();
 });
 
-test('xác thực 2 bước: bật rồi phải nhập mã mới đăng nhập được', async () => {
+test('xác thực 2 bước: bật (2 bước có xác nhận) rồi phải nhập mã mới đăng nhập được', async () => {
   const app = await makeApp();
   const token = (await adminLogin(app)).body.token;
-  const on = await call(app, 'POST', '/api/a/users/QT0001/totp', { token, body: { enable: true } });
+  const on = await call(app, 'POST', '/api/a/users/QT0001/totp/begin', { token, body: {} });
   assert.equal(on.status, 200);
+  assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp/confirm', { token, body: { confirmToken: on.body.confirmToken, code: '000000' } })).body.error, 'BAD_TOTP');
+  assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp/confirm', { token, body: { confirmToken: on.body.confirmToken, code: totpNow(on.body.secret) } })).status, 200);
   const need = await adminLogin(app);
-  assert.equal(need.body.error, 'TOTP_REQUIRED');
+  assert.equal(need.body.totpRequired, true);
+  assert.ok(need.body.stepToken && !need.body.token);
   assert.equal((await adminLogin(app, 'QT0001', 'Admin@123', '000000')).body.error, 'BAD_TOTP');
+  assert.equal((await call(app, 'POST', '/api/a/login/totp', { body: { stepToken: need.body.stepToken, code: '000000' } })).body.error, 'BAD_TOTP');
+  const step2 = await call(app, 'POST', '/api/a/login/totp', { body: { stepToken: need.body.stepToken, code: totpNow(on.body.secret) } });
+  assert.equal(step2.status, 200); assert.ok(step2.body.token);
   const ok = await adminLogin(app, 'QT0001', 'Admin@123', totpNow(on.body.secret));
   assert.equal(ok.status, 200);
   await app.close();
@@ -197,7 +203,7 @@ test('bắt buộc xác thực 2 bước: đăng nhập lần đầu phải thi�
     assert.ok(ok.body.token);
     // lần sau: cần mã
     const next = await call(app, 'POST', '/api/a/login', { body: { account: 'QT0001', password: 'Admin@123' } });
-    assert.equal(next.body.error, 'TOTP_REQUIRED');
+    assert.equal(next.body.totpRequired, true);
     const in2 = await call(app, 'POST', '/api/a/login', { body: { account: 'QT0001', password: 'Admin@123', totp: totpNow(first.body.secret) } });
     assert.equal(in2.status, 200);
     // không tắt được; xác nhận lại với mã thiết lập cũ thì báo đã bật
@@ -234,5 +240,69 @@ test('chi nhánh: tải file mẫu, xuất file, nhập file (xem trước rồi
   assert.equal((await call(app, 'POST', '/api/a/stores/import/preview', { token: admin, body: { text: 'a,b\n1,2' } })).body.error, 'BAD_FILE');
   const exp2 = await call(app, 'GET', '/api/a/stores/export', { token: admin });
   assert.match(exp2.body.csv, /ZZ2,Chi nhánh Z2/);
+  await app.close();
+});
+
+test('mã hình 4 số (captcha): bắt buộc, dùng một lần, sai thì không thử được mật khẩu; tắt được bằng chính sách', async () => {
+  process.env.REQUIRE_CAPTCHA = '1';
+  try {
+    const app = await makeApp();
+    const { checkCaptcha } = await import('../server/services/captcha.js');
+    const cap = await call(app, 'GET', '/api/a/captcha');
+    assert.equal(cap.status, 200);
+    assert.match(cap.body.svg, /^<svg/);
+    assert.ok(cap.body.id);
+    const body = { account: 'QT0001', password: 'Admin@123' };
+    assert.equal((await call(app, 'POST', '/api/a/login', { body })).body.error, 'BAD_CAPTCHA'); // thiếu mã hình
+    assert.equal((await call(app, 'POST', '/api/a/login', { body: { ...body, captchaId: cap.body.id, captcha: 'abcd' } })).body.error, 'BAD_CAPTCHA');
+    // đáp án chỉ nằm trong mã ký dưới dạng băm có khóa: dò bằng khóa máy chủ để lấy đáp án cho kiểm thử
+    const { newCaptcha } = await import('../server/services/captcha.js');
+    const known = newCaptcha();
+    const crypto = await import('node:crypto');
+    const { config } = await import('../server/config.js');
+    const payload = JSON.parse(Buffer.from(known.id.split('.')[0], 'base64url').toString());
+    let answer = null;
+    for (let n = 0; n < 10000; n++) { const code = String(n).padStart(4, '0'); if (crypto.createHmac('sha256', config.secret).update(`captcha:${payload.n}:${code}`).digest('hex') === payload.h) { answer = code; break; } }
+    assert.ok(answer);
+    const good = await call(app, 'POST', '/api/a/login', { body: { ...body, captchaId: known.id, captcha: answer } });
+    assert.equal(good.status, 200, JSON.stringify(good.body));
+    assert.equal(checkCaptcha(known.id, answer), false); // dùng một lần
+    assert.equal((await call(app, 'POST', '/api/a/login', { body: { ...body, captchaId: known.id, captcha: answer } })).body.error, 'BAD_CAPTCHA');
+    // quản trị chuỗi tắt yêu cầu mã hình
+    const tok = good.body.token;
+    assert.equal((await call(app, 'PUT', '/api/a/security', { token: tok, body: { requireCaptcha: false } })).body.policy.requireCaptcha, false);
+    assert.equal((await call(app, 'POST', '/api/a/login', { body })).status, 200);
+    await app.close();
+  } finally { process.env.REQUIRE_CAPTCHA = '0'; }
+});
+
+test('đổi và gỡ xác thực 2 bước: chính chủ phải nhập mã hiện tại; đang bắt buộc thì không gỡ được cho tới khi tắt chính sách', async () => {
+  const app = await makeApp();
+  const t = (await adminLogin(app)).body.token;
+  const enroll = async (token, extra = {}) => {
+    const b = await call(app, 'POST', '/api/a/users/QT0001/totp/begin', { token, body: extra });
+    if (b.status !== 200) return b;
+    const { secret, confirmToken } = b.body;
+    const c = await call(app, 'POST', '/api/a/users/QT0001/totp/confirm', { token, body: { confirmToken, code: totpNow(secret) } });
+    assert.equal(c.status, 200, JSON.stringify(c.body));
+    return { status: 200, secret };
+  };
+  const first = await enroll(t);
+  // đổi thiết bị: thiếu hoặc sai mã hiện tại thì từ chối
+  assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp/begin', { token: t, body: {} })).body.error, 'BAD_TOTP');
+  assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp/begin', { token: t, body: { currentCode: '000000' } })).body.error, 'BAD_TOTP');
+  const second = await enroll(t, { currentCode: totpNow(first.secret) });
+  assert.notEqual(second.secret, first.secret);
+  // mã của thiết bị cũ không còn dùng được
+  assert.equal((await adminLogin(app, 'QT0001', 'Admin@123', totpNow(first.secret))).body.error, 'BAD_TOTP');
+  assert.equal((await adminLogin(app, 'QT0001', 'Admin@123', totpNow(second.secret))).status, 200);
+  // chính sách đang bắt buộc thì không gỡ được
+  assert.equal((await call(app, 'PUT', '/api/a/security', { token: t, body: { require2fa: true } })).body.policy.require2fa, true);
+  assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp', { token: t, body: { enable: false, code: totpNow(second.secret) } })).body.error, 'TOTP_REQUIRED');
+  await call(app, 'PUT', '/api/a/security', { token: t, body: { require2fa: false } });
+  assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp', { token: t, body: { enable: false } })).body.error, 'BAD_TOTP'); // chính chủ cần mã
+  assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp', { token: t, body: { enable: false, code: totpNow(second.secret) } })).body.enabled, false);
+  assert.equal((await adminLogin(app)).status, 200);
+  assert.equal((await call(app, 'PUT', '/api/a/security', { token: (await adminLogin(app, 'QT0007')).body.token, body: { require2fa: true } })).status, 403);
   await app.close();
 });

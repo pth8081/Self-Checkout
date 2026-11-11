@@ -147,6 +147,12 @@ CREATE TABLE IF NOT EXISTS statements (
 CREATE TABLE IF NOT EXISTS price_points (
   ma_diem TEXT PRIMARY KEY, name TEXT, store_id TEXT, imported_at TEXT NOT NULL
 );
+-- Thiết bị đăng nhập bằng vân tay / khuôn mặt (passkey). id = SHA-256 của mã thiết bị (cố định độ dài để làm khóa).
+CREATE TABLE IF NOT EXISTS passkeys (
+  id TEXT PRIMARY KEY, staff_id TEXT NOT NULL, credential_id TEXT NOT NULL, name TEXT, public_key TEXT NOT NULL, alg INTEGER NOT NULL,
+  counter INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, last_used_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_passkeys_staff ON passkeys(staff_id);
 -- Tồn kho từng mã hàng theo chi nhánh, đồng bộ từ API tồn kho của đối tác (source_at: thời điểm đối tác chốt số liệu).
 CREATE TABLE IF NOT EXISTS stock_levels (
   store_id TEXT NOT NULL, sku TEXT NOT NULL, barcode TEXT, name TEXT, qty INTEGER NOT NULL, source_at TEXT, synced_at TEXT NOT NULL,

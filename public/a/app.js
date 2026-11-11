@@ -1,6 +1,6 @@
 // Web quản trị BRG Scan & Checkout (chuỗi + chi nhánh).
 import { html, render, useState, useEffect, useMemo, useCallback, useRoute, go, toast, Toasts, Header, Drawer, Icon, Logo, Spinner, OfflineBar, Field, registerSW, ErrorBox, QR, copyText } from '/shared/lib.js';
-import { api, S, store, ROLE_VI } from '/a/common.js';
+import { api, S, store, ROLE_VI, passkeyGet } from '/a/common.js';
 import { Overview, Stores, Integrations, Reports, Users, Audit } from '/a/pages-chain.js';
 import { GuideList, GuideDoc } from '/a/guides.js';
 import { Today, Transactions, TxDetail, PosOrders, Plans, RandomCheck, Reconcile, Unknown } from '/a/pages-store.js';
@@ -40,27 +40,40 @@ function Login({ onLogin, notice }) {
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
   const [totp, setTotp] = useState('');
-  const [needTotp, setNeedTotp] = useState(false);
+  const [step, setStep] = useState(null); // { stepToken }: đã đúng mật khẩu, chờ mã xác thực 2 bước
   const [setup, setSetup] = useState(null); // { secret, uri, confirmToken }: lần đầu đăng nhập phải thiết lập xác thực 2 bước
+  const [cap, setCap] = useState(null); // { required, id, svg }
+  const [capText, setCapText] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const loadCap = async () => { try { setCap(await api.get('/captcha')); setCapText(''); } catch { setCap({ required: false }); } };
+  useEffect(() => { loadCap(); }, []);
+  const capSrc = cap?.svg ? `data:image/svg+xml;utf8,${encodeURIComponent(cap.svg)}` : '';
   const submit = async (e) => {
     e.preventDefault();
     if (busy) return;
     setErr('');
+    if (step) {
+      if (!/^\d{6}$/.test(totp)) return setErr('Mã xác thực gồm 6 chữ số');
+      setBusy(true);
+      try { const r = await api.post('/login/totp', { stepToken: step.stepToken, code: totp }); await onLogin(r.token); }
+      catch (x) {
+        if (x.code === 'EXPIRED') { setStep(null); setTotp(''); setPassword(''); setErr(x.message); loadCap(); }
+        else { setErr(x.message); setTotp(''); }
+      } finally { setBusy(false); }
+      return;
+    }
     if (!account.trim() || !password) return setErr('Nhập tài khoản và mật khẩu');
-    if (needTotp && !/^\d{6}$/.test(totp)) return setErr('Mã xác thực gồm 6 chữ số');
+    if (cap?.required && !/^\d{4}$/.test(capText.trim())) return setErr('Nhập 4 số trong hình');
     setBusy(true);
     try {
-      const r = await api.post('/login', { account: account.trim(), password, totp: needTotp ? totp : undefined });
+      const r = await api.post('/login', { account: account.trim(), password, captchaId: cap?.required ? cap.id : undefined, captcha: cap?.required ? capText.trim() : undefined });
       if (r.mfaSetup) { setSetup(r); setTotp(''); return; }
+      if (r.totpRequired) { setStep(r); setTotp(''); return; }
       await onLogin(r.token);
     } catch (x) {
-      if (x.code === 'TOTP_REQUIRED') { setNeedTotp(true); setErr(''); }
-      else if (x.code === 'BAD_TOTP') { setErr(x.message); setTotp(''); }
-      else if (x.code === 'LOCKED') setErr(x.message || 'Tài khoản bị khóa tạm vì nhập sai nhiều lần. Hãy thử lại sau ít phút.');
-      else if (x.code === 'BAD_LOGIN') { setErr(x.message || 'Tài khoản hoặc mật khẩu chưa đúng'); setNeedTotp(false); }
-      else setErr(x.message);
+      setErr(x.code === 'LOCKED' ? (x.message || 'Tài khoản bị khóa tạm vì nhập sai nhiều lần. Hãy thử lại sau ít phút.') : (x.message || 'Đăng nhập không thành công'));
+      loadCap(); // mỗi hình chỉ thử một lần
     } finally { setBusy(false); }
   };
   const confirm2fa = async (e) => {
@@ -71,8 +84,20 @@ function Login({ onLogin, notice }) {
     setBusy(true);
     try { const r = await api.post('/login/2fa-confirm', { confirmToken: setup.confirmToken, code: totp }); await onLogin(r.token); }
     catch (x) {
-      if (x.code === 'EXPIRED' || x.code === 'ALREADY_2FA') { setSetup(null); setTotp(''); setPassword(''); setErr(x.message); }
+      if (x.code === 'EXPIRED' || x.code === 'ALREADY_2FA') { setSetup(null); setTotp(''); setPassword(''); setErr(x.message); loadCap(); }
       else { setErr(x.message); setTotp(''); }
+    } finally { setBusy(false); }
+  };
+  const passkey = async () => {
+    if (busy) return;
+    setErr(''); setBusy(true);
+    try {
+      const o = await api.post('/login/passkey/options', { account: account.trim() || undefined });
+      const cred = await passkeyGet(o.options);
+      const r = await api.post('/login/passkey', { challengeToken: o.challengeToken, credential: cred });
+      await onLogin(r.token);
+    } catch (x) {
+      setErr(x.name === 'NotAllowedError' ? 'Đã hủy hoặc hết thời gian chờ xác minh trên thiết bị' : (x.message || 'Đăng nhập bằng thiết bị không thành công'));
     } finally { setBusy(false); }
   };
   if (setup) return html`<div class="login"><form class="card" onSubmit=${confirm2fa} noValidate>
@@ -84,18 +109,23 @@ function Login({ onLogin, notice }) {
     <${Field} label="Mã 6 số trong app"><input class="input big" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value=${totp} onInput=${(e) => setTotp(e.target.value.replace(/\D/g, ''))} aria-label="Mã xác thực" autofocus/><//>
     ${err && html`<div class="banner err" role="alert"><${Icon} name="alert"/><div class="grow">${err}</div></div>`}
     <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : 'Xác nhận và đăng nhập'}</button>
-    <button class="btn txt" type="button" onClick=${() => { setSetup(null); setTotp(''); setErr(''); setPassword(''); }}>Quay lại</button>
+    <button class="btn txt" type="button" onClick=${() => { setSetup(null); setTotp(''); setErr(''); setPassword(''); loadCap(); }}>Quay lại</button>
     <div class="hint">Mã bí mật chỉ hiện ở màn hình này. Hãy lưu lại trước khi xác nhận. Mất điện thoại thì nhờ quản trị chuỗi khác đặt lại.</div>
   </form></div>`;
   return html`<div class="login"><form class="card" onSubmit=${submit} noValidate>
     <div class="row"><${Logo} size=${44}/><div><h1 style="font-size:22px">Quản trị BRG</h1><div class="small muted">Scan & Checkout · chuỗi và chi nhánh</div></div></div>
     ${notice && html`<div class="banner" role="status">${notice}</div>`}
-    <${Field} label="Tài khoản hoặc email"><input class="input" name="username" autocomplete="username" autocapitalize="off" value=${account} onInput=${(e) => setAccount(e.target.value)} aria-label="Tài khoản hoặc email" autofocus disabled=${needTotp}/><//>
-    <${Field} label="Mật khẩu"><input class="input" type="password" name="password" autocomplete="current-password" value=${password} onInput=${(e) => setPassword(e.target.value)} aria-label="Mật khẩu" disabled=${needTotp}/><//>
-    ${needTotp && html`<${Field} label="Mã xác thực 6 số" hint="Mở app xác thực (Google Authenticator, Authy…) và nhập mã hiện tại"><input class="input big" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value=${totp} onInput=${(e) => setTotp(e.target.value.replace(/\D/g, ''))} aria-label="Mã xác thực 6 số" autofocus/><//>`}
+    <${Field} label="Tài khoản, tên đăng nhập hoặc email"><input class="input" name="username" autocomplete="username" autocapitalize="off" value=${account} onInput=${(e) => setAccount(e.target.value)} aria-label="Tài khoản hoặc email" autofocus disabled=${!!step}/><//>
+    <${Field} label="Mật khẩu"><input class="input" type="password" name="password" autocomplete="current-password" value=${password} onInput=${(e) => setPassword(e.target.value)} aria-label="Mật khẩu" disabled=${!!step}/><//>
+    ${!step && cap?.required && html`<${Field} label="Mã xác thực"><div class="row" style="gap:8px;align-items:stretch">
+        <div class="capimg grow" role="img" aria-label="Hình chứa 4 chữ số"><img src=${capSrc} alt="" width="150" height="48"/></div>
+        <button class="iconbtn" type="button" onClick=${loadCap} aria-label="Đổi hình khác"><${Icon} name="refresh"/></button></div>
+      <input class="input" style="margin-top:8px" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="Nhập 4 số trong hình" value=${capText} onInput=${(e) => setCapText(e.target.value.replace(/\D/g, ''))} aria-label="Mã xác thực 4 số"/><//>`}
+    ${step && html`<${Field} label="Mã xác thực 6 số" hint="Mở app xác thực (Google Authenticator, Authy…) và nhập mã hiện tại"><input class="input big" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value=${totp} onInput=${(e) => setTotp(e.target.value.replace(/\D/g, ''))} aria-label="Mã xác thực 6 số" autofocus/><//>`}
     ${err && html`<div class="banner err" role="alert"><${Icon} name="alert"/><div class="grow">${err}</div></div>`}
-    <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : needTotp ? 'Xác nhận' : 'Đăng nhập'}</button>
-    ${needTotp && html`<button class="btn txt" type="button" onClick=${() => { setNeedTotp(false); setTotp(''); setErr(''); }}>Quay lại</button>`}
+    <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : step ? 'Xác nhận' : 'Đăng nhập'}</button>
+    ${step && html`<button class="btn txt" type="button" onClick=${() => { setStep(null); setTotp(''); setErr(''); setPassword(''); loadCap(); }}>Quay lại</button>`}
+    ${!step && window.PublicKeyCredential && html`<button class="btn line" type="button" disabled=${busy} onClick=${passkey}><${Icon} name="shield"/>Đăng nhập bằng vân tay / Face ID</button>`}
     <div class="hint">Sai nhiều lần liên tiếp sẽ bị khóa tạm. Mọi lần đăng nhập đều được ghi lại.</div>
   </form></div>`;
 }
