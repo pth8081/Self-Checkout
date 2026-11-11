@@ -1,6 +1,7 @@
 // Luồng phụ giữ MỘT kết nối tới SQL Server và chạy các câu lệnh do luồng chính gửi sang. Luồng chính chờ kết quả bằng
 // Atomics.wait nên mã ứng dụng vẫn gọi CSDL theo kiểu đồng bộ như với SQLite (xem bridge.js).
 import { workerData, parentPort } from 'node:worker_threads';
+import './polyfill.js';
 import sql from 'mssql';
 
 const { cfg, sab, port } = workerData;
