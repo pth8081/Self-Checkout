@@ -45,7 +45,7 @@ export function buildApp({ dbFile = config.db, rng = Math.random, logger = false
   app.register(posRoutes, { prefix: '/api/pos' });
   // Kiểm tra tình trạng cho giám sát và reverse proxy: 200 khi máy chủ và CSDL đều ổn.
   app.get('/api/health', async (req, reply) => {
-    try { db.prepare('SELECT 1').get(); return { ok: true, version: appVersion(), uptime: Math.round(process.uptime()) }; }
+    try { db.prepare('SELECT 1').get(); return { ok: true, version: appVersion(), db: db.kind || 'sqlite', uptime: Math.round(process.uptime()) }; }
     catch { return reply.code(503).send({ ok: false }); }
   });
 

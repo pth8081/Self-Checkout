@@ -1,6 +1,6 @@
 {
   "name": "brg-self-checkout",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "BRG Scan & Checkout: PWA khách tự quét, thu ngân, kiểm soát cổng và quản trị",
   "type": "module",
@@ -22,7 +22,9 @@
     "start:prod": "node --env-file=.env server/index.js",
     "backup": "node scripts/backup.js",
     "loadtest": "node scripts/loadtest.js",
-    "version:bump": "node scripts/bump-version.js"
+    "version:bump": "node scripts/bump-version.js",
+    "mssql:init": "node --env-file=.env scripts/mssql-init.js",
+    "test:mssql": "TEST_DB=mssql node --test --test-timeout=180000 test/*.test.js"
   },
   "dependencies": {
     "@fastify/static": "^10.1.10",
