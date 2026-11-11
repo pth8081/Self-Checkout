@@ -1,6 +1,6 @@
 // Màn hình vào cửa hàng: M01 chào, M02 hướng dẫn, M03 xin quyền camera, M04 camera bị chặn,
 // M05 chi nhánh chưa bật, M06 mở trong app khác, M07 giỏ đang dở.
-import { html, useState, useEffect, Header, Icon, Logo, Banner, Pill, Spinner, Loading, ErrorBox, go, fmt, useAsync, Sheet, toast } from '/shared/lib.js';
+import { html, useState, useEffect, AppVersion, Header, Icon, Logo, Banner, Pill, Spinner, Loading, ErrorBox, go, fmt, useAsync, Sheet, toast } from '/shared/lib.js';
 import { api, openSession, resetSession, loadStore, setState, local } from './store.js';
 
 export const isWebview = () => /(Zalo|FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|Messenger|TikTok|Snapchat)/i.test(navigator.userAgent);
@@ -38,6 +38,7 @@ export function Welcome({ store, onStart, busy, error }) {
     <div class="bar-bottom"><div class="in">
       <button class="btn primary" disabled=${busy} onClick=${onStart}>${busy ? html`<${Spinner} sm/>` : 'Bắt đầu mua sắm'}</button>
       <div class="xs muted center">Tiếp tục nghĩa là bạn đồng ý để chúng tôi lưu giỏ hàng và lịch sử mua trên thiết bị này. Ứng dụng không chụp hay lưu ảnh từ camera.</div>
+      <${AppVersion}/>
     </div></div>
   </div>`;
 }

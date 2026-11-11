@@ -1,5 +1,5 @@
 // Tạo tự động bởi scripts/build-sw.js, không sửa tay.
-const VERSION = '38c833f66106';
+const VERSION = 'b85d726cd95c';
 const CACHE = 'brg-a-' + VERSION;
 const SHELL = [
  "/a/",
@@ -31,12 +31,23 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (e) => {
-  // Không tự thay bản đang chạy: bản mới chờ (waiting) tới khi người dùng bấm "Cập nhật ngay" trên thông báo (xem registerSW trong shared/lib.js).
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
+  e.waitUntil((async () => {
+    // Có cache của bản cũ mà chưa có dấu 'brg-ui2-a' nghĩa là trang đang mở thuộc bản cũ (trước khi có thông báo cập nhật), không tự hiện được nút "Cập nhật ngay".
+    // Chỉ lần chuyển này: tự kích hoạt bản mới ngay (không để bản cũ giữ chỗ), người dùng mở lại hoặc tải lại trang là chạy bản mới. Từ sau đó bản mới chờ (waiting) tới khi người dùng bấm "Cập nhật ngay" (xem registerSW trong shared/lib.js).
+    const keys = await caches.keys();
+    const legacy = keys.some((k) => k.startsWith('brg-a-')) && !keys.includes('brg-ui2-a');
+    await (await caches.open(CACHE)).addAll(SHELL);
+    if (legacy) { await caches.open('brg-ui2-a'); self.skipWaiting(); }
+    else await caches.open('brg-ui2-a');
+  })());
 });
 self.addEventListener('message', (e) => { if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
-  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith('brg-a-') && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil((async () => {
+    const ks = await caches.keys();
+    await Promise.all(ks.filter((k) => k.startsWith('brg-a-') && k !== CACHE).map((k) => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 self.addEventListener('fetch', (e) => {
   const req = e.request, url = new URL(req.url);

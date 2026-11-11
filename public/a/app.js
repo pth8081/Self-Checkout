@@ -1,5 +1,5 @@
 // Web quản trị BRG Scan & Checkout (chuỗi + chi nhánh).
-import { html, render, useState, useEffect, useMemo, useCallback, useRoute, go, toast, Toasts, Header, Drawer, Icon, Logo, Spinner, OfflineBar, Field, registerSW, ErrorBox, QR, copyText, fmt } from '/shared/lib.js';
+import { html, render, useState, useEffect, useMemo, useCallback, useRoute, go, toast, Toasts, Header, Drawer, Icon, Logo, Spinner, OfflineBar, Field, registerSW, ErrorBox, QR, copyText, fmt, AppVersion } from '/shared/lib.js';
 import { api, S, store, ROLE_VI, passkeyGet, Banner } from '/a/common.js';
 import { Overview, Stores, Integrations, Reports, Users, Audit } from '/a/pages-chain.js';
 import { GuideList, GuideDoc } from '/a/guides.js';
@@ -148,6 +148,7 @@ function Login({ onLogin, notice }) {
     ${step && html`<button class="btn txt" type="button" onClick=${() => { setStep(null); setTotp(''); setErr(''); setPassword(''); loadCap(); }}>Quay lại</button>`}
     ${!step && html`<button class="btn line" type="button" disabled=${busy} onClick=${passkey}><${Icon} name="shield"/>Đăng nhập bằng vân tay / Face ID</button>`}
     <div class="hint">Sai nhiều lần liên tiếp sẽ bị khóa tạm. Mọi lần đăng nhập đều được ghi lại.</div>
+    <${AppVersion}/>
   </form></div>`;
 }
 
@@ -158,7 +159,7 @@ function Sidebar({ items, active, onSelect, me, onLogout }) {
     ${items.map((it) => it.group ? html`<div class="label" key=${it.group}>${it.group}</div>`
       : html`<button key=${it.id} class=${`navitem ${active === it.id ? 'on' : ''}`} aria-current=${active === it.id ? 'page' : undefined} onClick=${() => onSelect(it.id)}><${Icon} name=${it.icon}/><span class="grow">${it.label}</span></button>`)}
     <div class="me"><div class="avatar">${(me.name || '?').slice(0, 1).toUpperCase()}</div><div class="grow"><div class="b">${me.name}</div><div class="small muted">${me.id}</div></div>
-      <button class="iconbtn" onClick=${onLogout} aria-label="Đăng xuất"><${Icon} name="logout"/></button></div></aside>`;
+      <button class="iconbtn" onClick=${onLogout} aria-label="Đăng xuất"><${Icon} name="logout"/></button></div><${AppVersion} cls="xs muted"/></aside>`;
 }
 
 function Shell({ session, setSession, reloadStores, logout }) {

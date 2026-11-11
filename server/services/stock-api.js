@@ -13,7 +13,7 @@ const MAX_PAGES = 1000;
 
 export function stockConfig(db) {
   const s = getSetting(db, STOCK_KEY, {});
-  return { enabled: !!s.enabled, url: s.url || '', hasKey: !!s.keyEnc, pageSize: Number(s.pageSize) || 1000, intervalMin: Number(s.intervalMin) || 30, timeoutSec: Number(s.timeoutSec) || 30 };
+  return { enabled: !!s.enabled, url: s.url || '', hasKey: !!s.keyEnc, pageSize: Number(s.pageSize) || 1000, intervalMin: Number(s.intervalMin) || 30, timeoutSec: Number(s.timeoutSec) || 30, pauseMs: s.pauseMs === undefined ? 300 : Number(s.pauseMs) };
 }
 
 export function saveStockConfig(db, b = {}) {
@@ -32,6 +32,7 @@ export function saveStockConfig(db, b = {}) {
   if (typeof b.key === 'string' && b.key.trim()) next.keyEnc = encryptSecret(b.key.trim());
   if (b.pageSize !== undefined) { const v = Number(b.pageSize); if (!Number.isInteger(v) || v < 50 || v > 1000) return { error: 'Số dòng mỗi trang từ 50 đến 1000' }; next.pageSize = v; }
   if (b.intervalMin !== undefined) { const v = Number(b.intervalMin); if (!Number.isInteger(v) || v < 15 || v > 1440) return { error: 'Chu kỳ đồng bộ từ 15 đến 1440 phút (dữ liệu đối tác cập nhật mỗi 15 phút)' }; next.intervalMin = v; }
+  if (b.pauseMs !== undefined) { const v = Number(b.pauseMs); if (!Number.isInteger(v) || v < 0 || v > 10000) return { error: 'Thời gian nghỉ giữa các trang từ 0 đến 10000 mili giây' }; next.pauseMs = v; }
   if (b.timeoutSec !== undefined) { const v = Number(b.timeoutSec); if (!(v >= 5 && v <= 120)) return { error: 'Thời gian chờ mỗi trang từ 5 đến 120 giây' }; next.timeoutSec = v; }
   if (b.enabled !== undefined) {
     if (b.enabled && (!next.url || !next.keyEnc)) return { error: 'Cần nhập địa chỉ API và khóa API trước khi bật' };
@@ -52,11 +53,17 @@ async function fetchPage(cfg, key, page, pageSize, fetchImpl, fields = FIELDS) {
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), cfg.timeoutSec * 1000);
   try {
     const r = await fetchImpl(url, { headers: { 'X-API-Key': key, Accept: 'application/json' }, signal: ctl.signal });
-    if (r.status === 401) throw new Error('API tồn kho từ chối khóa (401): kiểm tra khóa API');
-    if (r.status === 403) throw new Error('API tồn kho từ chối (403): địa chỉ IP của máy chủ BRG chưa được đối tác đăng ký, hoặc khóa chưa có quyền báo cáo tồn kho');
-    if (r.status === 400) throw new Error('API tồn kho báo tham số sai (400), có thể tên cột trong fields không đúng');
-    if (r.status === 429) { const e = new Error('API tồn kho báo gọi quá nhiều (429)'); e.retryAfter = Number(r.headers.get('retry-after')) || 0; throw e; }
-    if (!r.ok) throw new Error(`API tồn kho lỗi HTTP ${r.status}`);
+    if (!r.ok) {
+      const body = (await r.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 160);
+      const detail = body ? ` Đối tác trả: ${body}` : '';
+      const msg = r.status === 401 ? 'API tồn kho từ chối khóa (401): khóa sai, bị thu hồi, hoặc đã vượt giới hạn số lần gọi mỗi phút.'
+        : r.status === 403 ? 'API tồn kho từ chối (403): địa chỉ IP của máy chủ BRG chưa được đối tác đăng ký, hoặc khóa chưa có quyền báo cáo tồn kho.'
+        : r.status === 400 ? 'API tồn kho báo tham số sai (400), có thể tên cột trong fields không đúng.'
+        : r.status === 429 ? 'API tồn kho báo gọi quá nhiều (429).'
+        : `API tồn kho lỗi HTTP ${r.status}.`;
+      const e = new Error(msg + detail); e.status = r.status; e.retryAfter = r.status === 429 ? (Number(r.headers.get('retry-after')) || 0) : undefined;
+      throw e;
+    }
     const j = await r.json();
     if (!j || !Array.isArray(j.rows)) throw new Error('API tồn kho trả dữ liệu không đúng dạng (thiếu rows)');
     return j;
@@ -100,27 +107,37 @@ export async function runStockSync(ctx, { fetchImpl = fetch, trigger = 'manual',
   running = true;
   const startedAt = nowIso(); const t0 = Date.now();
   const res = { startedAt, trigger, ok: false, pages: 0, rows: 0, matched: 0, unmatched: 0, unmatchedCodes: [], written: 0, unchanged: 0, removed: 0, stores: 0, sourceAt: null, error: null };
+  const stores0 = new Map(db.prepare("SELECT id, pos_code FROM stores WHERE pos_code <> ''").all().map((x) => [x.pos_code.toLowerCase(), x.id]));
+  const unmatched = new Set();
+  const codeCount = new Map(); // maDiem -> số dòng (để biết đối tác trả những mã điểm nào)
   try {
     const key = decryptSecret(s.keyEnc);
     const stores = new Map(db.prepare("SELECT id, pos_code FROM stores WHERE pos_code <> ''").all().map((x) => [x.pos_code.toLowerCase(), x.id]));
     const existing = new Map(); // storeId -> Map(sku -> {qty, barcode})
     const loadStore = (id) => { if (!existing.has(id)) existing.set(id, new Map(db.prepare('SELECT sku, qty, barcode, name FROM stock_levels WHERE store_id = ?').all(id).map((r) => [r.sku, r]))); return existing.get(id); };
     const seen = new Map(); // storeId -> Set(sku)
-    const unmatched = new Set();
     const upd = db.prepare('UPDATE stock_levels SET barcode = ?, name = ?, qty = ?, source_at = ?, synced_at = ? WHERE store_id = ? AND sku = ?');
     const ins = db.prepare('INSERT INTO stock_levels(store_id,sku,barcode,name,qty,source_at,synced_at) VALUES(?,?,?,?,?,?,?)');
     for (let page = 1; page <= MAX_PAGES; page++) {
       let j;
       for (let attempt = 0; ; attempt++) {
         try { j = await fetchPage(cfg, key, page, cfg.pageSize, fetchImpl); break; }
-        catch (e) { if (e.retryAfter !== undefined && attempt < 3) { await sleepImpl(Math.min(60, Math.max(1, e.retryAfter)) * 1000); continue; } throw e; }
+        catch (e) {
+          // 429, hoặc 401/5xx giữa chừng (sau khi các trang trước đã được nhận: nhiều khả năng vượt giới hạn tần suất hay lỗi tạm): chờ rồi thử lại
+          const transient = e.status === 429 || (e.status === 401 && page > 1) || (e.status >= 500 && e.status < 600);
+          if (transient && attempt < 3) { await sleepImpl((e.retryAfter ? Math.min(60, Math.max(1, e.retryAfter)) : e.status === 401 ? 20 : 3) * 1000); continue; }
+          e.page = page; throw e;
+        }
       }
+      if (cfg.pauseMs && page > 1) await sleepImpl(cfg.pauseMs);
       if (page === 1 && j.rows.length) { const miss = REQUIRED.filter((k) => !(k in j.rows[0])); if (miss.length) throw new Error(`Dữ liệu thiếu cột bắt buộc: ${miss.join(', ')}`); }
       res.pages = page; res.rows += j.rows.length;
       const ts = nowIso();
       db.transaction(() => {
         for (const r of j.rows) {
-          const sid = stores.get(String(r.maDiem ?? '').toLowerCase());
+          const code = String(r.maDiem ?? '');
+          if (codeCount.size < 500 || codeCount.has(code)) codeCount.set(code, (codeCount.get(code) || 0) + 1);
+          const sid = stores.get(code.toLowerCase());
           const sku = String(r.maHang ?? '');
           const qty = qtyOf(r.soLuongTon);
           if (!sid) { unmatched.add(String(r.maDiem ?? '')); res.unmatched++; continue; }
@@ -143,10 +160,12 @@ export async function runStockSync(ctx, { fetchImpl = fetch, trigger = 'manual',
     res.stores = seen.size;
     const del = db.prepare('DELETE FROM stock_levels WHERE store_id = ? AND sku = ?');
     db.transaction(() => { for (const [sid, ids] of seen) for (const sku of existing.get(sid).keys()) if (!ids.has(sku)) { del.run(sid, sku); res.removed++; } })();
-    res.unmatchedCodes = [...unmatched].slice(0, 30);
     res.ok = true;
-  } catch (e) { res.error = e.message || String(e); }
+  } catch (e) { res.error = (e.page ? `Trang ${e.page}: ` : '') + (e.message || String(e)); res.failedPage = e.page || null; res.httpStatus = e.status || null; }
   finally { running = false; }
+  res.unmatchedCodes = [...unmatched].slice(0, 30);
+  res.seenCodes = codeCount.size;
+  res.topCodes = [...codeCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([code, n]) => ({ code, rows: n, matched: stores0.has(code.toLowerCase()) }));
   res.ms = Date.now() - t0; res.finishedAt = nowIso();
   setSetting(db, STOCK_LAST_KEY, res);
   if (!res.ok) ctx.stockError = { at: res.finishedAt, message: res.error };

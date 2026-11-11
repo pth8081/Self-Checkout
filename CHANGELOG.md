@@ -2,6 +2,10 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 2.9 (2026-11-11)
+
+- Hiện số phiên bản trên web (đăng nhập, menu quản trị, màn khách, đăng nhập nhân viên); bản cũ trước 2.3 tự được thay ngay để thông báo cập nhật hoạt động; nút Đã thanh toán xong chỉ sáng khi Dsmart POS báo thanh toán; đồng bộ tồn kho hiện rõ lỗi theo trang, mã điểm đối tác trả về, tự thử lại khi 401 giữa chừng, nghỉ giữa các trang
+
 ## 2.8 (2026-11-11)
 
 - Trang Chi nhánh: chế độ Thu gọn (mặc định), tìm kiếm, nút Mã QR ngay cạnh tên chi nhánh, cột tên cố định khi cuộn ngang

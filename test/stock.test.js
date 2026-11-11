@@ -79,3 +79,25 @@ test('tồn kho từ API đối tác: lấy hết các trang, ghép theo mã đi
   await p.close();
   await app.close();
 });
+
+test('tồn kho: bị từ chối 401 giữa chừng (nghi vượt giới hạn) thì chờ rồi thử lại; lỗi báo rõ trang, nội dung đối tác trả, và các mã điểm đối tác trả về', async () => {
+  const { runStockSync } = await import('../server/services/stock-api.js');
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  await call(app, 'PUT', '/api/a/stores/Q7', { token: admin, body: { posCode: 'SP-0107' } });
+  const rows = Array.from({ length: 150 }, (_, i) => row(i + 1, i < 100 ? 'SP-0107' : 'XX-1', 5));
+  const p = await partner(rows);
+  await call(app, 'PUT', '/api/a/integrations/stock-api', { token: admin, body: { url: p.url, key: 'k', pageSize: 50, pauseMs: 0, enabled: true } });
+  // trang 2 bị 401 đúng một lần rồi qua
+  let hits = 0;
+  const flaky = async (url, init) => { const u = new URL(url); if (u.searchParams.get('page') === '2' && hits++ === 0) return new Response('{"error":"Rate limit"}', { status: 401 }); return fetch(url, init); };
+  const waits = [];
+  const ok = await runStockSync(app.ctx, { fetchImpl: flaky, sleepImpl: async (ms) => { waits.push(ms); } });
+  assert.equal(ok.ok, true, JSON.stringify(ok)); assert.deepEqual(waits, [20000]); assert.equal(ok.matched, 100);
+  assert.deepEqual(ok.topCodes.map((c) => [c.code, c.rows, c.matched]), [['SP-0107', 100, true], ['XX-1', 50, false]]);
+  // 401 ngay trang 1: không thử lại, báo rõ trang và nội dung đối tác trả
+  const dead = async () => new Response('{"error":"Invalid key"}', { status: 401 });
+  const bad = await runStockSync(app.ctx, { fetchImpl: dead, sleepImpl: async () => {} });
+  assert.equal(bad.ok, false); assert.equal(bad.failedPage, 1); assert.equal(bad.httpStatus, 401); assert.match(bad.error, /Trang 1: .*401.*Invalid key/);
+  await p.close(); await app.close();
+});

@@ -391,6 +391,16 @@ export function Scanner({ kind = 'barcode', onScan, onState, paused = false, sta
 }
 
 // ============================== Service worker ==============================
+let versionPromise = null;
+/** Số phiên bản máy chủ đang chạy (lấy từ /api/health, nhớ cho cả trang). */
+export const appVersion = () => (versionPromise ||= fetch('/api/health', { cache: 'no-store' }).then((r) => r.json()).then((j) => j.version || '').catch(() => ''));
+/** Dòng chữ nhỏ "Phiên bản x.y" đặt ở chân trang đăng nhập, menu, màn chào. */
+export function AppVersion({ prefix = 'Phiên bản', cls = 'xs muted center' }) {
+  const [v, setV] = useState('');
+  useEffect(() => { appVersion().then(setV); }, []);
+  return v ? html`<div class=${`appver ${cls}`}>${prefix} ${v}</div>` : null;
+}
+
 /**
  * Đăng ký service worker và báo khi có phiên bản mới: kiểm tra định kỳ (10 phút), khi quay lại tab và khi có mạng lại.
  * Bản mới tải xong thì hiện thanh thông báo "Có phiên bản mới ... Cập nhật ngay / Để sau". Không tự tải lại trang để không làm mất thao tác đang làm.

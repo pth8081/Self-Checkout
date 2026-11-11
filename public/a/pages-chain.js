@@ -437,14 +437,14 @@ function StockApiCard() {
   const [q, setQ] = useState('');
   const [found, setFound] = useState(null);
   const d = st.data;
-  useEffect(() => { if (d && f === null) setF({ url: d.config.url, key: '', pageSize: String(d.config.pageSize), intervalMin: String(d.config.intervalMin), timeoutSec: String(d.config.timeoutSec), enabled: d.config.enabled }); }, [d]);
+  useEffect(() => { if (d && f === null) setF({ url: d.config.url, key: '', pageSize: String(d.config.pageSize), intervalMin: String(d.config.intervalMin), timeoutSec: String(d.config.timeoutSec), pauseMs: String(d.config.pauseMs), enabled: d.config.enabled }); }, [d]);
   // đang đồng bộ thì tự làm mới trạng thái
   useEffect(() => { if (!d?.syncing) return; const t = setTimeout(() => st.reload(), 3000); return () => clearTimeout(t); }, [d]);
   if (!d || f === null) return html`<div class="card"><${Spinner}/></div>`;
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const save = () => run(async () => {
     setErr('');
-    try { await api.put('/integrations/stock-api', { url: f.url, key: f.key || undefined, pageSize: Number(f.pageSize), intervalMin: Number(f.intervalMin), timeoutSec: Number(f.timeoutSec), enabled: f.enabled }); setF(null); await st.reload(); }
+    try { await api.put('/integrations/stock-api', { url: f.url, key: f.key || undefined, pageSize: Number(f.pageSize), intervalMin: Number(f.intervalMin), timeoutSec: Number(f.timeoutSec), pauseMs: Number(f.pauseMs), enabled: f.enabled }); setF(null); await st.reload(); }
     catch (x) { setErr(x.message); throw x; }
   }, 'Đã lưu cấu hình tồn kho');
   const doTest = () => run(async () => { setTest(null); setTest(await api.post('/integrations/stock-api/test', {})); });
@@ -463,7 +463,8 @@ function StockApiCard() {
       <${Field} label="Khóa API (X-API-Key)" hint=${d.config.hasKey ? 'Đã lưu khóa. Bỏ trống để giữ khóa cũ, nhập mới để thay' : 'Chưa có khóa. Đối tác cần đăng ký địa chỉ IP của máy chủ BRG cho khóa này'}><input class="input" type="password" autocomplete="off" value=${f.key} placeholder=${d.config.hasKey ? '••••••••' : ''} onInput=${set('key')}/><//>
       <${Field} label="Chu kỳ đồng bộ (phút)" hint="15 đến 1440. Khuyến nghị 15 đến 30"><input class="input" inputmode="numeric" value=${f.intervalMin} onInput=${set('intervalMin')}/><//>
       <${Field} label="Số dòng mỗi trang" hint="50 đến 1000 (tối đa theo đối tác)"><input class="input" inputmode="numeric" value=${f.pageSize} onInput=${set('pageSize')}/><//>
-      <${Field} label="Thời gian chờ mỗi trang (giây)"><input class="input" inputmode="numeric" value=${f.timeoutSec} onInput=${set('timeoutSec')}/><//></div>
+      <${Field} label="Thời gian chờ mỗi trang (giây)"><input class="input" inputmode="numeric" value=${f.timeoutSec} onInput=${set('timeoutSec')}/><//>
+      <${Field} label="Nghỉ giữa các trang (mili giây)" hint="Tăng lên (ví dụ 1000) nếu đối tác báo vượt giới hạn số lần gọi mỗi phút"><input class="input" inputmode="numeric" value=${f.pauseMs} onInput=${set('pauseMs')}/><//></div>
     <div class="row" style="margin:6px 0"><${Switch} checked=${f.enabled} label="Tự động đồng bộ tồn kho theo chu kỳ" onChange=${(v) => setF({ ...f, enabled: v })}/><span>Tự động đồng bộ tồn kho theo chu kỳ</span></div>
     ${err && html`<div class="errtext" role="alert">${err}</div>`}
     <div class="row wrap" style="gap:8px"><button class="btn primary sm" disabled=${busy} onClick=${save}>Lưu</button>
@@ -478,6 +479,7 @@ function StockApiCard() {
         Đọc <b>${last.rows}</b> dòng (${last.pages} trang) · ghép được <b>${last.matched}</b> · chưa ghép chi nhánh <b>${last.unmatched}</b> · ghi mới/đổi <b>${last.written}</b> · không đổi <b>${last.unchanged}</b> · bỏ <b>${last.removed}</b><br/>
         ${last.sourceAt ? html`Đối tác chốt số liệu lúc <b>${fmt.dateTime(last.sourceAt)}</b><br/>` : ''}
         ${last.unmatchedCodes?.length ? html`<span class="errtext">Mã điểm chưa ghép với chi nhánh nào: ${last.unmatchedCodes.join(', ')}${last.unmatched > last.unmatchedCodes.length ? ' và một số mã khác' : ''}. Nhập đúng mã điểm cho chi nhánh ở mục Chi nhánh.</span><br/>` : ''}
+        ${last.topCodes?.length ? html`<div style="margin-top:4px">Mã điểm đối tác trả về (${last.seenCodes} mã, nhiều dòng nhất): ${last.topCodes.map((c) => html`<span key=${c.code} class=${c.matched ? '' : 'errtext'}><b>${c.code || '(trống)'}</b> ${c.rows} dòng ${c.matched ? '✓' : '✗ chưa có chi nhánh'}; </span>`)}</div>` : ''}
         ${last.error ? html`<span class="errtext">${last.error}</span>` : ''}</div>` : html`<div class="small muted" style="margin-top:6px">Chưa đồng bộ lần nào.</div>`}</div>
     <div class="tblwrap"><table class="tbl"><thead><tr><th>Chi nhánh</th><th>Mã điểm</th><th class="tc">Số mã hàng có tồn</th><th class="tc">Hết hàng</th><th>Đối tác chốt lúc</th><th>Đồng bộ lúc</th></tr></thead>
       <tbody>${d.stores.map((r) => html`<tr key=${r.id}><td><b>${r.name}</b><div class="sub">${r.id}</div></td><td>${r.posCode || html`<span class="muted">Chưa có</span>`}</td><td class="tc num">${r.items}</td><td class="tc num">${r.outOfStock}</td>

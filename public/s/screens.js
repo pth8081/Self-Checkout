@@ -1,5 +1,5 @@
 // Màn hình thu ngân, ca làm việc và giao dịch của PWA nhân viên.
-import { html, useState, useEffect, useRef, Icon, Logo, Scanner, Banner, Pill, Field, Sheet, Confirm, Spinner, Empty, Loading, ErrorBox,
+import { html, useState, useEffect, useRef, AppVersion, Icon, Logo, Scanner, Banner, Pill, Field, Sheet, Confirm, Spinner, Empty, Loading, ErrorBox,
   fmt, go, toast, usePoll, useAsync, Keypad, copyText } from '/shared/lib.js';
 import { api, setToken, flash, useBusy, beep, enc, Top, Page, BottomBar, NeedShift, Denied, Tick, MoneyPad, QueueList, Fetching, useTx, txStatus, roleName, flagsOf } from '/s/common.js';
 
@@ -20,7 +20,7 @@ export function Login({ onLogin }) {
     }, (e) => { setErr(e.message); setPin(''); return true; });
   };
   return html`<div class="login"><div class="card">
-    <div class="stack center" style="align-items:center;gap:8px"><${Logo} size=${56}/><h1>BRG Nhân viên</h1><p class="muted">Đăng nhập để thu tiền và kiểm tra cổng ra</p></div>
+    <div class="stack center" style="align-items:center;gap:8px"><${Logo} size=${56}/><h1>BRG Nhân viên</h1><p class="muted">Đăng nhập để thu tiền và kiểm tra cổng ra</p></div><${AppVersion}/>
     ${err && html`<${Banner} tone="err" icon="alert">${err}<//>`}
     <${Field} label="Mã nhân viên"><input class="input" autocomplete="username" autocapitalize="characters" autocorrect="off" spellcheck=${false} placeholder="Ví dụ NV0142"
       value=${code} onInput=${(e) => setCode(e.target.value.toUpperCase())} onKeyDown=${(e) => e.key === 'Enter' && submit()} aria-label="Mã nhân viên"/><//>

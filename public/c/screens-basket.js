@@ -89,7 +89,8 @@ export function Basket({ s, store }) {
       <div class="small muted center">Mã được lưu trên điện thoại. Mất mạng, tắt máy hay tắt trình duyệt, mở lại link cửa hàng là thấy lại.</div>`}
     </div>
     <div class="bar-bottom"><div class="in">
-      <button class="btn primary" disabled=${!!busy} onClick=${act('done', async () => { await finishBasket(); go('/', true); })}>${busy === 'done' ? html`<${Spinner} sm/>` : paid || voided ? 'Xong' : 'Đã thanh toán xong'}</button>
+      <button class="btn primary" disabled=${!!busy || (!paid && !voided)} onClick=${act('done', async () => { await finishBasket(); go('/', true); })}>${busy === 'done' ? html`<${Spinner} sm/>` : paid || voided ? 'Xong' : html`<${Spinner} sm/>Chờ thu ngân xác nhận thanh toán`}</button>
+      ${!paid && !voided && html`<div class="xs muted center">Nút Xong sẽ sáng khi Dsmart POS báo thanh toán thành công. Màn hình tự cập nhật.</div>`}
       ${!paid && !voided && html`<button class="btn line" disabled=${!!busy} onClick=${() => setAskMore(true)}><${Icon} name="bag"/>Tiếp tục mua sắm</button>`}
     </div></div>
     ${askMore && html`<${Confirm} title="Tiếp tục mua sắm?" ok="Tiếp tục mua sắm" cancel="Ở lại màn hình thanh toán" busy=${busy === 'edit'}

@@ -206,3 +206,4 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .updatebar .updatetxt span { font-size: 13px; opacity: .8; }
 .updatebar .btn { width: auto; }
 .updatebar .btn.txt { color: #fff; opacity: .85; }
+.appver { padding: 6px 0 0; letter-spacing: .02em; }
