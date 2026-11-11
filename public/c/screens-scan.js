@@ -72,17 +72,17 @@ export function Scan({ s, store, onBlocked }) {
       dec: (i) => { clearTimeout(timer.current); setQty(i.id, Math.max(0, (it?.qty || 1) - 1)); if ((it?.qty || 1) <= 1) setSheet(null); } };
   })() : sheet;
 
-  return html`<div style="position:fixed;inset:0;background:#0d1418;display:flex;flex-direction:column">
+  return html`<div style="position:fixed;inset:0;background:#E5E9EE;display:flex;flex-direction:column">
     <${Scanner} fill kind="barcode" status=${status} onScan=${onScanText} onState=${(st) => st === 'denied' && onBlocked()} hint=${!sheet && 'Đưa mã vạch vào khung'}/>
     <div style="position:relative;z-index:2;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px">
-      <button class="iconbtn" style="background:rgba(255,255,255,.18);color:#fff" onClick=${() => go('/cart')} aria-label="Đóng"><${Icon} name="x"/></button>
-      <div class="row" style="background:rgba(255,255,255,.18);color:#fff;border-radius:999px;padding:8px 14px;font-weight:600;font-size:14px;min-width:0;flex:1;backdrop-filter:blur(6px)"><span class="dot" style=${`color:${online ? '#4BE08D' : '#FFB020'}`}></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${store.name}${online ? '' : ' · mất mạng'}</span></div>
+      <button class="iconbtn" style="background:rgba(255,255,255,.94);color:#1F2430;box-shadow:0 2px 10px rgba(0,0,0,.16)" onClick=${() => go('/cart')} aria-label="Đóng"><${Icon} name="x"/></button>
+      <div class="row" style="background:rgba(255,255,255,.94);color:#1F2430;box-shadow:0 2px 10px rgba(0,0,0,.16);border-radius:999px;padding:8px 14px;font-weight:600;font-size:14px;min-width:0;flex:1"><span class="dot" style=${`color:${online ? '#4BE08D' : '#FFB020'}`}></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${store.name}${online ? '' : ' · mất mạng'}</span></div>
     </div>
     <div style="flex:1"></div>
     <div style="position:relative;z-index:2;padding:0 12px calc(12px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px">
       <div class="row" style="justify-content:center">
-        <button class="btn auto sm" style="background:rgba(255,255,255,.18);color:#fff;backdrop-filter:blur(6px)" onClick=${() => go('/manual')}><${Icon} name="kbd" size=${16}/>Nhập mã</button>
-        <button class="btn auto sm" style="background:rgba(255,255,255,.18);color:#fff;backdrop-filter:blur(6px)" onClick=${() => setHelp(true)}><${Icon} name="info" size=${16}/>Cần giúp</button>
+        <button class="btn auto sm" style="background:rgba(255,255,255,.94);color:#1F2430;box-shadow:0 2px 10px rgba(0,0,0,.16)" onClick=${() => go('/manual')}><${Icon} name="kbd" size=${16}/>Nhập mã</button>
+        <button class="btn auto sm" style="background:rgba(255,255,255,.94);color:#1F2430;box-shadow:0 2px 10px rgba(0,0,0,.16)" onClick=${() => setHelp(true)}><${Icon} name="info" size=${16}/>Cần giúp</button>
       </div>
       <button class="row" style="background:#fff;color:#1F2430;border:0;border-radius:20px;padding:10px 10px 10px 16px;text-align:left" onClick=${() => go('/cart')}>
         <${Icon} name="bag"/><div class="grow"><b class="num" style="font-size:17px;display:block">${fmt.money(cart.total)}</b><span class="xs" style="color:#6B7280">${cart.itemCount} mặt hàng trong giỏ${cart.pendingCount ? ` · ${cart.pendingCount} chờ đồng bộ` : ''}</span></div>
