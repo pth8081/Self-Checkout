@@ -1,13 +1,17 @@
+import crypto from 'node:crypto';
 import { config } from '../config.js';
 import { getSetting, setSetting } from '../db.js';
 import { previewErase, eraseCustomer } from '../services/privacy.js';
 import { readPoints, matchPoints, applyPoints } from '../services/points.js';
+import { exportStores, readStores, planStores, applyStores, TEMPLATE_CSV } from '../services/stores-file.js';
 import { priceConfig, savePriceConfig, callPriceApi } from '../services/price-api.js';
 import { retentionConfig, validateRetention, runRetention, RETENTION_KEY, RETENTION_DEFAULTS } from '../services/retention.js';
 import { publicSettings, saveSettings, SECURE_MODES, TLS_MODES, explainMailError } from '../services/mailer.js';
 import { cartDiffOf } from '../services/bill.js';
 import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, sqlLocalDate, money, normCode, unauthorized } from '../util.js';
-import { authenticate, sign, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager } from '../auth.js';
+import { authenticate, sign, verify, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager, cleanUsername, usernameTaken, securityPolicy } from '../auth.js';
+import { newCaptcha, checkCaptcha } from '../services/captcha.js';
+import { registrationOptions, verifyRegistration, authenticationOptions, verifyAuthentication } from '../services/webauthn.js';
 import { verifyTotp, randomSecret, otpauthUri } from '../services/totp.js';
 import { audit } from '../services/audit.js';
 import { retryPendingInvoices } from '../services/invoice.js';
@@ -37,21 +41,113 @@ export default async function adminRoutes(app) {
   const ctx = app.ctx;
   const { db } = ctx;
 
-  // ---------------- Đăng nhập (mật khẩu + mã xác thực 2 bước nếu đã bật) ----------------
+  // ---------------- Đăng nhập ----------------
+  // Mật khẩu + mã hình 4 số (captcha) + mã xác thực 2 bước, hoặc vân tay / khuôn mặt (passkey). Chính sách bật tắt ở trang Tài khoản.
+  app.get('/captcha', async () => (securityPolicy(db).requireCaptcha ? { required: true, ...newCaptcha() } : { required: false }));
+  const findAccount = (account) => db.prepare('SELECT * FROM staff WHERE (id = ? COLLATE NOCASE OR email = ? COLLATE NOCASE OR username = ? COLLATE NOCASE)').get(account, account, account);
   app.post('/login', async (req) => {
+    const policy = securityPolicy(db);
+    if (policy.requireCaptcha && !checkCaptcha(req.body?.captchaId, req.body?.captcha)) throw unauthorized('BAD_CAPTCHA', 'Mã xác thực 4 số chưa đúng');
     const account = String(req.body?.account || '').trim();
-    const user = db.prepare('SELECT * FROM staff WHERE (id = ? COLLATE NOCASE OR email = ? COLLATE NOCASE)').get(account, account);
+    const user = findAccount(account);
     const fail = () => unauthorized('BAD_LOGIN', 'Tài khoản hoặc mật khẩu chưa đúng');
     if (!user || !user.active || !user.pw_hash || !isManager(user)) throw fail();
     checkLocked(user);
     if (!verifySecret(String(req.body?.password || ''), user.pw_hash)) { recordFail(db, user); throw fail(); }
     if (user.totp_secret) {
-      if (!req.body?.totp) throw unauthorized('TOTP_REQUIRED', 'Nhập mã xác thực 6 số từ app xác thực');
-      if (!verifyTotp(user.totp_secret, req.body.totp)) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
+      if (req.body?.totp) { // gửi kèm mã trong cùng yêu cầu (dùng cho công cụ gọi API)
+        if (!verifyTotp(user.totp_secret, req.body.totp)) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
+        return finishLogin(user, 'password', req);
+      }
+      return { totpRequired: true, stepToken: sign({ uid: user.id, kind: 'admin-totp' }, 5 / 60) };
     }
+    if (policy.require2fa) {
+      // Bắt buộc xác thực 2 bước: lần đầu đăng nhập phải thiết lập ngay. Mật khẩu đúng thì trả mã bí mật mới và một mã tạm (10 phút) để xác nhận.
+      const secret = randomSecret();
+      return { mfaSetup: true, secret, uri: otpauthUri(secret, user.email || user.username || user.id), confirmToken: sign({ uid: user.id, kind: 'admin-2fa', secret }, 10 / 60) };
+    }
+    return finishLogin(user, 'password', req);
+  });
+  const deviceOf = (req) => {
+    const ua = String(req.headers['user-agent'] || '');
+    const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\/|Opera/.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Trình duyệt khác';
+    const os = /Windows/.test(ua) ? 'Windows' : /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
+    return { device: os ? `${browser} trên ${os}` : browser, ip: req.ip || '' };
+  };
+  const idleMs = () => Math.max(1, Number(process.env.ADMIN_SESSION_IDLE_MIN || 120)) * 60_000;
+  /**
+   * Hoàn tất đăng nhập. Chỉ một phiên tại một thời điểm: nếu tài khoản đang có phiên hoạt động ở thiết bị khác thì chưa cấp phiên mới,
+   * trả `sessionConflict` kèm mã xác nhận (5 phút). Người dùng bấm đồng ý (POST /login/takeover) thì phiên mới được cấp và phiên cũ bị đăng xuất.
+   */
+  const finishLogin = (user, how = 'password', req = null, force = false) => {
+    const policy = securityPolicy(db);
+    const info = user.session_info ? JSON.parse(user.session_info) : null;
+    const active = policy.singleSession && user.session_id && user.session_seen && Date.now() - Date.parse(user.session_seen) < idleMs();
+    if (active && !force) {
+      return { sessionConflict: true, takeoverToken: sign({ uid: user.id, kind: 'admin-takeover', how, n: crypto.randomBytes(6).toString('hex') }, 5 / 60),
+        other: { device: info?.device || 'Thiết bị khác', ip: info?.ip || '', since: info?.at || null, lastSeen: user.session_seen } };
+    }
+    const sid = crypto.randomUUID();
+    const here = req ? deviceOf(req) : { device: '', ip: '' };
+    db.prepare('UPDATE staff SET session_id = ?, session_seen = ?, session_info = ? WHERE id = ?').run(sid, nowIso(), JSON.stringify({ ...here, at: nowIso() }), user.id);
     recordOk(db, user);
-    audit(db, { storeId: user.store_id, actorType: 'admin', actorId: user.id, action: 'admin.login' });
-    return { token: sign({ uid: user.id, kind: 'admin' }, 8), user: userView(user) };
+    audit(db, { storeId: user.store_id, actorType: 'admin', actorId: user.id, action: 'admin.login', data: { how, replaced: !!active ? (info?.device || true) : undefined } });
+    return { token: sign({ uid: user.id, kind: 'admin', sid }, 8), user: userView(user) };
+  };
+  const spentTakeover = new Set();
+  app.post('/login/takeover', async (req) => {
+    const p = verify(String(req.body?.takeoverToken || ''));
+    if (!p || p.kind !== 'admin-takeover' || spentTakeover.has(p.n)) throw unauthorized('EXPIRED', 'Phiên xác nhận đã hết hạn, hãy đăng nhập lại');
+    const user = db.prepare('SELECT * FROM staff WHERE id = ?').get(p.uid);
+    if (!user || !user.active || !isManager(user)) throw unauthorized();
+    spentTakeover.add(p.n); setTimeout(() => spentTakeover.delete(p.n), 6 * 60_000).unref?.();
+    return finishLogin(user, p.how, req, true);
+  });
+  app.post('/logout', async (req) => {
+    // Đăng xuất chủ động: xóa phiên nếu đúng là phiên đang dùng (không báo lỗi khi token hết hạn).
+    const p = verify(String((req.headers.authorization || '').replace(/^Bearer /, '')));
+    if (p?.kind === 'admin' && p.sid) db.prepare('UPDATE staff SET session_id = NULL, session_seen = NULL, session_info = NULL WHERE id = ? AND session_id = ?').run(p.uid, p.sid);
+    return { ok: true };
+  });
+  // Bước 2 khi tài khoản đã bật xác thực 2 bước: nhập mã 6 số từ app.
+  app.post('/login/totp', async (req) => {
+    const p = verify(String(req.body?.stepToken || ''));
+    if (!p || p.kind !== 'admin-totp') throw unauthorized('EXPIRED', 'Phiên đăng nhập đã hết hạn, hãy đăng nhập lại');
+    const user = db.prepare('SELECT * FROM staff WHERE id = ?').get(p.uid);
+    if (!user || !user.active || !isManager(user) || !user.totp_secret) throw unauthorized();
+    checkLocked(user);
+    if (!verifyTotp(user.totp_secret, String(req.body?.code || ''))) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
+    return finishLogin(user, 'password', req);
+  });
+  // Bước 2 của lần thiết lập xác thực 2 bước đầu tiên: nhập mã 6 số từ app để xác nhận, rồi mới được vào.
+  app.post('/login/2fa-confirm', async (req) => {
+    const p = verify(String(req.body?.confirmToken || ''));
+    if (!p || p.kind !== 'admin-2fa' || !p.secret) throw unauthorized('EXPIRED', 'Phiên thiết lập đã hết hạn, hãy đăng nhập lại');
+    const user = db.prepare('SELECT * FROM staff WHERE id = ?').get(p.uid);
+    if (!user || !user.active || !isManager(user)) throw unauthorized();
+    checkLocked(user);
+    if (user.totp_secret) throw conflict('ALREADY_2FA', 'Tài khoản đã bật xác thực 2 bước, hãy đăng nhập lại');
+    if (!verifyTotp(p.secret, String(req.body?.code || ''))) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
+    db.prepare('UPDATE staff SET totp_secret = ? WHERE id = ?').run(p.secret, user.id);
+    audit(db, { storeId: user.store_id, actorType: 'admin', actorId: user.id, action: 'user.totp_on', entity: 'user', entityId: user.id, data: { firstLogin: true } });
+    return finishLogin(db.prepare('SELECT * FROM staff WHERE id = ?').get(user.id), 'password', req);
+  });
+  // Đăng nhập bằng vân tay / khuôn mặt: không cần mật khẩu, mã hình và mã 2 bước vì thiết bị đã xác minh người dùng bằng khóa riêng.
+  const passkeyErr = (e) => (e.code === 'NO_ORIGIN' ? bad('NO_ORIGIN', e.message) : unauthorized('BAD_PASSKEY', e.message || 'Đăng nhập bằng thiết bị không thành công'));
+  app.post('/login/passkey/options', async (req) => {
+    try {
+      const u = req.body?.account ? findAccount(String(req.body.account).trim()) : null;
+      const ids = u && u.active ? db.prepare('SELECT credential_id FROM passkeys WHERE staff_id = ?').all(u.id).map((r) => r.credential_id) : [];
+      return authenticationOptions(req, ids);
+    } catch (e) { throw passkeyErr(e); }
+  });
+  app.post('/login/passkey', async (req) => {
+    let rec;
+    try { rec = verifyAuthentication(req, req.body, (h) => db.prepare('SELECT * FROM passkeys WHERE id = ?').get(h)); } catch (e) { throw passkeyErr(e); }
+    const user = db.prepare('SELECT * FROM staff WHERE id = ?').get(rec.record.staff_id);
+    if (!user || !user.active || !isManager(user)) throw unauthorized('BAD_PASSKEY', 'Tài khoản đã bị khóa hoặc không còn quyền quản trị');
+    db.prepare('UPDATE passkeys SET counter = ?, last_used_at = ? WHERE id = ?').run(rec.counter, nowIso(), rec.record.id);
+    return finishLogin(user, 'passkey', req);
   });
 
   app.register(async (s) => {
@@ -88,7 +184,7 @@ export default async function adminRoutes(app) {
         COALESCE(SUM(CASE WHEN method NOT IN ('cash','qr_transfer') THEN amount END),0) other
         FROM payments p WHERE voided_at IS NULL AND ${sqlLocalDate('collected_at')} = ? ${w}`).get(...a);
       const w2 = storeId ? 'AND store_id = ?' : '';
-      const c = db.prepare(`SELECT COUNT(*) checks, COALESCE(SUM(result='mismatch'),0) mismatches FROM exit_checks WHERE ${sqlLocalDate('created_at')} = ? ${w2}`).get(...a);
+      const c = db.prepare(`SELECT COUNT(*) checks, COALESCE(SUM(CASE WHEN result='mismatch' THEN 1 ELSE 0 END),0) mismatches FROM exit_checks WHERE ${sqlLocalDate('created_at')} = ? ${w2}`).get(...a);
       // Hàng thu ngân thêm ở quầy so với giỏ khách quét (khách lấy mà chưa quét) và khách bớt
       const x = db.prepare(`SELECT COUNT(CASE WHEN extra_qty > 0 THEN 1 END) extraTx, COALESCE(SUM(extra_qty),0) extraQty, COALESCE(SUM(extra_value),0) extraValue, COUNT(CASE WHEN less_qty > 0 THEN 1 END) lessTx
         FROM transactions WHERE status = 'paid' AND ${sqlLocalDate('paid_at')} = ? ${w2}`).get(...a);
@@ -150,6 +246,23 @@ export default async function adminRoutes(app) {
       if (dup) throw conflict('DUPLICATE_POS_CODE', `Mã điểm này đã gán cho chi nhánh ${dup.id}`);
       return c;
     };
+    // Nhập, xuất, file mẫu danh sách chi nhánh (CSV). Chỉ quản trị chuỗi.
+    s.get('/stores/export', async (req) => { chainOnly(req); return { filename: `chi-nhanh-${localDate()}.csv`, csv: exportStores(db) }; });
+    s.get('/stores/template', async (req) => { chainOnly(req); return { filename: 'chi-nhanh-mau.csv', csv: TEMPLATE_CSV }; });
+    const storesFile = (req) => {
+      const text = String(req.body?.text ?? '');
+      if (text.length > 2_000_000) throw bad('FILE_TOO_BIG', 'File quá lớn');
+      const parsed = readStores(text);
+      if (parsed.error) throw bad('BAD_FILE', parsed.error);
+      return parsed;
+    };
+    s.post('/stores/import/preview', async (req) => { chainOnly(req); return planStores(db, storesFile(req)); });
+    s.post('/stores/import/apply', async (req) => {
+      chainOnly(req);
+      const r = applyStores(db, storesFile(req), audit, req.user.id);
+      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'stores.imported', entity: 'store', entityId: 'file', data: { created: r.created, updated: r.updated } });
+      return r;
+    });
     s.post('/stores', async (req) => {
       chainOnly(req);
       const id = String(req.body?.id || '').trim().toUpperCase();
@@ -547,6 +660,9 @@ export default async function adminRoutes(app) {
       // PIN dùng để vào app nhân viên: bắt buộc với nhân viên, tùy chọn với quản trị.
       if ((!isAdminRole || b.pin) && !validPin(b.pin)) throw bad('BAD_PIN', 'PIN gồm 4–6 chữ số');
       if (isAdminRole && !strongPassword(b.password)) throw bad('WEAK_PASSWORD', 'Mật khẩu tối thiểu 8 ký tự, có cả chữ và số');
+      const username = cleanUsername(b.username);
+      if (username === false) throw bad('BAD_USERNAME', 'Tên đăng nhập gồm 3–40 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang (ví dụ anh.dp)');
+      if (username && usernameTaken(db, username)) throw conflict('USERNAME_TAKEN', 'Tên đăng nhập này đã có người dùng');
       let id = String(b.id || '').trim().toUpperCase();
       if (!id) {
         const prefix = isAdminRole ? 'QT' : 'NV';
@@ -555,8 +671,8 @@ export default async function adminRoutes(app) {
       }
       if (!/^[A-Z0-9]{3,10}$/.test(id)) throw bad('BAD_ID', 'Mã tài khoản gồm 3–10 chữ hoa hoặc số');
       if (db.prepare('SELECT 1 FROM staff WHERE id = ?').get(id)) throw conflict('DUPLICATE', 'Mã tài khoản đã tồn tại');
-      db.prepare(`INSERT INTO staff(id,store_id,name,role,email,pin_hash,pw_hash,created_at) VALUES(?,?,?,?,?,?,?,?)`)
-        .run(id, storeId, b.name.trim(), role, b.email || null, b.pin ? hashSecret(b.pin) : null, isAdminRole ? hashSecret(b.password) : null, nowIso());
+      db.prepare(`INSERT INTO staff(id,store_id,name,role,email,username,pin_hash,pw_hash,created_at) VALUES(?,?,?,?,?,?,?,?,?)`)
+        .run(id, storeId, b.name.trim(), role, b.email || null, username, b.pin ? hashSecret(b.pin) : null, isAdminRole ? hashSecret(b.password) : null, nowIso());
       audit(db, { storeId, actorType: 'admin', actorId: req.user.id, action: 'user.created', entity: 'user', entityId: id, data: { role } });
       return { user: userView(db.prepare('SELECT * FROM staff WHERE id = ?').get(id)) };
     });
@@ -570,8 +686,15 @@ export default async function adminRoutes(app) {
         if (req.user.role === 'branch_admin' && !STAFF_ROLES.includes(b.role)) throw forbidden();
         role = b.role;
       }
-      db.prepare('UPDATE staff SET name=?, email=?, role=?, active=?, failed=0, locked_until=CASE WHEN ? = 1 THEN NULL ELSE locked_until END WHERE id=?')
-        .run(b.name?.trim() || u.name, b.email ?? u.email, role, b.active === undefined ? u.active : (b.active ? 1 : 0), b.active ? 1 : 0, u.id);
+      let username = u.username || null;
+      if (b.username !== undefined) {
+        if (req.user.role !== 'chain_admin') throw forbidden('CHAIN_ONLY', 'Chỉ quản trị chuỗi đổi tên đăng nhập');
+        username = cleanUsername(b.username);
+        if (username === false) throw bad('BAD_USERNAME', 'Tên đăng nhập gồm 3–40 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang (ví dụ anh.dp)');
+        if (username && usernameTaken(db, username, u.id)) throw conflict('USERNAME_TAKEN', 'Tên đăng nhập này đã có người dùng');
+      }
+      db.prepare('UPDATE staff SET username=?, name=?, email=?, role=?, active=?, failed=0, locked_until=CASE WHEN ? = 1 THEN NULL ELSE locked_until END WHERE id=?')
+        .run(username, b.name?.trim() || u.name, b.email ?? u.email, role, b.active === undefined ? u.active : (b.active ? 1 : 0), b.active ? 1 : 0, u.id);
       audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.updated', entity: 'user', entityId: u.id, data: { role: b.role, active: b.active } });
       return { user: userView(db.prepare('SELECT * FROM staff WHERE id = ?').get(u.id)) };
     });
@@ -590,20 +713,83 @@ export default async function adminRoutes(app) {
       audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.password_reset', entity: 'user', entityId: u.id });
       return { ok: true };
     });
-    // Bật/tắt xác thực 2 bước. Chỉ chính chủ hoặc quản trị chuỗi.
-    s.post('/users/:id/totp', async (req) => {
+    // ---------------- Xác thực 2 bước: bật/đổi thiết bị (2 bước: nhận mã bí mật, rồi nhập mã 6 số để xác nhận), gỡ ----------------
+    // Chính chủ hoặc quản trị chuỗi. Chính chủ đang có xác thực 2 bước thì phải nhập mã hiện tại để đổi hoặc gỡ.
+    const totpActor = (req) => {
       const u = userScoped(req);
       if (u.id !== req.user.id && req.user.role !== 'chain_admin') throw forbidden();
       if (!isManager(u)) throw bad('NOT_ADMIN', 'Chỉ tài khoản quản trị mới dùng xác thực 2 bước');
-      if (req.body?.enable === false) {
-        db.prepare('UPDATE staff SET totp_secret = NULL WHERE id = ?').run(u.id);
-        audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.totp_off', entity: 'user', entityId: u.id });
-        return { enabled: false };
-      }
+      return u;
+    };
+    const needCurrent = (req, u) => {
+      if (u.id === req.user.id && u.totp_secret && !verifyTotp(u.totp_secret, String(req.body?.currentCode || req.body?.code || ''))) throw unauthorized('BAD_TOTP', 'Nhập đúng mã 6 số hiện tại trong app xác thực để tiếp tục');
+    };
+    s.post('/users/:id/totp/begin', async (req) => {
+      const u = totpActor(req);
+      needCurrent(req, u);
       const secret = randomSecret();
-      db.prepare('UPDATE staff SET totp_secret = ? WHERE id = ?').run(secret, u.id);
-      audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.totp_on', entity: 'user', entityId: u.id });
-      return { enabled: true, secret, uri: otpauthUri(secret, u.email || u.id) };
+      return { secret, uri: otpauthUri(secret, u.email || u.username || u.id), confirmToken: sign({ uid: u.id, kind: 'totp-enroll', secret, by: req.user.id }, 10 / 60) };
+    });
+    s.post('/users/:id/totp/confirm', async (req) => {
+      const u = totpActor(req);
+      const p = verify(String(req.body?.confirmToken || ''));
+      if (!p || p.kind !== 'totp-enroll' || p.uid !== u.id || p.by !== req.user.id) throw unauthorized('EXPIRED', 'Phiên thiết lập đã hết hạn, hãy bắt đầu lại');
+      if (!verifyTotp(p.secret, String(req.body?.code || ''))) throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng');
+      const changed = !!u.totp_secret;
+      db.prepare('UPDATE staff SET totp_secret = ? WHERE id = ?').run(p.secret, u.id);
+      audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.totp_on', entity: 'user', entityId: u.id, data: { changed } });
+      return { enabled: true };
+    });
+    s.post('/users/:id/totp', async (req) => {
+      const u = totpActor(req);
+      if (req.body?.enable !== false) throw bad('USE_BEGIN', 'Bật hoặc đổi xác thực 2 bước bằng /totp/begin rồi /totp/confirm');
+      if (securityPolicy(db).require2fa) throw conflict('TOTP_REQUIRED', 'Hệ thống đang bắt buộc xác thực 2 bước. Quản trị chuỗi cần tắt "Bắt buộc xác thực 2 bước" ở mục Chính sách bảo mật trước khi gỡ');
+      needCurrent(req, u);
+      db.prepare('UPDATE staff SET totp_secret = NULL WHERE id = ?').run(u.id);
+      audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.totp_off', entity: 'user', entityId: u.id });
+      return { enabled: false };
+    });
+
+    // ---------------- Vân tay / khuôn mặt (passkey) ----------------
+    const passkeyView = (r) => ({ id: r.id, name: r.name || 'Thiết bị', createdAt: r.created_at, lastUsedAt: r.last_used_at });
+    s.get('/users/:id/passkeys', async (req) => {
+      const u = userScoped(req);
+      if (u.id !== req.user.id && req.user.role !== 'chain_admin') throw forbidden();
+      return { passkeys: db.prepare('SELECT * FROM passkeys WHERE staff_id = ? ORDER BY created_at').all(u.id).map(passkeyView) };
+    });
+    s.post('/passkeys/options', async (req) => {
+      try { return registrationOptions(req, req.user, db.prepare('SELECT credential_id FROM passkeys WHERE staff_id = ?').all(req.user.id).map((r) => r.credential_id)); }
+      catch (e) { throw bad('NO_ORIGIN', e.message); }
+    });
+    s.post('/passkeys/register', async (req) => {
+      let r;
+      try { r = verifyRegistration(req, req.body, req.user.id); } catch (e) { throw bad('BAD_PASSKEY', e.message || 'Không đăng ký được thiết bị'); }
+      if (db.prepare('SELECT 1 FROM passkeys WHERE id = ?').get(r.hash)) throw conflict('PASSKEY_EXISTS', 'Thiết bị này đã đăng ký rồi');
+      if (db.prepare('SELECT COUNT(*) n FROM passkeys WHERE staff_id = ?').get(req.user.id).n >= 10) throw conflict('TOO_MANY', 'Tối đa 10 thiết bị cho mỗi tài khoản');
+      const name = String(req.body?.name || '').trim().slice(0, 60) || 'Thiết bị của tôi';
+      db.prepare('INSERT INTO passkeys(id,staff_id,credential_id,name,public_key,alg,counter,created_at) VALUES(?,?,?,?,?,?,?,?)').run(r.hash, req.user.id, r.credentialId, name, JSON.stringify(r.jwk), r.alg, r.counter, nowIso());
+      audit(db, { storeId: req.user.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.passkey_added', entity: 'user', entityId: req.user.id, data: { name } });
+      return { passkeys: db.prepare('SELECT * FROM passkeys WHERE staff_id = ? ORDER BY created_at').all(req.user.id).map(passkeyView) };
+    });
+    s.delete('/users/:id/passkeys/:pid', async (req) => {
+      const u = userScoped(req);
+      if (u.id !== req.user.id && req.user.role !== 'chain_admin') throw forbidden();
+      const n = db.prepare('DELETE FROM passkeys WHERE id = ? AND staff_id = ?').run(String(req.params.pid), u.id).changes;
+      if (!n) throw notFound('PASSKEY_NOT_FOUND', 'Không tìm thấy thiết bị');
+      audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.passkey_removed', entity: 'user', entityId: u.id });
+      return { ok: true };
+    });
+
+    // ---------------- Chính sách bảo mật đăng nhập ----------------
+    s.get('/security', async (req) => { chainOnly(req); return { policy: securityPolicy(db) }; });
+    s.put('/security', async (req) => {
+      chainOnly(req);
+      const cur = getSetting(db, 'security', {});
+      const next = { ...cur };
+      for (const k of ['require2fa', 'requireCaptcha', 'singleSession']) if (typeof req.body?.[k] === 'boolean') next[k] = req.body[k];
+      setSetting(db, 'security', next);
+      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'security.policy_changed', entity: 'settings', entityId: 'security', data: securityPolicy(db) });
+      return { policy: securityPolicy(db) };
     });
 
     // ---------------- A06 Trong ngày ----------------
@@ -727,7 +913,7 @@ export default async function adminRoutes(app) {
       const storeId = storeOf(req);
       const st = storeRow(db.prepare('SELECT * FROM stores WHERE id = ?').get(storeId));
       const since = new Date(Date.now() - 7 * 86400_000).toISOString();
-      const c = db.prepare(`SELECT COUNT(*) checks, COALESCE(SUM(result='mismatch'),0) mismatches FROM exit_checks WHERE store_id = ? AND created_at >= ?`).get(storeId, since);
+      const c = db.prepare(`SELECT COUNT(*) checks, COALESCE(SUM(CASE WHEN result='mismatch' THEN 1 ELSE 0 END),0) mismatches FROM exit_checks WHERE store_id = ? AND created_at >= ?`).get(storeId, since);
       const tx = db.prepare(`SELECT COUNT(*) n FROM transactions WHERE store_id = ? AND status='paid' AND paid_at >= ?`).get(storeId, since).n;
       return { storeId, rules: { rate: st.config.randomCheckRate, firstTime: st.config.rateFirstTime, highValue: st.config.rateHighValue, threshold: st.config.highValueThreshold },
         last7: { transactions: tx, checks: c.checks, mismatches: c.mismatches, mismatchRate: c.checks ? c.mismatches / c.checks : 0 } };

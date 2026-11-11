@@ -3,10 +3,10 @@
 # Yêu cầu: Playwright cài sẵn (require('playwright') chạy được) và Chromium.
 set -u
 cd "$(dirname "$0")/.."
-export PORT=3400 DB_FILE=/tmp/brg-e2e.db BASE=http://localhost:3400 PUBLIC_URL=http://localhost:3400
+export REQUIRE_ADMIN_2FA=0 REQUIRE_CAPTCHA=0 SINGLE_SESSION=0 PORT=3400 DB_FILE=/tmp/brg-e2e.db BASE=http://localhost:3400 PUBLIC_URL=http://localhost:3400
 rm -f "$DB_FILE"*
 node scripts/build-sw.js >/dev/null
-fresh() { rm -f "$DB_FILE"*; node server/seed.js --reset --demo ${SEEDARG:-} >/dev/null 2>&1; node server/index.js >/tmp/brg-e2e-server.log 2>&1 & SRV=$!; sleep 2.5; }
+fresh() { rm -f "$DB_FILE"*; node server/seed.js --reset --demo ${SEEDARG:-} >/dev/null 2>&1; node server/index.js >/tmp/brg-e2e-server.log 2>&1 & SRV=$!; sleep ${E2E_WAIT:-2.5}; }
 fail=0
 for t in customer customer-camera staff admin resilience basket cancel more email-tls price; do
   SEEDARG=--classic; [ "$t" = basket -o "$t" = cancel -o "$t" = more -o "$t" = email-tls -o "$t" = price ] && SEEDARG=

@@ -85,7 +85,7 @@ export function seed(db, { demo = false } = {}) {
     const monday = new Date(t.getTime() - ((t.getUTCDay() + 6) % 7) * 86400_000);
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday.getTime() + i * 86400_000).toISOString().slice(0, 10);
-      const plan = (id, kind) => db.prepare('INSERT OR REPLACE INTO shift_plans(store_id,staff_id,date,kind) VALUES(?,?,?,?)').run('Q7', id, d, kind);
+      const plan = (id, kind) => db.prepare('INSERT INTO shift_plans(store_id,staff_id,date,kind) VALUES(?,?,?,?) ON CONFLICT(store_id,staff_id,date) DO UPDATE SET kind=excluded.kind').run('Q7', id, d, kind);
       plan('NV0142', i % 2 ? 'chieu' : 'sang'); plan('NV0157', i % 2 ? 'sang' : 'chieu'); if (i % 3 !== 2) plan('NV0160', 'sang');
     }
   })();
@@ -147,11 +147,14 @@ function seedDemoHistory(db) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   if (config.isProd && !process.argv.includes('--force')) { console.error('Từ chối chạy seed ở production (thêm --force nếu thật sự muốn).'); process.exit(1); }
-  const db = openDb(config.dbFile);
+  const db = openDb(config.db);
   if (process.argv.includes('--reset')) {
-    db.pragma('foreign_keys = OFF');
-    for (const t of db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all()) db.exec(`DELETE FROM ${t.name}`);
-    db.pragma('foreign_keys = ON');
+    if (db.kind === 'mssql') db.resetAll();
+    else {
+      db.pragma('foreign_keys = OFF');
+      for (const t of db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all()) db.exec(`DELETE FROM ${t.name}`);
+      db.pragma('foreign_keys = ON');
+    }
   }
   if (db.prepare('SELECT COUNT(*) n FROM stores').get().n) { console.error('CSDL đã có dữ liệu. Dùng --reset để tạo lại.'); process.exit(1); }
   seed(db, { demo: process.argv.includes('--demo') });

@@ -3,9 +3,9 @@
 import { nowIso } from '../util.js';
 
 export function createMockPos(db) {
-  const copy = db.prepare(`INSERT INTO product_cache
-    (store_id,sku,barcode,name,price,stock,unit,active,age_restricted,promo_min_qty,promo_off,synced_at)
-    SELECT store_id,sku,barcode,name,price,stock,unit,active,age_restricted,promo_min_qty,promo_off,? FROM pos_products WHERE store_id = ?
+  const read = db.prepare('SELECT store_id,sku,barcode,name,price,stock,unit,active,age_restricted,promo_min_qty,promo_off FROM pos_products WHERE store_id = ?');
+  const up = db.prepare(`INSERT INTO product_cache (store_id,sku,barcode,name,price,stock,unit,active,age_restricted,promo_min_qty,promo_off,synced_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(store_id,sku) DO UPDATE SET barcode=excluded.barcode,name=excluded.name,price=excluded.price,stock=excluded.stock,
       unit=excluded.unit,active=excluded.active,age_restricted=excluded.age_restricted,promo_min_qty=excluded.promo_min_qty,
       promo_off=excluded.promo_off,synced_at=excluded.synced_at`);
@@ -15,8 +15,9 @@ export function createMockPos(db) {
     /** Đồng bộ giá/tồn kho một chi nhánh từ Dsmart POS vào bộ nhớ đệm. */
     sync(storeId) {
       const ts = nowIso();
-      const r = copy.run(ts, storeId);
-      return { storeId, synced: r.changes, at: ts };
+      let n = 0;
+      db.transaction(() => { for (const p of read.all(storeId)) { up.run(p.store_id, p.sku, p.barcode, p.name, p.price, p.stock, p.unit, p.active, p.age_restricted, p.promo_min_qty, p.promo_off, ts); n++; } })();
+      return { storeId, synced: n, at: ts };
     },
     syncAll() {
       return db.prepare('SELECT id FROM stores').all().map((s) => this.sync(s.id));

@@ -126,18 +126,53 @@ Kết quả:
   "itemCount": 3,
   "total": 70500,
   "items": [
-    { "barcode": "8936036123456", "name": "Sữa tươi 1L", "qty": 2, "unitPrice": 29000 },
-    { "barcode": "8934567890123", "name": "Mì ly hải sản", "qty": 1, "unitPrice": 12500 }
+    { "idx": 1, "sku": "SUA01", "barcode": "8936036123456", "name": "Sữa tươi 1L", "qty": 2, "unitPrice": 29000, "priced": true },
+    { "idx": 2, "sku": "MI01", "barcode": "8934567890123", "name": "Mì ly hải sản", "qty": 1, "unitPrice": 12500, "priced": true }
   ],
   "posOrderRef": null
 }
 ```
 
-- `items`: dựng đơn từ `barcode` và `qty`. Mặt hàng mà hệ thống giá chưa có giá thì `name` và `unitPrice` là `null`: Dsmart POS tự tra tên và tính giá theo mã vạch. `name` và `unitPrice` chỉ để hiển thị tham khảo, **Dsmart POS tự tính giá** theo hệ thống của mình. `total` là tạm tính của BRG Scan & Checkout, chỉ để đối chiếu, **không dùng làm số tiền thu**.
+- `items`: dựng đơn từ `sku` (SKU_ID) và `qty` (xem "Cấu trúc dữ liệu giỏ hàng" ngay dưới). Mặt hàng mà hệ thống giá chưa có giá thì `name` và `unitPrice` là `null`: Dsmart POS tự tra tên và tính giá theo mã vạch. `name` và `unitPrice` chỉ để hiển thị tham khảo, **Dsmart POS tự tính giá** theo hệ thống của mình. `total` là tạm tính của BRG Scan & Checkout, chỉ để đối chiếu, **không dùng làm số tiền thu**.
 - `status`: chỉ khi là `awaiting_counter` mới tạo đơn. `cancelled` (kèm `reason: "expired"` nếu mã quá hạn, mục 6.6) hoặc `paid` thì báo thu ngân và **không tạo đơn**.
 - Lỗi: `409 POINT_MISMATCH` (mã điểm khác cửa hàng của giỏ, **không trả hàng**), `400 POINT_REQUIRED` (thiếu `pointCode`), `403 STORE_FORBIDDEN` (khóa API không dùng cho chi nhánh này).
 - **`404 BASKET_NOT_FOUND`**: máy chủ không có giỏ với mã này. Điện thoại chỉ hiện mã QR **sau khi máy chủ đã nhận giỏ**, nên với mã đọc đúng thì không gặp lỗi này. Nếu gặp, thử lại sau 1 đến 2 giây một lần; vẫn không được thì báo thu ngân "Mã không hợp lệ, nhờ khách bấm Thanh toán lại".
 - Có thể gọi lại nhiều lần an toàn, lệnh này **không thay đổi dữ liệu**.
+
+### Cấu trúc dữ liệu giỏ hàng
+
+**Mã giỏ** (`code`): chuỗi `<mã chi nhánh>-<8 ký tự>`, ví dụ `Q7-LM3K2AB`. Mã chi nhánh là mã của BRG Scan & Checkout (1 đến 6 ký tự chữ hoa hoặc số, **không phải mã điểm**). Tám ký tự sau gồm 5 ký tự thời gian (hệ cơ số 36) và 3 ký tự ngẫu nhiên (bỏ `I`, `O`, `0`, `1`). Quy tắc kiểm tra: `^[A-Z0-9]{1,6}-[A-Z0-9]{6,12}$`, tối đa 19 ký tự, không phân biệt hoa thường khi so khớp. Dsmart POS coi đây là **chuỗi bất kỳ** (không tách ra để suy ra ý nghĩa), chỉ lưu và gửi lại nguyên văn.
+
+**Nội dung giỏ** (`items`): mỗi dòng ứng với ba thông tin `[IDX, SKU_ID, QTY]`:
+
+| Trường | Ý nghĩa |
+|--------|---------|
+| `idx` | Số thứ tự dòng trong giỏ, bắt đầu từ 1 |
+| `sku` | **SKU_ID**: mã hàng nội bộ (cùng mã với `maHang` của API giá). `null` với mặt hàng "chưa có giá" |
+| `qty` | Số lượng, **số nguyên từ 1 đến 99** mỗi dòng. Cùng mặt hàng đã gộp thành một dòng. Không có hàng bán theo cân trong giỏ |
+| `barcode` | Mã vạch khách đã quét (phụ, để đối chiếu và tra khi `sku` là `null`) |
+| `name`, `unitPrice`, `priced` | Tên, đơn giá BRG và cờ có giá (chỉ để hiển thị; Dsmart POS tự tính giá) |
+
+Các loại mặt hàng có thể gặp trong `items`:
+
+1. **Hàng thường có giá** (`priced: true`): `unitPrice` là giá đang áp dụng, đã là giá khuyến mãi nếu API giá báo có khuyến mãi.
+2. **Hàng "chưa có giá"** (`priced: false`): API giá hết thời gian hoặc chưa có giá. `sku`, `name`, `unitPrice` là `null`, Dsmart POS tra theo `barcode`.
+3. **Hàng ngừng bán** vẫn có thể nằm trong giỏ nếu mới ngừng sau khi khách quét; Dsmart POS tự quyết định bán hay không.
+
+Không có loại nào khác: không có hàng theo cân, combo hay hàng có số lượng lẻ.
+
+**Nội dung Dsmart POS gửi lại** khi thanh toán (`/paid`): bắt buộc `pointCode`, `posOrderRef`, `amount` (số tiền thực thu), `method`; nên có `invoiceUrl`, `transactionUrl`; có thể kèm `invoiceNo`, `cashier`, `terminal`, `paidAt`, `note`. `lines` (các dòng bill) **không bắt buộc** và chỉ cần `sku` và `qty` (Dsmart POS không phải gửi giá bán thực). BRG tạm tính giá từng dòng theo giá BRG đã biết; chênh lệch so với `amount` hiện là dòng "Điều chỉnh theo hóa đơn" trên bill của khách.
+
+**Nội dung báo thay đổi ở quầy** (`/update`), chỉ phần chênh so với giỏ khách quét, không có giá:
+
+```json
+{ "pointCode": "SP-0107", "posOrderRef": "POS-20261105-000123",
+  "changes": [
+    { "sku": "SUA01", "qty": 1, "op": "remove" },
+    { "sku": "MI01",  "qty": 2, "op": "add" } ] }
+```
+
+`op` là `add` (thêm) hoặc `remove` (bớt); `qty` là số nguyên dương. Mặt hàng chưa có trong giỏ mà `add` thì được thêm vào. Dạng `lines` (toàn bộ đơn) vẫn dùng được.
 
 ### Điện thoại khách cần có mạng để hiện mã QR
 

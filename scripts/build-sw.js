@@ -24,10 +24,23 @@ const CACHE = 'brg-${app}-' + VERSION;
 const SHELL = ${JSON.stringify([shell, ...urls], null, 1)};
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil((async () => {
+    // Có cache của bản cũ mà chưa có dấu 'brg-ui2-${app}' nghĩa là trang đang mở thuộc bản cũ (trước khi có thông báo cập nhật), không tự hiện được nút "Cập nhật ngay".
+    // Chỉ lần chuyển này: tự kích hoạt bản mới ngay (không để bản cũ giữ chỗ), người dùng mở lại hoặc tải lại trang là chạy bản mới. Từ sau đó bản mới chờ (waiting) tới khi người dùng bấm "Cập nhật ngay" (xem registerSW trong shared/lib.js).
+    const keys = await caches.keys();
+    const legacy = keys.some((k) => k.startsWith('brg-${app}-')) && !keys.includes('brg-ui2-${app}');
+    await (await caches.open(CACHE)).addAll(SHELL);
+    if (legacy) { await caches.open('brg-ui2-${app}'); self.skipWaiting(); }
+    else await caches.open('brg-ui2-${app}');
+  })());
 });
+self.addEventListener('message', (e) => { if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
-  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith('brg-${app}-') && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil((async () => {
+    const ks = await caches.keys();
+    await Promise.all(ks.filter((k) => k.startsWith('brg-${app}-') && k !== CACHE).map((k) => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 self.addEventListener('fetch', (e) => {
   const req = e.request, url = new URL(req.url);

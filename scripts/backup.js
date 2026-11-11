@@ -7,6 +7,10 @@ import Database from 'better-sqlite3';
 import './load-env.js';
 import { config } from '../server/config.js';
 
+if (config.dbDriver === 'mssql') {
+  console.error('Đang dùng SQL Server: lệnh này chỉ dành cho SQLite. Hãy sao lưu bằng BACKUP DATABASE (SQL Server Agent / Maintenance Plan), xem hướng dẫn triển khai.');
+  process.exit(1);
+}
 const dir = process.env.BACKUP_DIR || path.join(path.dirname(config.dbFile), 'backups');
 const keep = Math.max(1, Number(process.env.BACKUP_KEEP || 14));
 if (!fs.existsSync(config.dbFile)) { console.error(`Không thấy CSDL: ${config.dbFile}`); process.exit(1); }

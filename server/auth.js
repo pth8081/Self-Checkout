@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { config } from './config.js';
 import { nowIso, unauthorized, forbidden } from './util.js';
+import { getSetting } from './db.js';
 
 // ---- Mật khẩu / PIN: scrypt + salt ----
 export function hashSecret(secret) {
@@ -73,6 +74,39 @@ export function authenticate(db, kind) {
     const user = db.prepare('SELECT * FROM staff WHERE id = ?').get(p.uid);
     if (!user || !user.active) throw unauthorized('INACTIVE', 'Tài khoản đã bị khóa');
     if (kind === 'admin' && !isManager(user)) throw forbidden();
+    if (kind === 'admin') {
+      // Một phiên đăng nhập tại một thời điểm: đăng nhập ở thiết bị khác sẽ đổi mã phiên, phiên cũ bị từ chối ở lần gọi sau.
+      if (securityPolicy(db).singleSession && (p.sid || null) !== (user.session_id || null)) {
+        throw unauthorized('SESSION_REPLACED', 'Tài khoản vừa đăng nhập ở một thiết bị khác nên phiên này đã bị đăng xuất. Hãy đăng nhập lại nếu đó không phải bạn.');
+      }
+      if (user.session_id && (!user.session_seen || Date.now() - Date.parse(user.session_seen) > 60_000)) {
+        const ts = nowIso(); db.prepare('UPDATE staff SET session_seen = ? WHERE id = ?').run(ts, user.id); user.session_seen = ts;
+      }
+    }
     req.user = user;
+  };
+}
+
+/** Tên đăng nhập kiểu AD (anh.dp): chữ thường, số, dấu chấm, gạch dưới, gạch ngang; 3 đến 40 ký tự; bắt đầu bằng chữ hoặc số. */
+export const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{2,39}$/;
+export function cleanUsername(v) {
+  const u = String(v ?? '').trim().toLowerCase();
+  if (!u) return null;
+  if (!USERNAME_RE.test(u)) return false;
+  return u;
+}
+/** Tên đăng nhập đã được dùng (trùng mã tài khoản, email hoặc tên đăng nhập của người khác) thì trả true. */
+export function usernameTaken(db, username, exceptId) {
+  const row = db.prepare('SELECT id FROM staff WHERE (id = ? COLLATE NOCASE OR email = ? COLLATE NOCASE OR username = ? COLLATE NOCASE) AND id <> ?').get(username, username, username, exceptId || '');
+  return !!row;
+}
+
+/** Chính sách bảo mật đăng nhập quản trị. Quản trị chuỗi đổi ở trang Tài khoản; chưa đổi thì theo biến môi trường (mặc định bật cả hai). */
+export function securityPolicy(db) {
+  const s = getSetting(db, 'security', {});
+  return {
+    require2fa: typeof s.require2fa === 'boolean' ? s.require2fa : process.env.REQUIRE_ADMIN_2FA !== '0',
+    requireCaptcha: typeof s.requireCaptcha === 'boolean' ? s.requireCaptcha : process.env.REQUIRE_CAPTCHA !== '0',
+    singleSession: typeof s.singleSession === 'boolean' ? s.singleSession : process.env.SINGLE_SESSION !== '0'
   };
 }

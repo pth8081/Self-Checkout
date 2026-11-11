@@ -9,7 +9,9 @@ if (fs.existsSync(file)) {
   for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
     const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
     if (!m || line.trim().startsWith('#')) continue;
-    const v = m[2].replace(/^(['"])(.*)\1$/, '$2');
+    let v = m[2];
+    const q = /^(['"])(.*?)\1(\s+#.*)?$/.exec(v);
+    v = q ? q[2] : v.replace(/\s+#.*$/, ''); // giống --env-file: bỏ ghi chú sau dấu # (VD: MSSQL_TRUST_CERT=1   # ghi chú)
     if (process.env[m[1]] === undefined) process.env[m[1]] = v;
   }
 }

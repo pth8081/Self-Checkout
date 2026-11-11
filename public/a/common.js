@@ -5,7 +5,7 @@ export const S = { token: null, onLogout: null };
 export const api = createApi({
   base: '/api/a',
   headers: () => (S.token ? { Authorization: `Bearer ${S.token}` } : {}),
-  onUnauthorized: () => S.onLogout?.()
+  onUnauthorized: (data) => S.onLogout?.(data)
 });
 
 export const store = {
@@ -182,3 +182,17 @@ export function BarChart({ data, height = 190, title = 'Biểu đồ doanh thu' 
 }
 
 export { html, Icon, Pill, Banner, Empty, Confirm, ErrorBox, Loading };
+
+// ---- Vân tay / khuôn mặt (WebAuthn): đổi qua lại giữa JSON của máy chủ và đối tượng của trình duyệt ----
+const fromB64u = (s) => Uint8Array.from(atob(String(s).replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(String(s).length / 4) * 4, '=')), (ch) => ch.charCodeAt(0));
+const toB64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+export async function passkeyGet(o) {
+  const cred = await navigator.credentials.get({ publicKey: { ...o, challenge: fromB64u(o.challenge), allowCredentials: o.allowCredentials?.map((c) => ({ ...c, id: fromB64u(c.id) })) } });
+  const r = cred.response;
+  return { id: cred.id, rawId: toB64u(cred.rawId), type: cred.type, response: { clientDataJSON: toB64u(r.clientDataJSON), authenticatorData: toB64u(r.authenticatorData), signature: toB64u(r.signature), userHandle: r.userHandle ? toB64u(r.userHandle) : null } };
+}
+export async function passkeyCreate(o) {
+  const cred = await navigator.credentials.create({ publicKey: { ...o, challenge: fromB64u(o.challenge), user: { ...o.user, id: fromB64u(o.user.id) }, excludeCredentials: o.excludeCredentials?.map((c) => ({ ...c, id: fromB64u(c.id) })) } });
+  const r = cred.response;
+  return { id: cred.id, rawId: toB64u(cred.rawId), type: cred.type, response: { clientDataJSON: toB64u(r.clientDataJSON), attestationObject: toB64u(r.attestationObject) } };
+}

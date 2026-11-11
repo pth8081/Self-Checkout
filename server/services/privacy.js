@@ -8,7 +8,10 @@ export const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
 const norm = (e) => String(e || '').trim().toLowerCase();
 
 function scope(db, email) {
-  const byEmail = db.prepare(`SELECT id FROM transactions WHERE LOWER(bill_email) = ? OR LOWER(json_extract(CASE WHEN json_valid(buyer_json) THEN buyer_json END, '$.email')) = ?`).all(email, email).map((r) => r.id);
+  // Ứng viên: email nhận bill trùng, hoặc chuỗi "email":"..." nằm trong thông tin người mua (LIKE không phân biệt hoa thường); lọc lại chính xác bằng JS
+  const cand = db.prepare(`SELECT id, bill_email, buyer_json FROM transactions WHERE LOWER(bill_email) = ? OR buyer_json LIKE ?`).all(email, `%"email":"%${email.replace(/[%_[\]]/g, '_')}%"%`);
+  const buyerMail = (j) => { try { return String(JSON.parse(j)?.email || '').toLowerCase(); } catch { return ''; } };
+  const byEmail = cand.filter((r) => String(r.bill_email || '').toLowerCase() === email || buyerMail(r.buyer_json) === email).map((r) => r.id);
   const devices = db.prepare('SELECT DISTINCT device_id FROM device_emails WHERE LOWER(email) = ?').all(email).map((r) => r.device_id);
   const ph = (n) => devices.map(() => '?').join(',') || "''";
   const byDevice = devices.length ? db.prepare(`SELECT id FROM transactions WHERE device_id IN (${ph()}) AND device_id != '-'`).all(...devices).map((r) => r.id) : [];

@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
+import { openMssql } from './mssql/db.js';
 
-const SCHEMA = `
+export const SCHEMA = `
 CREATE TABLE IF NOT EXISTS stores (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, address TEXT DEFAULT '',
   enabled INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
@@ -146,6 +147,12 @@ CREATE TABLE IF NOT EXISTS statements (
 CREATE TABLE IF NOT EXISTS price_points (
   ma_diem TEXT PRIMARY KEY, name TEXT, store_id TEXT, imported_at TEXT NOT NULL
 );
+-- Thiết bị đăng nhập bằng vân tay / khuôn mặt (passkey). id = SHA-256 của mã thiết bị (cố định độ dài để làm khóa).
+CREATE TABLE IF NOT EXISTS passkeys (
+  id TEXT PRIMARY KEY, staff_id TEXT NOT NULL, credential_id TEXT NOT NULL, name TEXT, public_key TEXT NOT NULL, alg INTEGER NOT NULL,
+  counter INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, last_used_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_passkeys_staff ON passkeys(staff_id);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS integration_keys (
   id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, key_hash TEXT NOT NULL UNIQUE, prefix TEXT NOT NULL,
@@ -154,7 +161,7 @@ CREATE TABLE IF NOT EXISTS integration_keys (
 `;
 
 /** Thêm cột còn thiếu cho CSDL tạo từ phiên bản cũ (CREATE TABLE IF NOT EXISTS không tự thêm cột). */
-const MIGRATIONS = [
+export const MIGRATIONS = [
   ['product_cache', 'list_price', 'INTEGER'], ['cart_items', 'list_price', 'INTEGER'], ['cart_items', 'no_price', 'INTEGER NOT NULL DEFAULT 0'],
   ['transactions', 'cancel_reason', 'TEXT'], ['transactions', 'pii_purged_at', 'TEXT'],
   ['transactions', 'extra_qty', 'INTEGER NOT NULL DEFAULT 0'], ['transactions', 'extra_value', 'INTEGER NOT NULL DEFAULT 0'], ['transactions', 'less_qty', 'INTEGER NOT NULL DEFAULT 0'],
@@ -167,7 +174,11 @@ const MIGRATIONS = [
   ['store_config', 'payment_source', "TEXT NOT NULL DEFAULT 'manual'"], ['store_config', 'guard_check', 'INTEGER NOT NULL DEFAULT 1'],
   ['transactions', 'pos_order_ref', 'TEXT'], ['transactions', 'pos_status', 'TEXT'], ['transactions', 'pos_claimed_at', 'TEXT'],
   ['transactions', 'pos_cashier', 'TEXT'], ['transactions', 'pos_terminal', 'TEXT'], ['transactions', 'pos_amount', 'INTEGER'],
-  ['transactions', 'pos_invoice_no', 'TEXT'], ['transactions', 'buyer_json', 'TEXT'], ['transactions', 'guard_skipped', 'INTEGER NOT NULL DEFAULT 0']
+  ['staff', 'username', 'TEXT'], ['staff', 'session_id', 'TEXT'], ['staff', 'session_seen', 'TEXT'], ['staff', 'session_info', 'TEXT'], ['transactions', 'pos_invoice_no', 'TEXT'], ['transactions', 'buyer_json', 'TEXT'], ['transactions', 'guard_skipped', 'INTEGER NOT NULL DEFAULT 0']
+];
+export const EXTRA_INDEXES = [
+  'CREATE INDEX IF NOT EXISTS idx_tx_pos_ref ON transactions(pos_order_ref)',
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_stores_pos_code ON stores(pos_code) WHERE pos_code <> ''"
 ];
 function migrate(db) {
   for (const [table, col, def] of MIGRATIONS) {
@@ -177,7 +188,9 @@ function migrate(db) {
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_stores_pos_code ON stores(pos_code) WHERE pos_code <> ''");
 }
 
+/** Mở CSDL: chuỗi (đường dẫn file hoặc ':memory:') là SQLite; đối tượng { driver: 'mssql', ... } là SQL Server. */
 export function openDb(file) {
+  if (file && typeof file === 'object' && file.driver === 'mssql') return openMssql(file, { schema: SCHEMA, migrations: MIGRATIONS, extraIndexes: EXTRA_INDEXES });
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new Database(file);
   db.pragma('journal_mode = WAL');

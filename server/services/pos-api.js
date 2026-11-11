@@ -81,24 +81,50 @@ function lineNamer(db, tx) {
   return (barcode) => names.get(barcode) || cached.get(tx.store_id, barcode)?.name || barcode;
 }
 
+/**
+ * Tra một dòng do Dsmart POS gửi (theo `sku` = SKU_ID, hoặc `barcode`) về mặt hàng của BRG: ưu tiên giỏ khách, rồi bảng giá lưu sẵn.
+ * Dsmart POS không có giá bán thực nên chỉ cần gửi SKU_ID và số lượng; đơn giá ở đây chỉ là giá BRG đã biết để hiện bill.
+ */
+function itemResolver(db, tx) {
+  const cart = JSON.parse(tx.items_json);
+  const cache = db.prepare('SELECT sku, barcode, name, price FROM product_cache WHERE store_id = ? AND (sku = ? OR barcode = ?)');
+  return (key) => {
+    const k = String(key);
+    const c = cart.find((i) => String(i.sku) === k || String(i.barcode) === k);
+    if (c) return { sku: c.sku, barcode: String(c.barcode), name: c.name, price: c.noPrice ? 0 : c.price, known: true };
+    const r = cache.get(tx.store_id, k, k);
+    if (r) return { sku: r.sku, barcode: String(r.barcode), name: r.name, price: r.price, known: true };
+    return { sku: k, barcode: k, name: k, price: 0, known: false };
+  };
+}
+/** Thử lần lượt sku, barcode (và tên nếu cho phép) cho tới khi gặp mặt hàng BRG đã biết. */
+function findLine(find, l, byName = false) {
+  const keys = [l?.sku, l?.barcode, byName ? l?.name : null].filter(Boolean).map((k) => String(k).trim().slice(0, 64));
+  for (const k of keys) { const it = find(k); if (it.known) return it; }
+  return find(keys[0]);
+}
+const lineKey = (l, byName = false) => (l?.sku ? String(l.sku).trim().slice(0, 64) : l?.barcode ? String(l.barcode).trim().slice(0, 64) : byName && l?.name ? String(l.name).trim().slice(0, 64) : '');
+
 function cleanBill(body, db, tx) {
   let lines = null;
   if (body.lines !== undefined && body.lines !== null) {
     if (!Array.isArray(body.lines) || !body.lines.length || body.lines.length > 300) throw bad('BAD_LINES', 'lines là danh sách 1 đến 300 dòng');
-    // Mỗi dòng bắt buộc: mã hàng (barcode) hoặc tên, số lượng, thành tiền. Tên và đơn giá bỏ trống thì hệ thống tự điền.
-    const nameOf = lineNamer(db, tx);
+    // Mỗi dòng bắt buộc: sku (SKU_ID) hoặc barcode, và số lượng. Đơn giá, giảm giá, thành tiền KHÔNG bắt buộc: bỏ trống thì BRG tạm tính theo giá BRG đã biết.
+    const find = itemResolver(db, tx);
     lines = body.lines.map((l, i) => {
-      const barcode = l?.barcode ? String(l.barcode).trim().slice(0, 32) : null;
-      let name = String(l?.name || '').trim().slice(0, 200);
+      const key = lineKey(l, true);
       const qty = Number(l?.qty);
-      const lineTotal = Number(l?.lineTotal), discount = Number(l?.discount ?? 0);
-      if ((!barcode && !name) || !(qty > 0 && qty < 100000) || ![lineTotal, discount].every((x) => Number.isInteger(x) && x >= 0)
-        || (l?.unitPrice !== undefined && l?.unitPrice !== null && !(Number.isInteger(Number(l.unitPrice)) && Number(l.unitPrice) >= 0))) {
-        throw bad('BAD_LINES', `Dòng ${i + 1} không hợp lệ: cần barcode (mã hàng) hoặc name, qty > 0, lineTotal (số nguyên đồng); unitPrice và discount nếu có phải là số nguyên đồng`);
+      const optInt = (v) => v === undefined || v === null || (Number.isInteger(Number(v)) && Number(v) >= 0);
+      if (!key || !(qty > 0 && qty < 100000) || !optInt(l?.lineTotal) || !optInt(l?.discount) || !optInt(l?.unitPrice)) {
+        throw bad('BAD_LINES', `Dòng ${i + 1} không hợp lệ: cần sku (SKU_ID) hoặc barcode, qty > 0; unitPrice, discount, lineTotal nếu gửi phải là số nguyên đồng`);
       }
-      if (!name) name = nameOf(barcode);
-      const unitPrice = l?.unitPrice !== undefined && l?.unitPrice !== null ? Number(l.unitPrice) : Math.round((lineTotal + discount) / qty);
-      return { barcode, name, qty, unitPrice, discount, lineTotal };
+      const it = findLine(find, l, true);
+      const name = String(l?.name || '').trim().slice(0, 200) || it.name;
+      const discount = Number(l?.discount ?? 0);
+      const hasTotal = l?.lineTotal !== undefined && l?.lineTotal !== null;
+      const unitPrice = l?.unitPrice !== undefined && l?.unitPrice !== null ? Number(l.unitPrice) : hasTotal ? Math.round((Number(l.lineTotal) + discount) / qty) : it.price;
+      const lineTotal = hasTotal ? Number(l.lineTotal) : Math.max(0, Math.round(unitPrice * qty) - discount);
+      return { sku: it.sku, barcode: it.barcode, name, qty, unitPrice, discount, lineTotal, estimated: !hasTotal };
     });
   }
   return { lines };
@@ -296,7 +322,7 @@ export function basketStatus(ctx, scope, code, query = {}) {
   inScope(scope, tx);
   const st = db.prepare('SELECT pos_code FROM stores WHERE id = ?').get(tx.store_id);
   if (!st?.pos_code || st.pos_code.toLowerCase() !== point.toLowerCase()) throw conflict('POINT_MISMATCH', 'Mã điểm không khớp với cửa hàng của giỏ này. Không thanh toán');
-  const items = JSON.parse(tx.items_json).map((i) => ({ barcode: i.barcode, name: i.noPrice ? null : i.name, qty: i.qty, unitPrice: i.noPrice ? null : i.price }));
+  const items = JSON.parse(tx.items_json).map((i, n) => ({ idx: n + 1, sku: i.noPrice ? null : i.sku, barcode: i.barcode, name: i.noPrice ? null : i.name, qty: i.qty, unitPrice: i.noPrice ? null : i.price, priced: !i.noPrice }));
   return { code: tx.cart_code, pointCode: st.pos_code, transactionId: tx.id, status: tx.status, reason: tx.cancel_reason || undefined, posOrderRef: tx.pos_order_ref,
     createdAt: tx.created_at, itemCount: tx.item_count, total: tx.total, items, paidAmount: tx.pos_amount, billStored: !!tx.pos_bill_json };
 }
@@ -361,8 +387,27 @@ export function basketUpdate(ctx, scope, code, body = {}) {
   const { db } = ctx;
   const { tx, ref } = basketTx(ctx, scope, code, body);
   if (tx.status !== 'awaiting_counter') throw conflict('NOT_UPDATABLE', tx.status === 'paid' ? 'Đơn đã thanh toán, không cập nhật được nữa' : 'Giỏ này không còn chờ thanh toán');
-  if (body.lines === undefined || body.lines === null) throw bad('BAD_LINES', 'lines là bắt buộc: danh sách các dòng đơn đang tính trên Dsmart POS');
-  const { lines } = cleanBill(body, db, tx);
+  let lines;
+  if (body.changes !== undefined && body.changes !== null) {
+    // Dạng thay đổi (khuyên dùng): chỉ gửi phần chênh so với giỏ khách quét: sku (SKU_ID), qty, op ('add' thêm, 'remove' bớt).
+    if (!Array.isArray(body.changes) || !body.changes.length || body.changes.length > 300) throw bad('BAD_CHANGES', 'changes là danh sách 1 đến 300 dòng');
+    const find = itemResolver(db, tx);
+    const cur = new Map(); const order = [];
+    for (const i of JSON.parse(tx.items_json)) { const k = String(i.barcode); if (!cur.has(k)) order.push(k); cur.set(k, { ...find(k), name: i.name, qty: (cur.get(k)?.qty || 0) + i.qty }); }
+    body.changes.forEach((c, n) => {
+      const key = lineKey(c); const q = Number(c?.qty);
+      if (!key || !Number.isInteger(q) || q <= 0 || q > 99999 || !['add', 'remove'].includes(c?.op)) throw bad('BAD_CHANGES', `Dòng ${n + 1} không hợp lệ: cần sku (SKU_ID), qty là số nguyên dương, op là "add" hoặc "remove"`);
+      const it = findLine(find, c);
+      if (!cur.has(it.barcode)) { if (c.op === 'remove') return; cur.set(it.barcode, { ...it, qty: 0 }); order.push(it.barcode); }
+      const x = cur.get(it.barcode); x.qty = Math.max(0, x.qty + (c.op === 'add' ? q : -q));
+    });
+    lines = order.map((k) => cur.get(k)).filter((x) => x.qty > 0)
+      .map((x) => ({ sku: x.sku, barcode: x.barcode, name: x.name, qty: x.qty, unitPrice: x.price, discount: 0, lineTotal: x.price * x.qty, estimated: true }));
+    if (!lines.length) throw bad('EMPTY_ORDER', 'Sau khi áp dụng thay đổi đơn không còn mặt hàng nào. Nếu hủy cả đơn hãy gọi lệnh hủy (cancelled)');
+  } else {
+    if (body.lines === undefined || body.lines === null) throw bad('BAD_LINES', 'Cần changes (khuyên dùng: sku, qty, op) hoặc lines (toàn bộ dòng đơn đang tính trên Dsmart POS)');
+    ({ lines } = cleanBill(body, db, tx));
+  }
   const sum = lines.reduce((a, l) => a + l.lineTotal, 0);
   const amount = body.amount === undefined || body.amount === null ? sum : body.amount;
   if (!Number.isInteger(amount) || amount < 0) throw bad('BAD_AMOUNT', 'amount là số nguyên đồng, không âm');

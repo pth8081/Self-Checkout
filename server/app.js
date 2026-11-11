@@ -13,8 +13,10 @@ import adminRoutes from './routes/admin.js';
 import posRoutes from './routes/pos.js';
 
 /** Dựng ứng dụng. Tham số cho phép thay CSDL, RNG, adapter khi kiểm thử. */
-export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = false, pos, invoicer, mailer, trustProxy = false } = {}) {
+export function buildApp({ dbFile = config.db, rng = Math.random, logger = false, pos, invoicer, mailer, trustProxy = false } = {}) {
   const db = openDb(dbFile);
+  // Dọn cấu hình của tính năng đồng bộ tồn kho đã gỡ (có thể còn khóa API đã mã hóa trong bảng cấu hình của bản 2.1 đến 2.9).
+  try { db.prepare("DELETE FROM settings WHERE key IN ('stock_api', 'stock_api_last')").run(); } catch { /* bỏ qua */ }
   const ctx = { db, rng };
   ctx.pos = pos || createMockPos(db);
   ctx.invoicer = invoicer || createMockInvoicer(db);
@@ -35,6 +37,7 @@ export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = f
     if (err.validation || err.statusCode === 400) return reply.code(400).send({ error: 'BAD_REQUEST', message: 'Dữ liệu gửi lên không hợp lệ' });
     if (err.statusCode && err.statusCode < 500) return reply.code(err.statusCode).send({ error: 'ERROR', message: err.message });
     req.log.error(err);
+    if (process.env.BRG_DEBUG) console.error('[BRG_DEBUG]', req.method, req.url, err?.message);
     return reply.code(500).send({ error: 'SERVER_ERROR', message: 'Có lỗi hệ thống, vui lòng thử lại' });
   });
 
@@ -44,7 +47,7 @@ export function buildApp({ dbFile = config.dbFile, rng = Math.random, logger = f
   app.register(posRoutes, { prefix: '/api/pos' });
   // Kiểm tra tình trạng cho giám sát và reverse proxy: 200 khi máy chủ và CSDL đều ổn.
   app.get('/api/health', async (req, reply) => {
-    try { db.prepare('SELECT 1').get(); return { ok: true, version: appVersion(), uptime: Math.round(process.uptime()) }; }
+    try { db.prepare('SELECT 1').get(); return { ok: true, version: appVersion(), db: db.kind || 'sqlite', uptime: Math.round(process.uptime()) }; }
     catch { return reply.code(503).send({ ok: false }); }
   });
 

@@ -1,6 +1,6 @@
 // Các trang quản trị: tổng quan, chi nhánh, tích hợp, báo cáo, tài khoản, nhật ký.
 import { html, useState, useEffect, useMemo, useAsync, fmt, go, toast, Sheet, Switch, Field, Spinner, QR, copyText, saveBlob, todayStr } from '/shared/lib.js';
-import { api, S, ROLE_VI, STAFF_ROLES, BIN_NOTE, PAY_SOURCE, isPos, noGuard, cfgOf, PageHead, Tile, Async, BarChart, StoreBar, useBusy, useDebounced, dm, addDays, actionLabel, ACTOR_VI, auditDetail, Icon, Pill, Banner, Empty, Confirm, ErrorBox } from '/a/common.js';
+import { api, S, passkeyCreate, ROLE_VI, STAFF_ROLES, BIN_NOTE, PAY_SOURCE, isPos, noGuard, cfgOf, PageHead, Tile, Async, BarChart, StoreBar, useBusy, useDebounced, dm, addDays, actionLabel, ACTOR_VI, auditDetail, Icon, Pill, Banner, Empty, Confirm, ErrorBox } from '/a/common.js';
 
 // ============================== A01 Tổng quan chuỗi ==============================
 export function Overview({ stores, setStoreId }) {
@@ -73,6 +73,44 @@ function AddStore({ onClose, onDone }) {
     <button class="btn txt" type="button" onClick=${onClose}>Hủy</button></form><//>`;
 }
 
+const ST_STATUS = { new: ['Sẽ thêm', 'ok'], update: ['Sẽ cập nhật', 'ok'], same: ['Không đổi', ''], bad: ['Dòng sai', 'err'], dup: ['Lặp trong file', 'err'], clash: ['Trùng mã điểm', 'err'] };
+const downloadCsv = (r) => saveBlob(new Blob([r.csv], { type: 'text/csv;charset=utf-8' }), r.filename);
+
+// ---- Nhập chi nhánh từ file CSV: chọn file, xem trước, áp dụng ----
+function ImportStores({ onClose, onDone }) {
+  const [text, setText] = useState('');
+  const [fname, setFname] = useState('');
+  const [pv, setPv] = useState(null);
+  const [err, setErr] = useState('');
+  const [busy, run] = useBusy();
+  const pick = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setErr(''); setPv(null); setFname(file.name);
+    try {
+      const t = await file.text(); setText(t);
+      await run(async () => { try { setPv(await api.post('/stores/import/preview', { text: t })); } catch (x) { setErr(x.message); throw x; } });
+    } catch (x) { setErr(x.message || 'Không đọc được file'); }
+  };
+  const apply = async () => {
+    const r = await run(async () => { try { return await api.post('/stores/import/apply', { text }); } catch (x) { setErr(x.message); throw x; } }, null);
+    if (r) { toast(`Đã thêm ${r.created}, cập nhật ${r.updated} chi nhánh`, 'ok'); onDone(); onClose(); }
+  };
+  const sm = pv?.summary;
+  return html`<${Sheet} center wide onClose=${onClose}><div class="stack">
+    <h2>Nhập chi nhánh từ file</h2>
+    <p class="small muted">File CSV (UTF-8, Excel lưu được) có các cột: Mã chi nhánh, Tên chi nhánh, Địa chỉ, Mã điểm. Mã chi nhánh chưa có thì thêm mới (ở trạng thái tắt), đã có thì cập nhật tên, địa chỉ, mã điểm; ô để trống thì giữ nguyên. Chưa có file thì bấm "Tải file mẫu".</p>
+    <input type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" onChange=${pick} aria-label="Chọn file chi nhánh"/>${fname && html`<span class="small muted">${fname}</span>`}
+    ${err && html`<div class="errtext" role="alert">${err}</div>`}
+    ${pv && html`<div class="small">Đọc ${sm.total} dòng: ${['new', 'update', 'same', 'bad', 'dup', 'clash'].filter((k) => sm[k]).map((k) => `${sm[k]} ${ST_STATUS[k][0].toLowerCase()}`).join(', ')}.</div>
+      <div class="tblwrap" style="max-height:280px;overflow:auto"><table class="tbl"><thead><tr><th>Dòng</th><th>Mã</th><th>Tên</th><th>Mã điểm</th><th>Kết quả</th></tr></thead>
+        <tbody>${pv.rows.slice(0, 300).map((r) => html`<tr key=${r.line}><td>${r.line}</td><td><b>${r.id || '–'}</b></td><td>${r.name ?? r.storeName ?? '–'}</td><td>${r.posCode || '–'}</td>
+          <td><${Pill} tone=${ST_STATUS[r.status][1]}>${ST_STATUS[r.status][0]}<//>${r.note ? html` <span class="xs muted">${r.note}</span>` : ''}</td></tr>`)}</tbody></table></div>
+      ${pv.rows.length > 300 && html`<div class="xs muted">Chỉ hiện 300 dòng đầu, khi áp dụng sẽ xử lý toàn bộ file.</div>`}
+      <button class="btn primary" disabled=${busy || !(sm.new || sm.update)} onClick=${apply}>${busy ? html`<${Spinner} sm/>` : `Áp dụng: thêm ${sm.new || 0}, cập nhật ${sm.update || 0}`}</button>
+      ${(sm.bad || sm.dup || sm.clash) ? html`<div class="xs muted">Dòng sai, lặp hoặc trùng mã điểm sẽ được bỏ qua.</div>` : ''}`}
+    <button class="btn txt" type="button" onClick=${onClose}>Đóng</button></div><//>`;
+}
+
 export function Stores({ me, reloadStores, setStoreId }) {
   const chain = me.role === 'chain_admin';
   const st = useAsync(() => api.get('/stores'), []);
@@ -80,8 +118,13 @@ export function Stores({ me, reloadStores, setStoreId }) {
   const [msg, setMsg] = useState(null); // { code, message, store }
   const [qr, setQr] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [compact, setCompactRaw] = useState(() => { try { return localStorage.getItem('brg_a_compact') !== '0'; } catch { return true; } }); // mặc định thu gọn
+  const setCompact = (v) => { setCompactRaw(v); try { localStorage.setItem('brg_a_compact', v ? '1' : '0'); } catch { /* bỏ qua */ } };
+  const [q, setQ] = useState('');
   const [ask, setAsk] = useState(null); // { kind: 'source'|'guard', s, value }
   const refresh = async () => { await st.reload(); reloadStores(); };
+  const file = async (path) => { try { downloadCsv(await api.get(path)); } catch (x) { toast(x.message || 'Không tải được file', 'err'); } };
   const toggle = async (key, path, body, okMsg = 'Đã lưu') => {
     if (busyKey) return false;
     setBusyKey(key); setMsg(null);
@@ -103,20 +146,28 @@ export function Stores({ me, reloadStores, setStoreId }) {
   };
   return html`<div class="stack-lg">
     <${PageHead} title="Chi nhánh & tính năng" sub=${chain ? 'Bật hoặc tắt Scan & Checkout, cách thu tiền, bảo vệ cổng ra và từng cách thanh toán cho từng chi nhánh. Thay đổi có hiệu lực ngay.' : 'Cấu hình hiện tại của chi nhánh. Chỉ quản trị chuỗi mới được thay đổi.'}>
-      ${chain && html`<button class="btn sm primary" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${18}/>Thêm chi nhánh</button>`}<//>
+      ${chain && html`<button class="btn sm line" onClick=${() => setImporting(true)}>Nhập file</button>
+      <button class="btn sm line" onClick=${() => file('/stores/export')}>Xuất file</button>
+      <button class="btn sm line" onClick=${() => file('/stores/template')}>Tải file mẫu</button>
+      <button class="btn sm primary" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${18}/>Thêm chi nhánh</button>`}<//>
     ${!chain && html`<${Banner} tone="info" icon="lock" title="Chỉ xem">Các nút bên dưới bị khóa. Hãy nhờ quản trị chuỗi nếu cần đổi cách thu tiền hoặc bảo vệ cổng ra.<//>`}
     ${msg && html`<${Banner} tone="err" title="Chưa lưu được"><span role="alert">${msg.message}</span>
       ${msg.code === 'NO_POS_KEY' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => go('/integrations')}><${Icon} name="link" size=${18}/>Đi tới mục Tích hợp để tạo khóa</button></div>`}
       ${msg.code === 'CARTS_PENDING' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => { if (msg.storeId) setStoreId(msg.storeId); go('/transactions'); }}>Xem giao dịch</button></div>`}<//>`}
-    <${Async} state=${st}>${(d) => html`<div class="card"><div class="tblwrap"><table class="tbl">
-      <thead><tr><th>Chi nhánh</th><th class="tc">Scan & Checkout</th><th class="tc">Giỏ QR cho Dsmart POS</th><th>Thu tiền</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Bảo vệ cổng ra</th><th class="tc">Online</th><th></th></tr></thead>
-      <tbody>${d.stores.map((s) => {
+    <${Async} state=${st}>${(d) => html`<div class="card">
+      <div class="toolbar" style="margin-bottom:10px"><input class="input sm grow" style="max-width:340px" type="search" placeholder="Tìm chi nhánh theo tên, mã, địa chỉ, mã điểm" aria-label="Tìm chi nhánh" value=${q} onInput=${(e) => setQ(e.target.value)}/>
+        <span class="small muted">${(() => { const n = q.trim() ? d.stores.filter((s) => `${s.name} ${s.id} ${s.address || ''} ${s.posCode || ''}`.toLowerCase().includes(q.trim().toLowerCase())).length : d.stores.length; return `${n}/${d.stores.length} chi nhánh`; })()}</span>
+        <span class="grow"></span><label class="row small" style="gap:8px"><${Switch} checked=${compact} label="Thu gọn bảng" onChange=${setCompact}/>Thu gọn</label></div>
+      <div class="tblwrap"><table class=${`tbl ${compact ? 'compact' : ''}`}>
+      <thead><tr><th>Chi nhánh</th><th class="tc">Scan & Checkout</th><th class="tc">Giỏ QR cho Dsmart POS</th><th>Thu tiền</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Bảo vệ cổng ra</th><th class="tc col-online">Online</th></tr></thead>
+      <tbody>${(q.trim() ? d.stores.filter((s) => `${s.name} ${s.id} ${s.address || ''} ${s.posCode || ''}`.toLowerCase().includes(q.trim().toLowerCase())) : d.stores).map((s) => {
         const basket = s.config.checkoutMode === 'basket'; // giỏ QR: Dsmart POS thu tiền, không bảo vệ; các luồng cũ bị khóa
         const pos = isPos(s.config) || basket;
         const dis = !chain || !!busyKey;
         const sw = (key, checked, path, body, label, extra = {}) => html`<${Switch} checked=${checked} disabled=${dis || extra.off} label=${`${label} ${s.name}`} onChange=${(v) => toggle(`${s.id}${key}`, path, body(v))}/>`;
-        const mute = (node) => (pos ? html`<span class="soon">${node}Dùng Dsmart POS</span>` : node);
-        return html`<tr key=${s.id}><td><b>${s.name}</b><div class="sub">${s.id} · ${s.address || 'Chưa có địa chỉ'}</div></td>
+        const mute = (node) => (pos ? html`<span class="soon">${node}<span class="soonlbl">Dùng Dsmart POS</span></span>` : node);
+        return html`<tr key=${s.id}><td><div class="storecell"><div class="grow"><b>${s.name}</b><div class="sub">${s.id}${s.posCode ? ` · ${s.posCode}` : ''}${compact ? '' : ` · ${s.address || 'Chưa có địa chỉ'}`}</div></div>
+            <button class="btn sm line qrbtn" onClick=${() => setQr(s)} title="Mã QR dán cổng vào" aria-label=${`Mã QR dán cổng vào ${s.name}`}><${Icon} name="qr" size=${18}/><span class="qrlbl">Mã QR</span></button></div></td>
           <td class="tc">${sw('e', s.enabled, `/stores/${s.id}`, (v) => ({ enabled: v }), 'Bật Scan & Checkout')}</td>
           <td class="tc">${sw('m', basket, `/stores/${s.id}/config`, (v) => ({ checkoutMode: v ? 'basket' : 'classic' }), 'Giỏ QR cho Dsmart POS')}</td>
           <td><select class="input sm" style="width:auto;min-width:175px" value=${basket ? 'pos' : (s.config.paymentSource || 'manual')} disabled=${dis || basket} aria-label=${`Thu tiền ${s.name}`}
@@ -126,8 +177,7 @@ export function Stores({ me, reloadStores, setStoreId }) {
           <td class="tc">${mute(sw('c', s.config.payCash, `/stores/${s.id}/config`, (v) => ({ payCash: v }), 'Tiền mặt', { off: pos }))}</td>
           <td class="tc">${mute(sw('q', s.config.payQr, `/stores/${s.id}/config`, (v) => ({ payQr: v }), 'Chuyển khoản QR', { off: pos }))}</td>
           <td class="tc"><${Switch} checked=${!basket && s.config.guardCheck !== false} disabled=${dis || basket} label=${`Bảo vệ cổng ra ${s.name}`} onChange=${(v) => onGuard(s, v)}/></td>
-          <td class="tc"><span class="soon"><${Switch} checked=${false} disabled=${true} label=${`Thanh toán online ${s.name}`} onChange=${() => {}}/>Sắp có</span></td>
-          <td><button class="btn sm line" onClick=${() => setQr(s)}><${Icon} name="qr" size=${18}/>Mã QR dán cổng vào</button></td></tr>`;
+          <td class="tc col-online"><span class="soon"><${Switch} checked=${false} disabled=${true} label=${`Thanh toán online ${s.name}`} onChange=${() => {}}/><span class="soonlbl">Sắp có</span></span></td></tr>`;
       })}</tbody></table></div>
       <div class="hint"><b>Giỏ QR cho Dsmart POS</b> (đang dùng): khách bấm thanh toán, điện thoại hiện mã QR ngắn (mã điểm và mã giỏ), thu ngân quét vào Dsmart POS, Dsmart POS lấy danh sách mặt hàng bằng API. Dsmart POS tạo đơn, tính tiền, thu tiền. Các cột bên phải (thu tiền trong BRG, bảo vệ cổng ra) bị khóa và dùng lại được nếu tắt chế độ này.</div>
       <div class="hint">Chi nhánh chỉ bật được khi có ít nhất một cách thanh toán dùng được và đã có dữ liệu sản phẩm từ Dsmart POS. Đổi cách thu tiền cần có khóa API cho Dsmart POS (mục Tích hợp) và không còn giỏ chờ thu.</div></div>`}<//>
@@ -139,6 +189,7 @@ export function Stores({ me, reloadStores, setStoreId }) {
       <p class="small muted">Bật lại sau này sẽ chỉ áp dụng cho các giao dịch mới.</p><//>`}
     ${qr && html`<${GateQr} s=${qr} onClose=${() => setQr(null)}/>`}
     ${adding && html`<${AddStore} onClose=${() => setAdding(false)} onDone=${refresh}/>`}
+    ${importing && html`<${ImportStores} onClose=${() => setImporting(false)} onDone=${refresh}/>`}
   </div>`;
 }
 
@@ -358,7 +409,7 @@ function PriceApiCard({ stores }) {
       <div class="small muted">Khi khách quét mã vạch, hệ thống tra giá theo <code>maVach</code> và <code>maDiem</code> (mã điểm của chi nhánh). Giá hiện trên điện thoại là tạm tính, số tiền cuối do Dsmart POS tính lại.</div>
       ${d.config.enabled ? html`<${Pill} tone="ok"><span class="dot"></span>Đang dùng<//>` : html`<${Pill} tone="warn">Chưa bật<//>`}</div></div>
     <div class="two">
-      <${Field} label="Địa chỉ API" hint="Chỉ nhập địa chỉ, không kèm ?maVach=... Ví dụ https://api.brgmart.vn/api/v1/reports/gia-ban/run"><input class="input" value=${f.url} onInput=${set('url')}/><//>
+      <${Field} label="Địa chỉ API" hint="Chỉ nhập địa chỉ, không kèm ?maVach=... Ví dụ https://api.hcrc.vn/api/v1/reports/gia-ban/run"><input class="input" value=${f.url} onInput=${set('url')}/><//>
       <${Field} label="Khóa API (X-API-Key)" hint=${d.config.hasKey ? 'Đã lưu khóa. Bỏ trống để giữ khóa cũ, nhập mới để thay' : 'Chưa có khóa'}><input class="input" type="password" autocomplete="off" value=${f.key} placeholder=${d.config.hasKey ? '••••••••••••' : ''} onInput=${set('key')}/><//>
       <${Field} label="Thời gian chờ mỗi lần tra (giây)" hint="Quá thời gian thì dùng giá đã lưu, chưa có thì hiện Chưa có giá"><input class="input" inputmode="numeric" value=${f.timeoutSec} onInput=${set('timeoutSec')}/><//>
       <${Field} label="Giữ giá đã tra (phút)" hint="Trong thời gian này mọi khách quét cùng mặt hàng không gọi lại API"><input class="input" inputmode="numeric" value=${f.cacheMin} onInput=${set('cacheMin')}/><//></div>
@@ -377,7 +428,7 @@ function PriceApiCard({ stores }) {
 
 const PT_STATUS = { ok: ['Sẽ gán', 'ok'], same: ['Đã đúng', ''], nomatch: ['Chưa ghép', 'warn'], dup: ['Lặp trong file', 'err'], bad: ['Mã không hợp lệ', 'err'], clash: ['Trùng chi nhánh', 'err'] };
 // ---- Mã điểm của hệ thống giá: nhập từ file, ghép với chi nhánh ----
-function PointsCard() {
+function PointsCard({ onChanged }) {
   const st = useAsync(() => api.get('/pos-points'), []);
   const [text, setText] = useState('');
   const [fname, setFname] = useState('');
@@ -392,7 +443,7 @@ function PointsCard() {
     catch (x) { setErr(x.message || 'Không đọc được file'); }
   };
   const apply = () => run(async () => {
-    try { const r = await api.post('/pos-points/apply', { text }); setPv(null); setText(''); setFname(''); await st.reload(); toast(`Đã lưu ${r.saved} mã điểm, gán cho ${r.assigned} chi nhánh`, 'ok'); }
+    try { const r = await api.post('/pos-points/apply', { text }); setPv(null); setText(''); setFname(''); await st.reload(); onChanged?.(); toast(`Đã lưu ${r.saved} mã điểm, gán cho ${r.assigned} chi nhánh`, 'ok'); }
     catch (x) { setErr(x.message); throw x; }
   });
   const sm = pv?.summary;
@@ -531,14 +582,14 @@ function EmailCard() {
     <div class="hint">Mật khẩu được mã hóa khi lưu và không hiện lại. Nên dùng một tài khoản email riêng chỉ để gửi thư tự động. Với Gmail hoặc Microsoft 365 hãy dùng mật khẩu ứng dụng.</div></div>`;
 }
 
-export function Integrations({ stores }) {
+export function Integrations({ stores, reloadStores }) {
   const st = useAsync(() => api.get('/integrations'), []);
   return html`<div class="stack-lg"><${PageHead} title="Tích hợp" sub="Giám sát và cấu hình Dsmart POS, chuyển khoản QR và hóa đơn điện tử."/>
     <${Async} state=${st}>${(d) => html`
       ${d.note && html`<${Banner} tone=${d.isProd ? 'warn' : 'info'} icon="info" title=${d.isProd ? 'Nguồn giá: file CSV' : 'Đang chạy bản giả lập'}>${d.note}<//>`}
-      <${PosCard} d=${d} reload=${st.reload}/>
+      <${PosCard} d=${d} reload=${async () => { await st.reload(); reloadStores?.(); }}/>
       <${PosApiCard} d=${d} stores=${stores} reload=${st.reload}/>
-      <${PointsCard}/>
+      <${PointsCard} onChanged=${reloadStores}/>
       <${PriceApiCard} stores=${stores}/>
       <${EmailCard}/>
       <${RetentionCard}/>
@@ -588,7 +639,7 @@ const strongPw = (p) => p.length >= 8 && /[A-Za-z]/.test(p) && /\d/.test(p);
 function AddUser({ me, stores, onClose, onDone }) {
   const chain = me.role === 'chain_admin';
   const roles = chain ? ['cashier', 'gate', 'cashier_gate', 'branch_admin', 'chain_admin'] : STAFF_ROLES;
-  const [f, setF] = useState({ role: 'cashier', name: '', email: '', storeId: me.storeId || stores[0]?.id || '', pin: '', password: '' });
+  const [f, setF] = useState({ role: 'cashier', name: '', email: '', username: '', storeId: me.storeId || stores[0]?.id || '', pin: '', password: '' });
   const [err, setErr] = useState('');
   const [busy, run] = useBusy();
   const set = (k, digits) => (e) => setF({ ...f, [k]: digits ? e.target.value.replace(/\D/g, '') : e.target.value });
@@ -598,7 +649,7 @@ function AddUser({ me, stores, onClose, onDone }) {
     if (!f.name.trim()) return setErr('Nhập họ tên');
     if (!/^\d{4,6}$/.test(f.pin)) return setErr('PIN gồm 4–6 chữ số');
     if (isAdm && !strongPw(f.password)) return setErr('Mật khẩu tối thiểu 8 ký tự, có cả chữ và số');
-    const body = { role: f.role, name: f.name, pin: f.pin, email: f.email || undefined, storeId: f.role === 'chain_admin' ? undefined : f.storeId };
+    const body = { role: f.role, name: f.name, pin: f.pin, email: f.email || undefined, username: f.username.trim() || undefined, storeId: f.role === 'chain_admin' ? undefined : f.storeId };
     if (isAdm) body.password = f.password;
     const r = await run(async () => { try { return await api.post('/users', body); } catch (x) { setErr(x.message); throw x; } }, null);
     if (r) { toast(`Đã tạo tài khoản ${r.user.id}`, 'ok'); onDone(); onClose(); }
@@ -608,6 +659,7 @@ function AddUser({ me, stores, onClose, onDone }) {
     <${Field} label="Vai trò"><select class="input" value=${f.role} onChange=${set('role')} aria-label="Vai trò">${roles.map((r) => html`<option value=${r} key=${r}>${ROLE_VI[r]}</option>`)}</select><//>
     <${Field} label="Họ tên"><input class="input" value=${f.name} onInput=${set('name')} aria-label="Họ tên" autofocus/><//>
     ${f.role !== 'chain_admin' && chain && html`<${Field} label="Chi nhánh"><select class="input" value=${f.storeId} onChange=${set('storeId')} aria-label="Chi nhánh">${stores.map((s) => html`<option value=${s.id} key=${s.id}>${s.name}</option>`)}</select><//>`}
+    ${isAdm && chain && html`<${Field} label="Tên đăng nhập (tùy chọn)" hint="Dạng anh.dp: chữ thường không dấu, số, dấu chấm, gạch dưới. Không nhập thì đăng nhập bằng mã tài khoản hoặc email"><input class="input" value=${f.username} onInput=${set('username')} aria-label="Tên đăng nhập" autocapitalize="none" autocomplete="off"/><//>`}
     ${isAdm && html`<${Field} label="Email (dùng để đăng nhập quản trị)"><input class="input" type="email" value=${f.email} onInput=${set('email')} aria-label="Email"/><//>`}
     <${Field} label="Mã PIN (4–6 số)" hint=${isAdm ? 'PIN dùng cho ứng dụng nhân viên' : 'Nhân viên dùng PIN để đăng nhập ứng dụng thu ngân và cổng'}><input class="input" inputmode="numeric" type="password" autocomplete="new-password" maxlength="6" value=${f.pin} onInput=${set('pin', true)} aria-label="Mã PIN"/><//>
     ${isAdm && html`<${Field} label="Mật khẩu (tối thiểu 8 ký tự, có chữ và số)"><input class="input" type="password" autocomplete="new-password" value=${f.password} onInput=${set('password')} aria-label="Mật khẩu"/><//>`}
@@ -630,40 +682,104 @@ function ManageUser({ me, u, storeName, onClose, onDone, onMe }) {
   const doLock = async () => { const r = await run(async () => { await api.put(`/users/${u.id}`, { active: !u.active }); await done(); }, u.active ? 'Đã khóa tài khoản' : 'Đã mở khóa tài khoản'); if (r) onClose(); };
   const doPin = async (e) => { e.preventDefault(); setErr(''); if (!/^\d{4,6}$/.test(val)) return setErr('PIN gồm 4–6 chữ số');
     const r = await run(async () => { try { await api.post(`/users/${u.id}/reset-pin`, { pin: val }); } catch (x) { setErr(x.message); throw x; } }, 'Đã đặt lại PIN'); if (r) onClose(); };
+  const doUsername = async (e) => { e.preventDefault(); setErr('');
+    const r = await run(async () => { try { await api.put(`/users/${u.id}`, { username: val.trim() }); await done(); } catch (x) { setErr(x.message); throw x; } }, 'Đã lưu tên đăng nhập'); if (r) onClose(); };
   const doPw = async (e) => { e.preventDefault(); setErr(''); if (!strongPw(val)) return setErr('Mật khẩu tối thiểu 8 ký tự, có cả chữ và số');
     const r = await run(async () => { try { await api.post(`/users/${u.id}/reset-password`, { password: val }); } catch (x) { setErr(x.message); throw x; } }, 'Đã đặt lại mật khẩu'); if (r) onClose(); };
-  const totpOn = async () => { const r = await run(async () => { const x = await api.post(`/users/${u.id}/totp`, { enable: true }); await done(); if (self) onMe({ ...me, hasTotp: true }); return x; }); if (r && r !== true) setSecret(r); };
-  const totpOff = async () => { const r = await run(async () => { await api.post(`/users/${u.id}/totp`, { enable: false }); await done(); if (self) onMe({ ...me, hasTotp: false }); }, 'Đã tắt xác thực 2 bước'); if (r) { setMode(''); onClose(); } };
-  useEffect(() => { if (u.auto && !u.hasTotp) totpOn(); }, []);
-  if (secret) return html`<${Totp} secret=${secret} onClose=${onClose}/>`;
+  // Xác thực 2 bước: bắt đầu (chính chủ đang bật thì cần mã hiện tại) -> hiện QR -> nhập mã 6 số để xác nhận
+  const totpBegin = async (e) => {
+    e?.preventDefault(); setErr('');
+    const needCode = self && u.hasTotp;
+    if (needCode && !/^\d{6}$/.test(val)) return setErr('Nhập mã 6 số hiện tại trong app xác thực');
+    const r = await run(async () => { try { return await api.post(`/users/${u.id}/totp/begin`, needCode ? { currentCode: val } : {}); } catch (x) { setErr(x.message); throw x; } }, null);
+    if (r) { setSecret(r); setVal(''); setMode('totp-enroll'); }
+  };
+  const totpConfirm = async (e) => {
+    e.preventDefault(); setErr('');
+    if (!/^\d{6}$/.test(val)) return setErr('Mã xác thực gồm 6 chữ số');
+    const r = await run(async () => { try { await api.post(`/users/${u.id}/totp/confirm`, { confirmToken: secret.confirmToken, code: val }); await done(); if (self) onMe({ ...me, hasTotp: true }); return true; } catch (x) { setErr(x.message); throw x; } }, u.hasTotp ? 'Đã đổi thiết bị xác thực 2 bước' : 'Đã bật xác thực 2 bước');
+    if (r) { setSecret(null); onClose(); }
+  };
+  const totpOff = async (e) => {
+    e?.preventDefault(); setErr('');
+    const needCode = self && u.hasTotp;
+    if (needCode && !/^\d{6}$/.test(val)) return setErr('Nhập mã 6 số hiện tại trong app xác thực');
+    const r = await run(async () => { try { await api.post(`/users/${u.id}/totp`, { enable: false, code: needCode ? val : undefined }); await done(); if (self) onMe({ ...me, hasTotp: false }); return true; } catch (x) { setErr(x.message); throw x; } }, 'Đã gỡ xác thực 2 bước');
+    if (r) onClose();
+  };
+  // Vân tay / khuôn mặt (passkey)
+  const [keys, setKeys] = useState(null);
+  const loadKeys = async () => { try { setKeys((await api.get(`/users/${u.id}/passkeys`)).passkeys); } catch (x) { setErr(x.message); setKeys([]); } };
+  const addKey = async () => {
+    setErr('');
+    if (!window.PublicKeyCredential) return setErr('Trình duyệt này không hỗ trợ đăng nhập bằng vân tay hoặc khuôn mặt. Cần mở bằng https và trình duyệt mới.');
+    const r = await run(async () => {
+      try {
+        const o = await api.post('/passkeys/options', {});
+        const cred = await passkeyCreate(o.options);
+        return await api.post('/passkeys/register', { challengeToken: o.challengeToken, credential: cred, name: val.trim() || undefined });
+      } catch (x) { setErr(x.name === 'NotAllowedError' ? 'Đã hủy hoặc hết thời gian chờ xác minh trên thiết bị' : (x.message || 'Không đăng ký được')); throw x; }
+    }, 'Đã thêm thiết bị đăng nhập bằng vân tay / khuôn mặt');
+    if (r) { setKeys(r.passkeys); setVal(''); }
+  };
+  const delKey = async (id) => { await run(async () => { try { await api.del(`/users/${u.id}/passkeys/${id}`); } catch (x) { setErr(x.message); throw x; } await loadKeys(); }, 'Đã gỡ thiết bị'); };
+  useEffect(() => { if (u.auto && !u.hasTotp) totpBegin(); }, []);
   return html`<${Sheet} center onClose=${onClose}><div class="stack">
-    <div class="row"><div class="avatar">${u.name.slice(0, 1).toUpperCase()}</div><div class="grow"><h2>${u.name}</h2><div class="small muted">${u.id} · ${ROLE_VI[u.role]}${storeName ? ` · ${storeName}` : ''}</div></div></div>
+    <div class="row"><div class="avatar">${u.name.slice(0, 1).toUpperCase()}</div><div class="grow"><h2>${u.name}</h2><div class="small muted">${u.id}${u.username ? ` · ${u.username}` : ''} · ${ROLE_VI[u.role]}${storeName ? ` · ${storeName}` : ''}</div></div></div>
     ${mode === '' && html`<div class="stack">
       ${!self && html`<button class="btn line" onClick=${() => setMode('lock')}><${Icon} name="lock"/>${u.active ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}</button>`}
       <button class="btn line" onClick=${() => { setMode('pin'); setVal(''); setErr(''); }}><${Icon} name="kbd"/>Đặt lại mã PIN</button>
+      ${chain && isAdm && html`<button class="btn line" onClick=${() => { setMode('username'); setVal(u.username || ''); setErr(''); }}><${Icon} name="kbd"/>Đổi tên đăng nhập</button>`}
       ${chain && isAdm && html`<button class="btn line" onClick=${() => { setMode('pw'); setVal(''); setErr(''); }}><${Icon} name="lock"/>Đặt lại mật khẩu</button>`}
-      ${isAdm && (self || chain) && html`<button class="btn line" onClick=${() => (u.hasTotp ? setMode('totp-off') : totpOn())}><${Icon} name="shield"/>${u.hasTotp ? 'Tắt xác thực 2 bước' : 'Bật xác thực 2 bước'}</button>`}
+      ${isAdm && (self || chain) && html`<button class="btn line" onClick=${() => { setVal(''); setErr(''); if (u.hasTotp && self) setMode('totp-change'); else totpBegin(); }}><${Icon} name="shield"/>${u.hasTotp ? 'Đổi thiết bị xác thực 2 bước' : 'Bật xác thực 2 bước'}</button>`}
+      ${isAdm && (self || chain) && u.hasTotp && html`<button class="btn line" onClick=${() => { setVal(''); setErr(''); setMode('totp-off'); }}><${Icon} name="shield"/>Gỡ xác thực 2 bước</button>`}
+      ${isAdm && (self || chain) && html`<button class="btn line" onClick=${() => { setVal(''); setErr(''); setMode('passkeys'); loadKeys(); }}><${Icon} name="kbd"/>Vân tay / khuôn mặt</button>`}
       <button class="btn txt" onClick=${onClose}>Đóng</button></div>`}
     ${mode === 'lock' && html`<div class="stack"><p class="muted">${u.active ? `${u.name} sẽ không đăng nhập được cho đến khi mở khóa.` : `${u.name} sẽ đăng nhập lại được.`}</p>
       <button class=${`btn ${u.active ? 'danger' : 'primary'}`} disabled=${busy} onClick=${doLock}>${u.active ? 'Khóa tài khoản' : 'Mở khóa'}</button><button class="btn txt" onClick=${() => setMode('')}>Quay lại</button></div>`}
     ${mode === 'pin' && html`<form class="stack" onSubmit=${doPin}><${Field} label="Mã PIN mới (4–6 số)" error=${err}><input class="input" inputmode="numeric" type="password" autocomplete="new-password" maxlength="6" value=${val} onInput=${(e) => setVal(e.target.value.replace(/\D/g, ''))} aria-label="Mã PIN mới" autofocus/><//>
       <button class="btn primary" type="submit" disabled=${busy}>Đặt lại PIN</button><button class="btn txt" type="button" onClick=${() => setMode('')}>Quay lại</button></form>`}
+    ${mode === 'username' && html`<form class="stack" onSubmit=${doUsername}><${Field} label="Tên đăng nhập" error=${err} hint="Dạng anh.dp: chữ thường không dấu, số, dấu chấm, gạch dưới, gạch ngang (3–40 ký tự). Để trống nếu muốn bỏ tên đăng nhập"><input class="input" value=${val} onInput=${(e) => setVal(e.target.value)} aria-label="Tên đăng nhập" autocapitalize="none" autocomplete="off" autofocus/><//>
+      <button class="btn primary" type="submit" disabled=${busy}>Lưu tên đăng nhập</button><button class="btn txt" type="button" onClick=${() => setMode('')}>Quay lại</button></form>`}
     ${mode === 'pw' && html`<form class="stack" onSubmit=${doPw}><${Field} label="Mật khẩu mới" error=${err} hint="Tối thiểu 8 ký tự, có chữ và số"><input class="input" type="password" autocomplete="new-password" value=${val} onInput=${(e) => setVal(e.target.value)} aria-label="Mật khẩu mới" autofocus/><//>
       <button class="btn primary" type="submit" disabled=${busy}>Đặt lại mật khẩu</button><button class="btn txt" type="button" onClick=${() => setMode('')}>Quay lại</button></form>`}
-    ${mode === 'totp-off' && html`<div class="stack"><p class="muted">Sau khi tắt, ${self ? 'bạn' : u.name} chỉ cần mật khẩu để đăng nhập quản trị. Nên giữ xác thực 2 bước vì tài khoản này xem được doanh thu và tiền thu.</p>
-      <button class="btn danger" disabled=${busy} onClick=${totpOff}>Tắt xác thực 2 bước</button><button class="btn txt" onClick=${() => setMode('')}>Quay lại</button></div>`}
+    ${mode === 'totp-change' && html`<form class="stack" onSubmit=${totpBegin}><p class="muted">Để đổi sang điện thoại hoặc app xác thực mới, nhập mã 6 số đang hiện trong app xác thực hiện tại.</p>
+      <${Field} label="Mã 6 số hiện tại" error=${err}><input class="input big" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value=${val} onInput=${(e) => setVal(e.target.value.replace(/\D/g, ''))} aria-label="Mã 6 số hiện tại" autofocus/><//>
+      <button class="btn primary" type="submit" disabled=${busy}>Tiếp tục</button><button class="btn txt" type="button" onClick=${() => setMode('')}>Quay lại</button></form>`}
+    ${mode === 'totp-enroll' && secret && html`<form class="stack" onSubmit=${totpConfirm}>
+      <${Banner} tone="" title="Quét mã bằng app xác thực mới">Quét QR hoặc nhập mã bí mật, rồi nhập mã 6 số đang hiện trong app để xác nhận. Chỉ sau khi xác nhận thì thiết bị mới có hiệu lực, mã cũ (nếu có) mới ngừng dùng được.<//>
+      <div class="qrbox qrbig"><${QR} text=${secret.uri} label="Mã QR thiết lập xác thực 2 bước"/></div>
+      <div class="field"><label>Hoặc nhập mã bí mật thủ công</label><div class="secret" id="totp-secret">${secret.secret}</div></div>
+      <button class="btn line sm" type="button" onClick=${() => copyText(secret.secret)}><${Icon} name="copy"/>Sao chép mã bí mật</button>
+      <${Field} label="Mã 6 số trong app" error=${err}><input class="input big" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value=${val} onInput=${(e) => setVal(e.target.value.replace(/\D/g, ''))} aria-label="Mã xác thực" autofocus/><//>
+      <button class="btn primary" type="submit" disabled=${busy}>Xác nhận</button><button class="btn txt" type="button" onClick=${() => { setSecret(null); setMode(''); setErr(''); }}>Hủy</button></form>`}
+    ${mode === 'totp-off' && html`<form class="stack" onSubmit=${totpOff}><p class="muted">Sau khi gỡ, ${self ? 'bạn' : u.name} chỉ cần mật khẩu để đăng nhập quản trị. Nên giữ xác thực 2 bước vì tài khoản này xem được doanh thu và tiền thu. Nếu hệ thống đang bắt buộc xác thực 2 bước (Chính sách bảo mật) thì cần tắt chính sách trước.</p>
+      ${self && u.hasTotp && html`<${Field} label="Mã 6 số hiện tại" error=${err}><input class="input big" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value=${val} onInput=${(e) => setVal(e.target.value.replace(/\D/g, ''))} aria-label="Mã 6 số hiện tại" autofocus/><//>`}
+      ${(!self || !u.hasTotp) && err && html`<div class="errtext" role="alert">${err}</div>`}
+      <button class="btn danger" type="submit" disabled=${busy}>Gỡ xác thực 2 bước</button><button class="btn txt" type="button" onClick=${() => setMode('')}>Quay lại</button></form>`}
+    ${mode === 'passkeys' && html`<div class="stack"><p class="muted">Đăng nhập nhanh bằng vân tay, khuôn mặt hoặc mã khóa màn hình của thiết bị, không cần mật khẩu. Mỗi thiết bị cần đăng ký một lần ngay trên thiết bị đó (cần mở bằng https).</p>
+      ${keys === null ? html`<${Spinner}/>` : keys.length ? html`<div class="stack" style="gap:8px">${keys.map((k) => html`<div class="row" key=${k.id} style="gap:8px"><div class="grow"><b>${k.name}</b><div class="xs muted">Thêm ${fmt.dateTime(k.createdAt)}${k.lastUsedAt ? ` · dùng gần nhất ${fmt.dateTime(k.lastUsedAt)}` : ' · chưa dùng'}</div></div>
+        <button class="btn sm line" disabled=${busy} onClick=${() => delKey(k.id)} aria-label=${`Gỡ ${k.name}`}>Gỡ</button></div>`)}</div>` : html`<div class="small muted">Chưa có thiết bị nào.</div>`}
+      ${self && html`<${Field} label="Tên thiết bị (tùy chọn)"><input class="input" value=${val} onInput=${(e) => setVal(e.target.value)} placeholder="Ví dụ: iPhone của Anh" aria-label="Tên thiết bị"/><//>
+        <button class="btn primary" disabled=${busy} onClick=${addKey}>Thêm thiết bị này (vân tay / khuôn mặt)</button>`}
+      ${!self && html`<div class="small muted">Thiết bị chỉ do chính chủ thêm trên thiết bị của họ. Quản trị chuỗi gỡ được khi mất thiết bị.</div>`}
+      ${err && html`<div class="errtext" role="alert">${err}</div>`}
+      <button class="btn txt" onClick=${() => { setMode(''); setErr(''); }}>Quay lại</button></div>`}
   </div><//>`;
 }
 
-function Totp({ secret, onClose }) {
-  return html`<${Sheet} center onClose=${onClose}><div class="stack">
-    <h2>Quét mã bằng app xác thực</h2>
-    <${Banner} tone="" title="Mã bí mật chỉ hiện một lần">Hãy quét QR hoặc lưu mã bên dưới ngay. Đóng hộp này là không xem lại được; muốn xem lại phải tạo mã mới.<//>
-    <div class="qrbox qrbig"><${QR} text=${secret.uri} label="Mã QR thiết lập xác thực 2 bước"/></div>
-    <div class="field"><label>Hoặc nhập mã bí mật thủ công</label><div class="secret" id="totp-secret">${secret.secret}</div></div>
-    <button class="btn line" onClick=${() => copyText(secret.secret)}><${Icon} name="copy"/>Sao chép mã bí mật</button>
-    <div class="hint">Lần đăng nhập tới, bạn sẽ nhập thêm mã 6 số từ app (Google Authenticator, Microsoft Authenticator, Authy…).</div>
-    <button class="btn primary" onClick=${onClose}>Tôi đã lưu xong</button></div><//>`;
+// ---- Chính sách bảo mật đăng nhập (quản trị chuỗi) ----
+function SecurityPolicyCard() {
+  const st = useAsync(() => api.get('/security'), []);
+  const [busy, run] = useBusy();
+  const d = st.data?.policy;
+  if (!d) return html`<div class="card"><${Spinner}/></div>`;
+  const set = (k, v) => run(async () => { await api.put('/security', { [k]: v }); await st.reload(); }, 'Đã lưu chính sách bảo mật');
+  return html`<div class="card"><div class="cardhead"><div class="ico-tile green"><${Icon} name="lock"/></div><div class="grow"><h2>Chính sách bảo mật đăng nhập</h2>
+    <div class="small muted">Áp dụng cho mọi tài khoản quản trị. Đăng nhập bằng vân tay / khuôn mặt (passkey) đã gồm xác minh người dùng nên không cần mã hình và mã 2 bước.</div></div></div>
+    <div class="row" style="margin:8px 0"><${Switch} checked=${d.require2fa} label="Bắt buộc xác thực 2 bước" onChange=${(v) => set('require2fa', v)}/><span><b>Bắt buộc xác thực 2 bước</b><div class="xs muted">Bật: tài khoản chưa có 2 bước phải thiết lập ngay khi đăng nhập, và không ai gỡ được 2 bước. Tắt: ai cũng gỡ hoặc không dùng 2 bước được.</div></span></div>
+    <div class="row" style="margin:8px 0"><${Switch} checked=${d.requireCaptcha} label="Bắt buộc mã hình 4 số khi đăng nhập" onChange=${(v) => set('requireCaptcha', v)}/><span><b>Bắt buộc mã hình 4 số khi đăng nhập</b><div class="xs muted">Hạn chế chương trình tự dò mật khẩu. Mỗi hình chỉ thử được một lần.</div></span></div>
+    <div class="row" style="margin:8px 0"><${Switch} checked=${d.singleSession} label="Mỗi tài khoản chỉ đăng nhập một thiết bị" onChange=${(v) => set('singleSession', v)}/><span><b>Mỗi tài khoản chỉ đăng nhập một thiết bị</b><div class="xs muted">Bật: đăng nhập ở thiết bị mới phải xác nhận và sẽ đăng xuất thiết bị đang dùng. Tắt: nhiều thiết bị dùng cùng lúc được.</div></span></div></div>`;
 }
 
 export function Users({ me, stores, onMe }) {
@@ -674,13 +790,15 @@ export function Users({ me, stores, onMe }) {
   const mine = st.data?.users.find((u) => u.id === me.id);
   return html`<div class="stack-lg"><${PageHead} title="Tài khoản & phân quyền" sub=${me.role === 'chain_admin' ? 'Quản lý quản trị viên và nhân viên của cả chuỗi' : 'Quản lý nhân viên của chi nhánh'}>
       <button class="btn sm primary" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${18}/>Thêm tài khoản</button><//>
-    <div class="card"><div class="cardhead"><div class="ico-tile green"><${Icon} name="shield"/></div><div class="grow"><h2>Xác thực 2 bước của tôi</h2>
+    ${me.role === 'chain_admin' && html`<${SecurityPolicyCard}/>`}
+    <div class="card"><div class="cardhead"><div class="ico-tile green"><${Icon} name="shield"/></div><div class="grow"><h2>Bảo mật đăng nhập của tôi</h2>
       <div class="small muted">${me.hasTotp ? 'Đang bật: khi đăng nhập cần thêm mã 6 số từ app xác thực.' : 'Chưa bật. Nên bật vì tài khoản quản trị xem được doanh thu và tiền thu.'}</div></div>
       <${Pill} tone=${me.hasTotp ? 'ok' : 'warn'}>${me.hasTotp ? 'Đã bật' : 'Chưa bật'}<//>
-      ${mine && html`<button class="btn sm line" onClick=${() => setSel(me.hasTotp ? mine : { ...mine, auto: true })}>${me.hasTotp ? 'Quản lý' : 'Bật xác thực 2 bước'}</button>`}</div></div>
+      ${mine && !me.hasTotp && html`<button class="btn sm primary" onClick=${() => setSel({ ...mine, auto: true })}>Bật xác thực 2 bước</button>`}
+      ${mine && html`<button class="btn sm line" onClick=${() => setSel(mine)}>Quản lý bảo mật</button>`}</div></div>
     <${Async} state=${st}>${(d) => html`
       <div class="card"><h2>Tài khoản</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Mã</th><th>Họ tên</th><th>Vai trò</th><th>Chi nhánh</th><th>Trạng thái</th><th></th></tr></thead>
-        <tbody>${d.users.map((u) => html`<tr key=${u.id} class=${u.active ? '' : 'dim'}><td><b>${u.id}</b></td><td>${u.name}${u.email && html`<div class="sub">${u.email}</div>`}</td><td>${ROLE_VI[u.role] || u.role}</td><td>${sname(u.storeId)}</td>
+        <tbody>${d.users.map((u) => html`<tr key=${u.id} class=${u.active ? '' : 'dim'}><td><b>${u.id}</b></td><td>${u.name}${u.username && html`<div class="sub">${u.username}</div>`}${u.email && html`<div class="sub">${u.email}</div>`}</td><td>${ROLE_VI[u.role] || u.role}</td><td>${sname(u.storeId)}</td>
           <td>${u.active ? html`<${Pill} tone="ok">Hoạt động<//>` : html`<${Pill} tone="err">Đã khóa<//>`} ${u.hasTotp && html`<${Pill} tone="info">2FA<//>`}</td>
           <td><button class="btn sm line" onClick=${() => setSel(u)} aria-label=${`Quản lý ${u.name}`}>Quản lý</button></td></tr>`)}</tbody></table></div></div>
       <div class="card"><h2>Phân quyền theo vai trò</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Chức năng</th><th class="tc">Quản trị chuỗi</th><th class="tc">Quản trị chi nhánh</th><th class="tc">Thu ngân</th><th class="tc">Cổng</th></tr></thead>

@@ -691,7 +691,7 @@ test('bill: POS chỉ gửi mã hàng, số lượng, thành tiền thì hệ th
   const tx = (await call(app, 'POST', `/api/c/sessions/${s.body.session.id}/basket`, { body: { ref: 'Q7-LINES234' } })).body.transaction;
   const base = { pointCode: 'SP-Q7', posOrderRef: 'P-L', amount: 50000, method: 'cash' };
   assert.equal((await pos(app, key, 'POST', '/baskets/Q7-LINES234/paid', { ...base, lines: [{ qty: 2, lineTotal: 50000 }] })).status, 400); // không có mã hàng, không có tên
-  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-LINES234/paid', { ...base, lines: [{ barcode: bcSua, qty: 2 }] })).status, 400); // thiếu thành tiền
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-LINES234/paid', { ...base, lines: [{ barcode: bcSua, qty: 0, lineTotal: 1 }] })).status, 400); // số lượng 0 (thành tiền không còn bắt buộc)
   const ok = await pos(app, key, 'POST', '/baskets/Q7-LINES234/paid', { ...base, lines: [{ barcode: bcSua, qty: 2, lineTotal: 50000 }, { barcode: '8930000000000', qty: 1, lineTotal: 1000, discount: 500 }] });
   assert.equal(ok.status, 200, JSON.stringify(ok.body));
   const bill = (await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill;
@@ -1089,5 +1089,41 @@ test('phiên bản: số sau chạy 0 đến 9 rồi số trước tăng, hiện
   const app = await makeApp({ basket: true });
   const h = await call(app, 'GET', '/api/health');
   assert.equal(h.body.version, appVersion()); assert.match(h.body.version, /^\d+\.\d$/);
+  await app.close();
+});
+
+test('giỏ QR: GET có idx và sku; update dạng thay đổi (sku, qty, add/remove); paid chỉ gửi sku và qty, bill tạm tính theo giá BRG và có dòng điều chỉnh', async () => {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  const id = s.body.session.id;
+  await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [
+    { id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }, { id: 'a2', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') },
+    { id: 'b', type: 'scan', barcode: barcodeOf(app, 'Q7', 'MI01') }] } });
+  const code = 'Q7-SKU23456';
+  const lk = await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: code } });
+  assert.equal(lk.status, 200, JSON.stringify(lk.body));
+  const g = (await pos(app, key, 'GET', `/baskets/${code}?pointCode=SP-Q7`)).body;
+  assert.deepEqual(g.items.map((i) => i.idx), [1, 2]);
+  assert.ok(g.items.every((i) => i.sku && i.barcode && i.priced === true));
+  const sua = g.items.find((i) => i.sku === 'SUA01'), mi = g.items.find((i) => i.sku === 'MI01');
+  assert.equal(sua.qty, 2);
+  const base = { pointCode: 'SP-Q7', posOrderRef: 'POS-77' };
+  // thay đổi: bớt 1 sữa, thêm 1 mì, thêm 1 mặt hàng chưa quét; thiếu op thì 400
+  assert.equal((await pos(app, key, 'POST', `/baskets/${code}/update`, { ...base, changes: [{ sku: 'SUA01', qty: 1 }] })).status, 400);
+  const up = await pos(app, key, 'POST', `/baskets/${code}/update`, { ...base, changes: [{ sku: 'SUA01', qty: 1, op: 'remove' }, { sku: 'MI01', qty: 1, op: 'add' }] });
+  assert.equal(up.status, 200, JSON.stringify(up.body));
+  assert.equal(up.body.itemCount, 3);
+  assert.equal(up.body.differsFromPhone, true);
+  // paid chỉ có sku và qty
+  const paid = await pos(app, key, 'POST', `/baskets/${code}/paid`, { ...base, amount: 100000, method: 'cash', lines: [{ sku: 'SUA01', qty: 1 }, { sku: 'MI01', qty: 2 }] });
+  assert.equal(paid.status, 200, JSON.stringify(paid.body));
+  const tx = (await call(app, 'GET', `/api/c/sessions/${id}`)).body.session.transaction;
+  const bill = (await call(app, 'GET', `/api/c/transactions/${tx.id}/bill`)).body.bill;
+  assert.equal(bill.provisional, false);
+  assert.equal(bill.total, 100000);
+  assert.equal(bill.lines.reduce((a, l) => a + l.lineTotal, 0) + bill.adjustment, 100000);
+  assert.deepEqual(bill.lines.map((l) => [l.sku, l.qty]), [['SUA01', 1], ['MI01', 2]]);
   await app.close();
 });

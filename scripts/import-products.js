@@ -16,7 +16,7 @@ const sep = lines[0].includes(';') && !lines[0].includes(',') ? ';' : ',';
 const split = (l) => { const out = []; let cur = '', q = false; for (const ch of l) { if (ch === '"') q = !q; else if (ch === sep && !q) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out.map((x) => x.trim()); };
 const head = split(lines[0]).map((h) => h.toLowerCase());
 for (const need of ['store', 'sku', 'barcode', 'name', 'price']) if (!head.includes(need)) { console.error(`Thiếu cột "${need}"`); process.exit(1); }
-const db = openDb(config.dbFile);
+const db = openDb(config.db);
 const stores = new Set(db.prepare('SELECT id FROM stores').all().map((r) => r.id));
 const now = new Date().toISOString();
 const rows = []; const errors = [];
