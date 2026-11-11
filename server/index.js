@@ -1,3 +1,4 @@
+import { runStockSyncIfDue } from './services/stock-api.js';
 import { buildApp } from './app.js';
 import { config } from './config.js';
 import { retryPendingInvoices } from './services/invoice.js';
@@ -17,6 +18,8 @@ if (process.env.RUN_JOBS !== '0') {
   const tick = () => { try { pos.syncAll(); } catch (e) { app.log.error(e, 'Đồng bộ Dsmart POS lỗi'); } };
   tick();
   timers.push(setInterval(tick, syncEvery));
+  // Đồng bộ tồn kho từ API đối tác theo chu kỳ cấu hình (mỗi phút kiểm tra đã đến hạn chưa).
+  timers.push(setInterval(() => runStockSyncIfDue(app.ctx).catch((e) => app.log.error(e, 'Đồng bộ tồn kho lỗi')), 60_000));
   // Thử lại hóa đơn điện tử còn treo.
   timers.push(setInterval(() => retryPendingInvoices(db, app.ctx.invoicer).catch((e) => app.log.error(e)), 120_000));
   // Thử lại gửi bill qua email khi lần đầu lỗi.

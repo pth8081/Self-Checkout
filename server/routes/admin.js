@@ -4,6 +4,7 @@ import { previewErase, eraseCustomer } from '../services/privacy.js';
 import { readPoints, matchPoints, applyPoints } from '../services/points.js';
 import { exportStores, readStores, planStores, applyStores, TEMPLATE_CSV } from '../services/stores-file.js';
 import { priceConfig, savePriceConfig, callPriceApi } from '../services/price-api.js';
+import { stockConfig, saveStockConfig, testStockApi, runStockSync, stockStatus, lookupStock } from '../services/stock-api.js';
 import { retentionConfig, validateRetention, runRetention, RETENTION_KEY, RETENTION_DEFAULTS } from '../services/retention.js';
 import { publicSettings, saveSettings, SECURE_MODES, TLS_MODES, explainMailError } from '../services/mailer.js';
 import { cartDiffOf } from '../services/bill.js';
@@ -341,6 +342,23 @@ export default async function adminRoutes(app) {
     });
 
     // ---------------- API giá bán của đối tác ----------------
+    // ---------------- API tồn kho của đối tác (đồng bộ định kỳ, kiểm tra, đối chiếu) ----------------
+    s.get('/integrations/stock-api', async (req) => { chainOnly(req); return { config: stockConfig(db), lastError: ctx.stockError || null, ...stockStatus(db) }; });
+    s.put('/integrations/stock-api', async (req) => {
+      chainOnly(req);
+      const r = saveStockConfig(db, req.body || {});
+      if (r.error) throw bad('BAD_STOCK_API', r.error);
+      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'stock_api.configured', entity: 'settings', entityId: 'stock_api', data: { enabled: r.config.enabled, intervalMin: r.config.intervalMin } });
+      return r;
+    });
+    s.post('/integrations/stock-api/test', async (req) => { chainOnly(req); return testStockApi(db, ctx.fetchImpl || fetch); });
+    s.post('/integrations/stock-api/run', async (req) => {
+      chainOnly(req);
+      const r = await runStockSync(ctx, { fetchImpl: ctx.fetchImpl || fetch, trigger: 'manual' });
+      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'stock_api.run', entity: 'settings', entityId: 'stock_api', data: { ok: r.ok, rows: r.rows, written: r.written, error: r.error || null } });
+      return r;
+    });
+    s.get('/integrations/stock-api/lookup', async (req) => { chainOnly(req); return { rows: lookupStock(db, req.query.q) }; });
     s.get('/integrations/price-api', async (req) => {
       chainOnly(req);
       return { config: priceConfig(db), lastError: ctx.priceError || null, points: db.prepare('SELECT COUNT(*) n FROM price_points').get().n };

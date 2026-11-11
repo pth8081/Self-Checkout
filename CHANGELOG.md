@@ -2,6 +2,10 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 2.1 (2026-11-11)
+
+- Đồng bộ tồn kho từ API tồn kho của đối tác: cấu hình, chạy định kỳ, kiểm tra kết nối, kết quả từng lần, bảng theo chi nhánh, đối chiếu mặt hàng
+
 ## 2.0 (2026-11-11)
 
 - Quản trị bắt buộc xác thực 2 bước khi đăng nhập (REQUIRE_ADMIN_2FA); chi nhánh: nhập file, xuất file, tải file mẫu CSV; hộp thoại không đóng khi kéo chuột ra ngoài
