@@ -73,6 +73,44 @@ function AddStore({ onClose, onDone }) {
     <button class="btn txt" type="button" onClick=${onClose}>Hủy</button></form><//>`;
 }
 
+const ST_STATUS = { new: ['Sẽ thêm', 'ok'], update: ['Sẽ cập nhật', 'ok'], same: ['Không đổi', ''], bad: ['Dòng sai', 'err'], dup: ['Lặp trong file', 'err'], clash: ['Trùng mã điểm', 'err'] };
+const downloadCsv = (r) => saveBlob(new Blob([r.csv], { type: 'text/csv;charset=utf-8' }), r.filename);
+
+// ---- Nhập chi nhánh từ file CSV: chọn file, xem trước, áp dụng ----
+function ImportStores({ onClose, onDone }) {
+  const [text, setText] = useState('');
+  const [fname, setFname] = useState('');
+  const [pv, setPv] = useState(null);
+  const [err, setErr] = useState('');
+  const [busy, run] = useBusy();
+  const pick = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setErr(''); setPv(null); setFname(file.name);
+    try {
+      const t = await file.text(); setText(t);
+      await run(async () => { try { setPv(await api.post('/stores/import/preview', { text: t })); } catch (x) { setErr(x.message); throw x; } });
+    } catch (x) { setErr(x.message || 'Không đọc được file'); }
+  };
+  const apply = async () => {
+    const r = await run(async () => { try { return await api.post('/stores/import/apply', { text }); } catch (x) { setErr(x.message); throw x; } }, null);
+    if (r) { toast(`Đã thêm ${r.created}, cập nhật ${r.updated} chi nhánh`, 'ok'); onDone(); onClose(); }
+  };
+  const sm = pv?.summary;
+  return html`<${Sheet} center wide onClose=${onClose}><div class="stack">
+    <h2>Nhập chi nhánh từ file</h2>
+    <p class="small muted">File CSV (UTF-8, Excel lưu được) có các cột: Mã chi nhánh, Tên chi nhánh, Địa chỉ, Mã điểm. Mã chi nhánh chưa có thì thêm mới (ở trạng thái tắt), đã có thì cập nhật tên, địa chỉ, mã điểm; ô để trống thì giữ nguyên. Chưa có file thì bấm "Tải file mẫu".</p>
+    <input type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" onChange=${pick} aria-label="Chọn file chi nhánh"/>${fname && html`<span class="small muted">${fname}</span>`}
+    ${err && html`<div class="errtext" role="alert">${err}</div>`}
+    ${pv && html`<div class="small">Đọc ${sm.total} dòng: ${['new', 'update', 'same', 'bad', 'dup', 'clash'].filter((k) => sm[k]).map((k) => `${sm[k]} ${ST_STATUS[k][0].toLowerCase()}`).join(', ')}.</div>
+      <div class="tblwrap" style="max-height:280px;overflow:auto"><table class="tbl"><thead><tr><th>Dòng</th><th>Mã</th><th>Tên</th><th>Mã điểm</th><th>Kết quả</th></tr></thead>
+        <tbody>${pv.rows.slice(0, 300).map((r) => html`<tr key=${r.line}><td>${r.line}</td><td><b>${r.id || '–'}</b></td><td>${r.name ?? r.storeName ?? '–'}</td><td>${r.posCode || '–'}</td>
+          <td><${Pill} tone=${ST_STATUS[r.status][1]}>${ST_STATUS[r.status][0]}<//>${r.note ? html` <span class="xs muted">${r.note}</span>` : ''}</td></tr>`)}</tbody></table></div>
+      ${pv.rows.length > 300 && html`<div class="xs muted">Chỉ hiện 300 dòng đầu, khi áp dụng sẽ xử lý toàn bộ file.</div>`}
+      <button class="btn primary" disabled=${busy || !(sm.new || sm.update)} onClick=${apply}>${busy ? html`<${Spinner} sm/>` : `Áp dụng: thêm ${sm.new || 0}, cập nhật ${sm.update || 0}`}</button>
+      ${(sm.bad || sm.dup || sm.clash) ? html`<div class="xs muted">Dòng sai, lặp hoặc trùng mã điểm sẽ được bỏ qua.</div>` : ''}`}
+    <button class="btn txt" type="button" onClick=${onClose}>Đóng</button></div><//>`;
+}
+
 export function Stores({ me, reloadStores, setStoreId }) {
   const chain = me.role === 'chain_admin';
   const st = useAsync(() => api.get('/stores'), []);
@@ -80,8 +118,10 @@ export function Stores({ me, reloadStores, setStoreId }) {
   const [msg, setMsg] = useState(null); // { code, message, store }
   const [qr, setQr] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [ask, setAsk] = useState(null); // { kind: 'source'|'guard', s, value }
   const refresh = async () => { await st.reload(); reloadStores(); };
+  const file = async (path) => { try { downloadCsv(await api.get(path)); } catch (x) { toast(x.message || 'Không tải được file', 'err'); } };
   const toggle = async (key, path, body, okMsg = 'Đã lưu') => {
     if (busyKey) return false;
     setBusyKey(key); setMsg(null);
@@ -103,7 +143,10 @@ export function Stores({ me, reloadStores, setStoreId }) {
   };
   return html`<div class="stack-lg">
     <${PageHead} title="Chi nhánh & tính năng" sub=${chain ? 'Bật hoặc tắt Scan & Checkout, cách thu tiền, bảo vệ cổng ra và từng cách thanh toán cho từng chi nhánh. Thay đổi có hiệu lực ngay.' : 'Cấu hình hiện tại của chi nhánh. Chỉ quản trị chuỗi mới được thay đổi.'}>
-      ${chain && html`<button class="btn sm primary" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${18}/>Thêm chi nhánh</button>`}<//>
+      ${chain && html`<button class="btn sm line" onClick=${() => setImporting(true)}>Nhập file</button>
+      <button class="btn sm line" onClick=${() => file('/stores/export')}>Xuất file</button>
+      <button class="btn sm line" onClick=${() => file('/stores/template')}>Tải file mẫu</button>
+      <button class="btn sm primary" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${18}/>Thêm chi nhánh</button>`}<//>
     ${!chain && html`<${Banner} tone="info" icon="lock" title="Chỉ xem">Các nút bên dưới bị khóa. Hãy nhờ quản trị chuỗi nếu cần đổi cách thu tiền hoặc bảo vệ cổng ra.<//>`}
     ${msg && html`<${Banner} tone="err" title="Chưa lưu được"><span role="alert">${msg.message}</span>
       ${msg.code === 'NO_POS_KEY' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => go('/integrations')}><${Icon} name="link" size=${18}/>Đi tới mục Tích hợp để tạo khóa</button></div>`}
@@ -139,6 +182,7 @@ export function Stores({ me, reloadStores, setStoreId }) {
       <p class="small muted">Bật lại sau này sẽ chỉ áp dụng cho các giao dịch mới.</p><//>`}
     ${qr && html`<${GateQr} s=${qr} onClose=${() => setQr(null)}/>`}
     ${adding && html`<${AddStore} onClose=${() => setAdding(false)} onDone=${refresh}/>`}
+    ${importing && html`<${ImportStores} onClose=${() => setImporting(false)} onDone=${refresh}/>`}
   </div>`;
 }
 

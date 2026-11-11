@@ -145,6 +145,7 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .sheet { background: var(--card); width: 100%; max-width: 560px; border-radius: 28px 28px 0 0; padding: 12px 20px calc(20px + var(--safe-b)); display: flex; flex-direction: column; gap: 14px; max-height: 92vh; overflow: auto; animation: rise .2s; }
 .sheet::before { content: ""; width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 0 auto 4px; flex: none; }
 .overlay.center { align-items: center; padding: 16px; } .overlay.center .sheet { border-radius: 28px; max-width: 460px; }
+.overlay.center .sheet.wide { max-width: 780px; }
 .overlay.center .sheet::before { display: none; }
 @keyframes rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } } @keyframes fade { from { opacity: 0; } }
 .toasts { position: fixed; left: 12px; right: 12px; bottom: calc(96px + var(--safe-b)); z-index: 80; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }

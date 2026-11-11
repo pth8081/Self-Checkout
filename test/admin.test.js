@@ -179,3 +179,60 @@ test('tên đăng nhập kiểu AD (anh.dp): đặt được, đăng nhập bằ
   assert.equal((await call(app, 'PUT', `/api/a/users/${id}`, { token: admin, body: { username: '' } })).body.user.username, null);
   await app.close();
 });
+
+test('bắt buộc xác thực 2 bước: đăng nhập lần đầu phải thiết lập, sai mã không vào được, lần sau cần mã, không tắt được', async () => {
+  process.env.REQUIRE_ADMIN_2FA = '1';
+  try {
+    const app = await makeApp();
+    const first = await call(app, 'POST', '/api/a/login', { body: { account: 'QT0001', password: 'Admin@123' } });
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.equal(first.body.mfaSetup, true);
+    assert.ok(first.body.secret && first.body.uri.startsWith('otpauth://') && first.body.confirmToken);
+    assert.equal(first.body.token, undefined); // chưa có phiên đăng nhập
+    const bad = await call(app, 'POST', '/api/a/login/2fa-confirm', { body: { confirmToken: first.body.confirmToken, code: '000000' } });
+    assert.equal(bad.body.error, 'BAD_TOTP');
+    assert.equal((await call(app, 'POST', '/api/a/login/2fa-confirm', { body: { confirmToken: 'rac', code: '123456' } })).status, 401);
+    const ok = await call(app, 'POST', '/api/a/login/2fa-confirm', { body: { confirmToken: first.body.confirmToken, code: totpNow(first.body.secret) } });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    assert.ok(ok.body.token);
+    // lần sau: cần mã
+    const next = await call(app, 'POST', '/api/a/login', { body: { account: 'QT0001', password: 'Admin@123' } });
+    assert.equal(next.body.error, 'TOTP_REQUIRED');
+    const in2 = await call(app, 'POST', '/api/a/login', { body: { account: 'QT0001', password: 'Admin@123', totp: totpNow(first.body.secret) } });
+    assert.equal(in2.status, 200);
+    // không tắt được; xác nhận lại với mã thiết lập cũ thì báo đã bật
+    const off = await call(app, 'POST', '/api/a/users/QT0001/totp', { token: in2.body.token, body: { enable: false } });
+    assert.equal(off.body.error, 'TOTP_REQUIRED');
+    assert.equal((await call(app, 'POST', '/api/a/login/2fa-confirm', { body: { confirmToken: first.body.confirmToken, code: totpNow(first.body.secret) } })).body.error, 'ALREADY_2FA');
+    await app.close();
+  } finally { process.env.REQUIRE_ADMIN_2FA = '0'; }
+});
+
+test('chi nhánh: tải file mẫu, xuất file, nhập file (xem trước rồi áp dụng), dòng sai và mã điểm trùng bị chặn, chỉ quản trị chuỗi', async () => {
+  const app = await makeApp();
+  const admin = (await adminLogin(app)).body.token;
+  const tpl = await call(app, 'GET', '/api/a/stores/template', { token: admin });
+  assert.equal(tpl.status, 200);
+  assert.match(tpl.body.csv, /Mã chi nhánh,Tên chi nhánh,Địa chỉ,Mã điểm/);
+  const exp = await call(app, 'GET', '/api/a/stores/export', { token: admin });
+  assert.match(exp.body.csv, /Q7,/);
+  // file mẫu nhập lại được
+  const pv0 = await call(app, 'POST', '/api/a/stores/import/preview', { token: admin, body: { text: tpl.body.csv } });
+  assert.equal(pv0.status, 200, JSON.stringify(pv0.body));
+  const csv = ['Mã chi nhánh;Tên chi nhánh;Địa chỉ;Mã điểm', 'ZZ1;Chi nhánh Z1;1 Đường A;SP-ZZ1', 'zz2;Chi nhánh Z2;;SP-ZZ2', 'ZZ3;;;', 'Q7;Quận 7 mới;;', 'ZZ1;Lặp;;', 'ZZ4;Chi nhánh Z4;;SP-ZZ1', 'ABCDEFGH;Dài;;'].join('\n');
+  const pv = await call(app, 'POST', '/api/a/stores/import/preview', { token: admin, body: { text: csv } });
+  assert.equal(pv.status, 200, JSON.stringify(pv.body));
+  const st = Object.fromEntries(pv.body.rows.map((r) => [r.line, r.status]));
+  assert.deepEqual([st[2], st[3], st[4], st[5], st[6], st[7], st[8]], ['new', 'new', 'bad', 'update', 'dup', 'clash', 'bad']);
+  const ap = await call(app, 'POST', '/api/a/stores/import/apply', { token: admin, body: { text: csv } });
+  assert.equal(ap.status, 200, JSON.stringify(ap.body));
+  assert.equal(ap.body.created, 2); assert.equal(ap.body.updated, 1);
+  const list = (await call(app, 'GET', '/api/a/stores', { token: admin })).body.stores;
+  const zz1 = list.find((s) => s.id === 'ZZ1');
+  assert.ok(zz1 && zz1.enabled === false && zz1.posCode === 'SP-ZZ1');
+  assert.equal(list.find((s) => s.id === 'Q7').name, 'Quận 7 mới');
+  assert.equal((await call(app, 'POST', '/api/a/stores/import/preview', { token: admin, body: { text: 'a,b\n1,2' } })).body.error, 'BAD_FILE');
+  const exp2 = await call(app, 'GET', '/api/a/stores/export', { token: admin });
+  assert.match(exp2.body.csv, /ZZ2,Chi nhánh Z2/);
+  await app.close();
+});

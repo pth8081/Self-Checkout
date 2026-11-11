@@ -2,12 +2,13 @@ import { config } from '../config.js';
 import { getSetting, setSetting } from '../db.js';
 import { previewErase, eraseCustomer } from '../services/privacy.js';
 import { readPoints, matchPoints, applyPoints } from '../services/points.js';
+import { exportStores, readStores, planStores, applyStores, TEMPLATE_CSV } from '../services/stores-file.js';
 import { priceConfig, savePriceConfig, callPriceApi } from '../services/price-api.js';
 import { retentionConfig, validateRetention, runRetention, RETENTION_KEY, RETENTION_DEFAULTS } from '../services/retention.js';
 import { publicSettings, saveSettings, SECURE_MODES, TLS_MODES, explainMailError } from '../services/mailer.js';
 import { cartDiffOf } from '../services/bill.js';
 import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, sqlLocalDate, money, normCode, unauthorized } from '../util.js';
-import { authenticate, sign, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager, cleanUsername, usernameTaken } from '../auth.js';
+import { authenticate, sign, verify, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager, cleanUsername, usernameTaken } from '../auth.js';
 import { verifyTotp, randomSecret, otpauthUri } from '../services/totp.js';
 import { audit } from '../services/audit.js';
 import { retryPendingInvoices } from '../services/invoice.js';
@@ -37,7 +38,8 @@ export default async function adminRoutes(app) {
   const ctx = app.ctx;
   const { db } = ctx;
 
-  // ---------------- Đăng nhập (mật khẩu + mã xác thực 2 bước nếu đã bật) ----------------
+  // ---------------- Đăng nhập (mật khẩu + mã xác thực 2 bước; mặc định bắt buộc, tắt bằng REQUIRE_ADMIN_2FA=0) ----------------
+  const require2fa = () => process.env.REQUIRE_ADMIN_2FA !== '0';
   app.post('/login', async (req) => {
     const account = String(req.body?.account || '').trim();
     const user = db.prepare('SELECT * FROM staff WHERE (id = ? COLLATE NOCASE OR email = ? COLLATE NOCASE OR username = ? COLLATE NOCASE)').get(account, account, account);
@@ -49,9 +51,30 @@ export default async function adminRoutes(app) {
       if (!req.body?.totp) throw unauthorized('TOTP_REQUIRED', 'Nhập mã xác thực 6 số từ app xác thực');
       if (!verifyTotp(user.totp_secret, req.body.totp)) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
     }
+    if (!user.totp_secret && require2fa()) {
+      // Bắt buộc xác thực 2 bước: lần đầu đăng nhập phải thiết lập ngay. Mật khẩu đúng thì trả mã bí mật mới và một mã tạm (10 phút) để xác nhận.
+      const secret = randomSecret();
+      return { mfaSetup: true, secret, uri: otpauthUri(secret, user.email || user.username || user.id), confirmToken: sign({ uid: user.id, kind: 'admin-2fa', secret }, 10 / 60) };
+    }
+    return finishLogin(user);
+  });
+  const finishLogin = (user) => {
     recordOk(db, user);
     audit(db, { storeId: user.store_id, actorType: 'admin', actorId: user.id, action: 'admin.login' });
     return { token: sign({ uid: user.id, kind: 'admin' }, 8), user: userView(user) };
+  };
+  // Bước 2 của lần thiết lập xác thực 2 bước đầu tiên: nhập mã 6 số từ app để xác nhận, rồi mới được vào.
+  app.post('/login/2fa-confirm', async (req) => {
+    const p = verify(String(req.body?.confirmToken || ''));
+    if (!p || p.kind !== 'admin-2fa' || !p.secret) throw unauthorized('EXPIRED', 'Phiên thiết lập đã hết hạn, hãy đăng nhập lại');
+    const user = db.prepare('SELECT * FROM staff WHERE id = ?').get(p.uid);
+    if (!user || !user.active || !isManager(user)) throw unauthorized();
+    checkLocked(user);
+    if (user.totp_secret) throw conflict('ALREADY_2FA', 'Tài khoản đã bật xác thực 2 bước, hãy đăng nhập lại');
+    if (!verifyTotp(p.secret, String(req.body?.code || ''))) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
+    db.prepare('UPDATE staff SET totp_secret = ? WHERE id = ?').run(p.secret, user.id);
+    audit(db, { storeId: user.store_id, actorType: 'admin', actorId: user.id, action: 'user.totp_on', entity: 'user', entityId: user.id, data: { firstLogin: true } });
+    return finishLogin(db.prepare('SELECT * FROM staff WHERE id = ?').get(user.id));
   });
 
   app.register(async (s) => {
@@ -150,6 +173,23 @@ export default async function adminRoutes(app) {
       if (dup) throw conflict('DUPLICATE_POS_CODE', `Mã điểm này đã gán cho chi nhánh ${dup.id}`);
       return c;
     };
+    // Nhập, xuất, file mẫu danh sách chi nhánh (CSV). Chỉ quản trị chuỗi.
+    s.get('/stores/export', async (req) => { chainOnly(req); return { filename: `chi-nhanh-${localDate()}.csv`, csv: exportStores(db) }; });
+    s.get('/stores/template', async (req) => { chainOnly(req); return { filename: 'chi-nhanh-mau.csv', csv: TEMPLATE_CSV }; });
+    const storesFile = (req) => {
+      const text = String(req.body?.text ?? '');
+      if (text.length > 2_000_000) throw bad('FILE_TOO_BIG', 'File quá lớn');
+      const parsed = readStores(text);
+      if (parsed.error) throw bad('BAD_FILE', parsed.error);
+      return parsed;
+    };
+    s.post('/stores/import/preview', async (req) => { chainOnly(req); return planStores(db, storesFile(req)); });
+    s.post('/stores/import/apply', async (req) => {
+      chainOnly(req);
+      const r = applyStores(db, storesFile(req), audit, req.user.id);
+      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'stores.imported', entity: 'store', entityId: 'file', data: { created: r.created, updated: r.updated } });
+      return r;
+    });
     s.post('/stores', async (req) => {
       chainOnly(req);
       const id = String(req.body?.id || '').trim().toUpperCase();
@@ -606,6 +646,7 @@ export default async function adminRoutes(app) {
       if (u.id !== req.user.id && req.user.role !== 'chain_admin') throw forbidden();
       if (!isManager(u)) throw bad('NOT_ADMIN', 'Chỉ tài khoản quản trị mới dùng xác thực 2 bước');
       if (req.body?.enable === false) {
+        if (require2fa()) throw conflict('TOTP_REQUIRED', 'Hệ thống bắt buộc xác thực 2 bước cho tài khoản quản trị, không tắt được');
         db.prepare('UPDATE staff SET totp_secret = NULL WHERE id = ?').run(u.id);
         audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.totp_off', entity: 'user', entityId: u.id });
         return { enabled: false };

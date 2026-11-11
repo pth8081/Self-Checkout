@@ -1,5 +1,5 @@
 // Web quản trị BRG Scan & Checkout (chuỗi + chi nhánh).
-import { html, render, useState, useEffect, useMemo, useCallback, useRoute, go, toast, Toasts, Header, Drawer, Icon, Logo, Spinner, OfflineBar, Field, registerSW, ErrorBox } from '/shared/lib.js';
+import { html, render, useState, useEffect, useMemo, useCallback, useRoute, go, toast, Toasts, Header, Drawer, Icon, Logo, Spinner, OfflineBar, Field, registerSW, ErrorBox, QR, copyText } from '/shared/lib.js';
 import { api, S, store, ROLE_VI } from '/a/common.js';
 import { Overview, Stores, Integrations, Reports, Users, Audit } from '/a/pages-chain.js';
 import { GuideList, GuideDoc } from '/a/guides.js';
@@ -41,6 +41,7 @@ function Login({ onLogin, notice }) {
   const [password, setPassword] = useState('');
   const [totp, setTotp] = useState('');
   const [needTotp, setNeedTotp] = useState(false);
+  const [setup, setSetup] = useState(null); // { secret, uri, confirmToken }: lần đầu đăng nhập phải thiết lập xác thực 2 bước
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const submit = async (e) => {
@@ -52,6 +53,7 @@ function Login({ onLogin, notice }) {
     setBusy(true);
     try {
       const r = await api.post('/login', { account: account.trim(), password, totp: needTotp ? totp : undefined });
+      if (r.mfaSetup) { setSetup(r); setTotp(''); return; }
       await onLogin(r.token);
     } catch (x) {
       if (x.code === 'TOTP_REQUIRED') { setNeedTotp(true); setErr(''); }
@@ -61,6 +63,30 @@ function Login({ onLogin, notice }) {
       else setErr(x.message);
     } finally { setBusy(false); }
   };
+  const confirm2fa = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    setErr('');
+    if (!/^\d{6}$/.test(totp)) return setErr('Mã xác thực gồm 6 chữ số');
+    setBusy(true);
+    try { const r = await api.post('/login/2fa-confirm', { confirmToken: setup.confirmToken, code: totp }); await onLogin(r.token); }
+    catch (x) {
+      if (x.code === 'EXPIRED' || x.code === 'ALREADY_2FA') { setSetup(null); setTotp(''); setPassword(''); setErr(x.message); }
+      else { setErr(x.message); setTotp(''); }
+    } finally { setBusy(false); }
+  };
+  if (setup) return html`<div class="login"><form class="card" onSubmit=${confirm2fa} noValidate>
+    <div class="row"><${Logo} size=${44}/><div><h1 style="font-size:22px">Thiết lập xác thực 2 bước</h1><div class="small muted">Bắt buộc với tài khoản quản trị</div></div></div>
+    <div class="small">1. Cài app xác thực trên điện thoại (Google Authenticator, Microsoft Authenticator, Authy…).<br/>2. Quét mã QR bên dưới, hoặc nhập mã bí mật thủ công.<br/>3. Nhập mã 6 số hiện trong app để hoàn tất.</div>
+    <div class="qrbox qrbig" style="margin:8px auto"><${QR} text=${setup.uri} label="Mã QR thiết lập xác thực 2 bước"/></div>
+    <div class="field"><label>Mã bí mật (nhập thủ công)</label><div class="secret">${setup.secret}</div></div>
+    <button class="btn line sm" type="button" onClick=${() => copyText(setup.secret)}>Sao chép mã bí mật</button>
+    <${Field} label="Mã 6 số trong app"><input class="input big" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value=${totp} onInput=${(e) => setTotp(e.target.value.replace(/\D/g, ''))} aria-label="Mã xác thực" autofocus/><//>
+    ${err && html`<div class="banner err" role="alert"><${Icon} name="alert"/><div class="grow">${err}</div></div>`}
+    <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : 'Xác nhận và đăng nhập'}</button>
+    <button class="btn txt" type="button" onClick=${() => { setSetup(null); setTotp(''); setErr(''); setPassword(''); }}>Quay lại</button>
+    <div class="hint">Mã bí mật chỉ hiện ở màn hình này. Hãy lưu lại trước khi xác nhận. Mất điện thoại thì nhờ quản trị chuỗi khác đặt lại.</div>
+  </form></div>`;
   return html`<div class="login"><form class="card" onSubmit=${submit} noValidate>
     <div class="row"><${Logo} size=${44}/><div><h1 style="font-size:22px">Quản trị BRG</h1><div class="small muted">Scan & Checkout · chuỗi và chi nhánh</div></div></div>
     ${notice && html`<div class="banner" role="status">${notice}</div>`}

@@ -220,9 +220,11 @@ export function Switch({ checked, onChange, disabled, label }) {
 }
 
 /** Lớp phủ dạng thẻ trượt từ dưới (hoặc hộp giữa màn hình). */
-export function Sheet({ onClose, center, children }) {
+export function Sheet({ onClose, center, wide, children }) {
   useEffect(() => { const f = (e) => e.key === 'Escape' && onClose?.(); addEventListener('keydown', f); return () => removeEventListener('keydown', f); }, []);
-  return html`<div class=${`overlay ${center ? 'center' : ''}`} onClick=${(e) => e.target === e.currentTarget && onClose?.()}><div class="sheet" role="dialog" aria-modal="true">${children}</div></div>`;
+  // Chỉ đóng khi nhấn chuột bắt đầu VÀ kết thúc ngoài hộp: bôi chọn chữ trong ô nhập rồi thả chuột ra ngoài không làm hộp biến mất.
+  const down = useRef(false);
+  return html`<div class=${`overlay ${center ? 'center' : ''}`} onPointerDown=${(e) => { down.current = e.target === e.currentTarget; }} onClick=${(e) => { const was = down.current; down.current = false; if (was && e.target === e.currentTarget) onClose?.(); }}><div class=${`sheet ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true">${children}</div></div>`;
 }
 
 /** Hộp xác nhận dựng sẵn trong trang (trình duyệt không dùng confirm()). */
