@@ -566,4 +566,4 @@ Khách có thể quét rồi bỏ đi, hoặc bấm Thanh toán nhưng không ra
 - **Giá từng dòng:** nên gửi `unitPrice`, `discount`, `lineTotal` trong `lines` để bill khớp số thực thu.
 - **`transactionUrl` tùy chọn:** quản trị cấu hình mẫu link (`PUT /api/a/pos/links`, ví dụ `https://dsmart.vn/giao-dich/{posOrderRef}`); BRG tự dựng khi POS không gửi.
 - **`/refund` theo `sku`:** `lines: [{ sku, qty, amount }]`, không hoàn quá số lượng đã bán (`409 REFUND_TOO_LARGE`); `reason` có thể bỏ trống.
-- **`/update` và `/cancelled`** không bắt buộc với Dsmart POS. `/paid` gửi muộn (cuối ngày) vẫn được nhận nếu giỏ chưa bị quản lý nhả. `invoiceUrl` có thể null, bổ sung sau bằng `/invoice`.
+- **`/update` và `/cancelled`** không bắt buộc với Dsmart POS. `/paid` gửi muộn (cuối ngày) vẫn được nhận kể cả khi giỏ đã quá hạn 30 phút hoặc bị quản lý nhả (ghi nhật ký "thanh toán sau khi hủy"). `invoiceUrl` có thể null, bổ sung sau bằng `/invoice`.
