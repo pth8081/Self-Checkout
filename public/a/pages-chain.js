@@ -332,6 +332,20 @@ function PosApiCard({ d, stores, reload }) {
   </div>`;
 }
 
+function PosLinkCard() {
+  const cur = useAsync(() => api.get('/pos/links'), []);
+  const [v, setV] = useState(null);
+  const [busy, run] = useBusy();
+  const val = v ?? cur.data?.transactionUrlTemplate ?? '';
+  const save = () => run(async () => { await api.put('/pos/links', { transactionUrlTemplate: val.trim() }); await cur.reload(); setV(null); }, 'Đã lưu mẫu link');
+  return html`<div class="card" id="pos-links">
+    <div class="cardhead"><div class="ico-tile green"><${Icon} name="link"/></div><div class="grow"><h2>Link chi tiết giao dịch</h2>
+      <div class="small muted">Dsmart POS không cần gửi link giao dịch: BRG tự dựng từ mã đơn theo mẫu dưới đây. Để trống nếu Dsmart POS tự gửi.</div></div></div>
+    <${Field} label="Mẫu link (bắt buộc https và có {posOrderRef})"><input class="input" value=${val} placeholder="https://dsmart.vn/giao-dich/{posOrderRef}" onInput=${(e) => setV(e.target.value)}/><//>
+    <div class="row"><button class="btn primary" disabled=${busy || v === null} onClick=${save}>Lưu</button></div>
+  </div>`;
+}
+
 const SIM_METHODS = [['cash', 'Tiền mặt'], ['qr_transfer', 'Chuyển khoản QR'], ['card', 'Thẻ'], ['ewallet', 'Ví điện tử'], ['other', 'Khác']];
 const newRef = () => `POS-${Date.now().toString(36).toUpperCase()}`;
 function PosSimCard() {
@@ -590,6 +604,7 @@ export function Integrations({ stores, reloadStores }) {
       ${d.note && html`<${Banner} tone=${d.isProd ? 'warn' : 'info'} icon="info" title=${d.isProd ? 'Nguồn giá: file CSV' : 'Đang chạy bản giả lập'}>${d.note}<//>`}
       <${PosCard} d=${d} reload=${async () => { await st.reload(); reloadStores?.(); }}/>
       <${PosApiCard} d=${d} stores=${stores} reload=${st.reload}/>
+      <${PosLinkCard}/>
       <${PointsCard} onChanged=${reloadStores}/>
       <${PriceApiCard} stores=${stores}/>
       <${EmailCard}/>

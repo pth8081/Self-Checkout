@@ -559,3 +559,11 @@ Khách có thể quét rồi bỏ đi, hoặc bấm Thanh toán nhưng không ra
 - **`amount`** của `/paid` tối đa 2.000.000.000 đồng (`400 BAD_AMOUNT` nếu vượt). Số lệch xa tạm tính vẫn được ghi nhận nhưng đánh dấu bất thường trong nhật ký.
 - **Thanh toán đến sau khi giỏ đã bị nhả hoặc khách sửa giỏ** vẫn được ghi nhận (tiền đã thu thật). Chỉ từ chối khi chính Dsmart POS đã gửi `cancelled`.
 - **Khóa API:** nên tạo **mỗi cửa hàng một khóa** (khóa dùng cho mọi chi nhánh có rủi ro cao hơn nếu bị lộ). Giới hạn tốc độ rất rộng (khoảng 3.000 lượt mỗi phút mỗi địa chỉ IP); vượt thì `429` kèm `Retry-After`, Dsmart POS thử lại theo quy tắc ở mục 5.
+
+## Làm rõ theo đối tác Dsmart (từ phiên bản 3.8)
+
+- **Nhiều hình thức thanh toán:** `/paid` nhận `payments: [{ method, amount }]` (tối đa 6 phần, tổng bằng `amount`) thay cho `method`; đơn lưu `method = mixed`, bill hiện "Nhiều hình thức". Sai tổng trả `400 BAD_PAYMENTS`.
+- **Giá từng dòng:** nên gửi `unitPrice`, `discount`, `lineTotal` trong `lines` để bill khớp số thực thu.
+- **`transactionUrl` tùy chọn:** quản trị cấu hình mẫu link (`PUT /api/a/pos/links`, ví dụ `https://dsmart.vn/giao-dich/{posOrderRef}`); BRG tự dựng khi POS không gửi.
+- **`/refund` theo `sku`:** `lines: [{ sku, qty, amount }]`, không hoàn quá số lượng đã bán (`409 REFUND_TOO_LARGE`); `reason` có thể bỏ trống.
+- **`/update` và `/cancelled`** không bắt buộc với Dsmart POS. `/paid` gửi muộn (cuối ngày) vẫn được nhận nếu giỏ chưa bị quản lý nhả. `invoiceUrl` có thể null, bổ sung sau bằng `/invoice`.

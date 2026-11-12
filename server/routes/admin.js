@@ -16,7 +16,7 @@ import { verifyTotp, matchTotpStep, randomSecret, otpauthUri } from '../services
 import { audit } from '../services/audit.js';
 import { retryPendingInvoices } from '../services/invoice.js';
 import { getStoreConfig, txView, voidTransaction, resolveHeld, shiftStats, markExited } from '../services/core.js';
-import { newKey, previewCart, claimCart, orderPaid, orderCancelled, orderStatus } from '../services/pos-api.js';
+import { newKey, previewCart, claimCart, orderPaid, orderCancelled, orderStatus, posLinkConfig, savePosLinkConfig } from '../services/pos-api.js';
 import { userView } from './staff.js';
 import { registerGuides } from './guides.js';
 
@@ -555,6 +555,16 @@ export default async function adminRoutes(app) {
       if (!r.changes) throw notFound('KEY_NOT_FOUND', 'Không tìm thấy khóa');
       audit(db, { actorType: 'admin', actorId: req.user.id, action: 'pos.key_revoked', entity: 'integration_key', entityId: String(req.params.id) });
       return { ok: true };
+    });
+    // Mẫu link giao dịch: BRG tự dựng từ posOrderRef khi Dsmart POS không gửi transactionUrl
+    s.get('/pos/links', async (req) => { chainOnly(req); return posLinkConfig(db); });
+    s.put('/pos/links', async (req) => {
+      chainOnly(req);
+      reauth(req);
+      const r = savePosLinkConfig(db, req.body);
+      if (r.error) throw bad('BAD_TEMPLATE', r.error);
+      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'pos.links_saved', entity: 'setting', entityId: 'pos_links', data: r.config });
+      return r.config;
     });
     s.get('/pos/orders', async (req) => {
       const storeId = storeOf(req);
