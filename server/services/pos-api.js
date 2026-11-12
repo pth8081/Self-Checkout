@@ -19,9 +19,13 @@ export function newKey() {
 
 export const POS_METHODS = ['cash', 'qr_transfer', 'card', 'ewallet', 'other'];
 const REF = /^[A-Za-z0-9._:/-]{1,64}$/;
+const MAX_AMOUNT = 2_000_000_000; // trần số tiền một lần báo thanh toán (2 tỷ đồng): chặn số quá lớn làm hỏng báo cáo
 
 const byCode = (db, code) => db.prepare('SELECT * FROM transactions WHERE cart_code = ? ORDER BY created_at DESC LIMIT 1').get(String(code || '').trim().toUpperCase());
-const byRef = (db, ref) => db.prepare('SELECT * FROM transactions WHERE pos_order_ref = ? ORDER BY created_at DESC LIMIT 1').get(String(ref || ''));
+// Mã đơn Dsmart (posOrderRef) chỉ duy nhất trong phạm vi MỘT cửa hàng: nhiều cửa hàng có thể cùng gửi HD0001. Luôn tra kèm chi nhánh khi biết (từ giỏ hoặc từ khóa API gắn chi nhánh).
+const byRef = (db, ref, storeId) => (storeId
+  ? db.prepare('SELECT * FROM transactions WHERE pos_order_ref = ? AND store_id = ? ORDER BY created_at DESC LIMIT 1').get(String(ref || ''), storeId)
+  : db.prepare('SELECT * FROM transactions WHERE pos_order_ref = ? ORDER BY created_at DESC LIMIT 1').get(String(ref || '')));
 function inScope(scope, tx) { if (scope.storeId && scope.storeId !== tx.store_id) throw forbidden('STORE_FORBIDDEN', 'Khóa API này không dùng cho chi nhánh của giỏ hàng'); }
 
 /** Dữ liệu giỏ hàng trả cho Dsmart POS: các mặt hàng đã chốt giá (Dsmart POS tự tính lại theo giá và khuyến mãi của Dsmart POS). */
@@ -52,8 +56,8 @@ export function claimCart(ctx, scope, code, body = {}) {
   inScope(scope, tx);
   if (getStoreConfig(db, tx.store_id).cfg.payment_source !== 'pos') throw conflict('POS_MODE_OFF', 'Chi nhánh này chưa bật chế độ thu tiền qua Dsmart POS');
   if (tx.pos_order_ref === ref) return { claimed: true, duplicate: true, cart: cartForPos(tx) }; // gọi lại cùng mã đơn
-  const other = byRef(db, ref);
-  if (other && other.id !== tx.id) throw conflict('REF_IN_USE', 'Mã đơn Dsmart POS này đã gắn với giỏ hàng khác', { transactionId: other.id });
+  const other = byRef(db, ref, tx.store_id);
+  if (other && other.id !== tx.id) throw conflict('REF_IN_USE', 'Mã đơn Dsmart POS này đã gắn với giỏ hàng khác');
   if (!['awaiting_counter', 'handed_off'].includes(tx.status)) throw conflict('NOT_PAYABLE', `Giỏ hàng đang ở trạng thái "${tx.status}", không nhận được`, { status: tx.status });
   if (tx.pos_status === 'claimed') throw conflict('ALREADY_CLAIMED', 'Giỏ hàng đã được đơn Dsmart POS khác nhận', { posOrderRef: tx.pos_order_ref });
   db.transaction(() => {
@@ -66,7 +70,7 @@ export function claimCart(ctx, scope, code, body = {}) {
 }
 
 export function orderStatus(ctx, scope, ref) {
-  const tx = byRef(ctx.db, ref);
+  const tx = byRef(ctx.db, ref, scope.storeId || undefined);
   if (!tx) throw notFound('ORDER_NOT_FOUND', 'Không tìm thấy đơn Dsmart POS này');
   inScope(scope, tx);
   return { posOrderRef: tx.pos_order_ref, code: tx.cart_code, transactionId: tx.id, status: tx.status, posStatus: tx.pos_status, total: tx.total,
@@ -152,9 +156,9 @@ function saveLinks(db, txId, links) {
   if (sets.length) db.prepare(`UPDATE transactions SET ${sets.join(', ')} WHERE id = ?`).run(...vals, txId);
 }
 
-export function orderPaid(ctx, scope, ref, body = {}) {
+export function orderPaid(ctx, scope, ref, body = {}, storeId) {
   const { db } = ctx;
-  const tx = byRef(db, ref);
+  const tx = byRef(db, ref, storeId ?? (scope.storeId || undefined));
   if (!tx) throw notFound('ORDER_NOT_FOUND', 'Chưa nhận đơn Dsmart POS này. Hãy gọi "nhận giỏ hàng" trước');
   inScope(scope, tx);
   const { links, warnings } = cleanLinks(body);
@@ -172,11 +176,13 @@ export function orderPaid(ctx, scope, ref, body = {}) {
   }
   // Khách có thể sửa giỏ (giỏ bị hủy phía điện thoại) trong lúc Dsmart POS đã quét mã QR cũ và thu tiền. Tiền đã thu là thật nên vẫn ghi nhận.
   // Chỉ từ chối khi chính Dsmart POS đã hủy đơn này hoặc đơn đã bị hủy sau thanh toán.
-  const late = tx.status === 'cancelled' && tx.method === 'basket' && tx.pos_status !== 'cancelled';
+  // Giỏ bị khách sửa hoặc quản trị "nhả giỏ" trong lúc thu ngân đã thu tiền: tiền thu là thật nên vẫn ghi nhận. Chỉ từ chối khi chính Dsmart POS đã hủy.
+  const released = tx.status === 'cancelled' && !!db.prepare("SELECT 1 FROM audit_events WHERE entity_id = ? AND action = 'pos.released'").get(tx.id);
+  const late = tx.status === 'cancelled' && tx.method === 'basket' && (tx.pos_status !== 'cancelled' || released);
   if (tx.status === 'voided' || (tx.status === 'cancelled' && !late)) throw conflict('ORDER_CANCELLED', 'Đơn này đã bị hủy');
   if (!late && !['awaiting_counter', 'handed_off'].includes(tx.status)) throw conflict('NOT_PAYABLE', 'Đơn không ở trạng thái chờ thanh toán');
   const amount = body.amount;
-  if (!Number.isInteger(amount) || amount <= 0) throw bad('BAD_AMOUNT', 'amount là số nguyên dương, đơn vị đồng');
+  if (!Number.isInteger(amount) || amount <= 0 || amount > MAX_AMOUNT) throw bad('BAD_AMOUNT', `amount là số nguyên dương, đơn vị đồng, tối đa ${MAX_AMOUNT.toLocaleString('vi-VN')}`);
   if (!POS_METHODS.includes(body.method)) throw bad('BAD_METHOD', `method phải là một trong: ${POS_METHODS.join(', ')}`);
   const invoiceNo = body.invoiceNo ? String(body.invoiceNo).slice(0, 64) : null;
   const { lines } = cleanBill(body, db, tx);
@@ -201,7 +207,7 @@ export function orderPaid(ctx, scope, ref, body = {}) {
     }
     audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `Dsmart POS:${scope.name}`, action: 'payment.collected', entity: 'transaction', entityId: tx.id,
       data: { source: 'pos', method: body.method, amount, posOrderRef: ref, invoiceNo, cashier } });
-    if (differs) audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `Dsmart POS:${scope.name}`, action: 'pos.amount_differs', entity: 'transaction', entityId: tx.id, data: { brgTotal: tx.total, posAmount: amount } });
+    if (differs) audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `Dsmart POS:${scope.name}`, action: 'pos.amount_differs', entity: 'transaction', entityId: tx.id, data: { brgTotal: tx.total, posAmount: amount, suspicious: amount < tx.total * 0.5 || amount > tx.total * 2 + 100000 } });
     if (tx.guard_skipped) {
       if (late) db.prepare(`UPDATE transactions SET exit_status='exited', exited_at=?, exited_by='SYSTEM', exited_gate='Không có bảo vệ' WHERE id=?`).run(ts, tx.id);
       else markExited(db, db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.id), { id: 'SYSTEM' }, 'Không có bảo vệ');
@@ -211,9 +217,9 @@ export function orderPaid(ctx, scope, ref, body = {}) {
   return result(false);
 }
 
-export function orderCancelled(ctx, scope, ref, body = {}) {
+export function orderCancelled(ctx, scope, ref, body = {}, storeId) {
   const { db } = ctx;
-  const tx = byRef(db, ref);
+  const tx = byRef(db, ref, storeId ?? (scope.storeId || undefined));
   if (!tx) throw notFound('ORDER_NOT_FOUND', 'Không tìm thấy đơn Dsmart POS này');
   inScope(scope, tx);
   const reason = String(body.reason || 'Dsmart POS hủy đơn').slice(0, 200);
@@ -271,8 +277,8 @@ function basketTx(ctx, scope, code, body) {
   if (!ref) throw bad('REF_REQUIRED', 'posOrderRef (mã đơn trên Dsmart POS) là bắt buộc');
   if (tx.pos_order_ref && tx.pos_order_ref !== ref) throw conflict('REF_IN_USE', 'Giỏ này đã gắn với đơn Dsmart POS khác', { posOrderRef: tx.pos_order_ref });
   if (!tx.pos_order_ref) {
-    const other = byRef(db, ref);
-    if (other && other.id !== tx.id) throw conflict('REF_IN_USE', 'Mã đơn Dsmart POS này đã gắn với giỏ khác', { transactionId: other.id });
+    const other = byRef(db, ref, tx.store_id);
+    if (other && other.id !== tx.id) throw conflict('REF_IN_USE', 'Mã đơn Dsmart POS này đã gắn với giỏ khác');
   }
   return { tx, ref };
 }
@@ -283,13 +289,13 @@ function basketByCode(ctx, scope, code, body) {
     db.prepare(`UPDATE transactions SET pos_order_ref=?, pos_status='claimed', pos_claimed_at=?, pos_cashier=COALESCE(?, pos_cashier), pos_terminal=COALESCE(?, pos_terminal) WHERE id=?`)
       .run(ref, nowIso(), body.cashier ? String(body.cashier).slice(0, 40) : null, body.terminal ? String(body.terminal).slice(0, 40) : null, tx.id);
   }
-  return ref;
+  return { ref, storeId: tx.store_id };
 }
 /** Gửi bổ sung (hoặc cập nhật) link hóa đơn điện tử và link giao dịch sau khi đã báo thanh toán, vì hóa đơn có thể phát hành chậm hơn. */
 export function basketInvoice(ctx, scope, code, body = {}) {
   const { db } = ctx;
-  const ref = basketByCode(ctx, scope, code, body);
-  const tx = byRef(db, ref);
+  const { ref, storeId } = basketByCode(ctx, scope, code, body);
+  const tx = byRef(db, ref, storeId);
   if (tx.status !== 'paid') throw conflict('NOT_PAID', 'Đơn chưa thanh toán. Hãy báo thanh toán (paid) trước, hoặc gửi kèm link trong lệnh paid');
   const { links } = cleanLinks(body, true);
   if (!links.invoiceUrl && !links.transactionUrl) throw bad('LINK_REQUIRED', 'Cần ít nhất một trong invoiceUrl, transactionUrl');
@@ -297,16 +303,19 @@ export function basketInvoice(ctx, scope, code, body = {}) {
   audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `Dsmart POS:${scope.name}`, action: 'pos.links', entity: 'transaction', entityId: tx.id, data: { invoice: !!links.invoiceUrl, transaction: !!links.transactionUrl } });
   return { ok: true, status: 'paid', ...linksOf(db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.id)) };
 }
-export const basketPaid = (ctx, scope, code, body = {}) => orderPaid(ctx, scope, basketByCode(ctx, scope, code, body), body);
+export function basketPaid(ctx, scope, code, body = {}) {
+  const { ref, storeId } = basketByCode(ctx, scope, code, body);
+  return orderPaid(ctx, scope, ref, body, storeId);
+}
 export function basketCancelled(ctx, scope, code, body = {}) {
-  let ref;
-  try { ref = basketByCode(ctx, scope, code, body); }
+  let found;
+  try { found = basketByCode(ctx, scope, code, body); }
   catch (e) {
     // BRG chưa có giỏ này (điện thoại khách chưa gửi lên): không có gì để hủy, Dsmart POS không cần thử lại.
     if (e.code === 'BASKET_NOT_FOUND') return { ok: true, status: 'unknown', message: 'BRG Scan & Checkout chưa có giỏ này nên không có gì để hủy' };
     throw e;
   }
-  return orderCancelled(ctx, scope, ref, body);
+  return orderCancelled(ctx, scope, found.ref, body, found.storeId);
 }
 /**
  * Lấy giỏ theo mã giỏ trong mã QR: trạng thái và danh sách mặt hàng (mã vạch, số lượng) để Dsmart POS dựng đơn.
@@ -334,8 +343,8 @@ export function basketStatus(ctx, scope, code, query = {}) {
  */
 export function basketRefund(ctx, scope, code, body = {}) {
   const { db } = ctx;
-  const ref = basketByCode(ctx, scope, code, body);
-  const tx = byRef(db, ref);
+  const { ref, storeId } = basketByCode(ctx, scope, code, body);
+  const tx = byRef(db, ref, storeId);
   if (tx.status === 'voided') throw conflict('ORDER_CANCELLED', 'Đơn này đã bị hủy');
   if (tx.status !== 'paid') throw conflict('NOT_REFUNDABLE', 'Chỉ hoàn trả được đơn đã thanh toán. Đơn chưa thu tiền thì dùng lệnh hủy');
   const refundRef = String(body.refundRef || '').trim().slice(0, 64);

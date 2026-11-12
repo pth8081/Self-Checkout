@@ -3,6 +3,7 @@
 import { getSetting, setSetting } from '../db.js';
 import { nowIso } from '../util.js';
 import { encryptSecret, decryptSecret } from './mailer.js';
+import { safeFetch, assertHostAllowed, NetBlocked } from './net-guard.js';
 
 export const PRICE_KEY = 'price_api';
 export const PRICE_DEFAULTS = { enabled: false, url: '', timeoutSec: 3, cacheMin: 5 };
@@ -23,6 +24,8 @@ export function savePriceConfig(db, b = {}) {
       const local = ['localhost', '127.0.0.1', '::1'].includes(u.hostname);
       if (u.protocol !== 'https:' && !(local && u.protocol === 'http:')) return { error: 'Địa chỉ API phải bắt đầu bằng https://' };
       if (u.search) return { error: 'Chỉ nhập địa chỉ, không kèm ?maVach=... (hệ thống tự thêm)' };
+      if (u.username || u.password) return { error: 'Địa chỉ không được chứa tên đăng nhập hoặc mật khẩu' };
+      try { assertHostAllowed(u.hostname.replace(/^\[|\]$/g, '')); } catch (e) { return { error: e.message }; }
     }
     next.url = url;
   }
@@ -44,7 +47,7 @@ const NEG_MS = 60_000;
 const int = (v) => (v === null || v === undefined || v === '' ? null : (Number.isFinite(Number(v)) && Number(v) >= 0 ? Math.round(Number(v)) : NaN));
 
 /** Gọi API một lần. Trả { status: 'ok', row } | { status: 'notfound' } | { status: 'error', code, message }. */
-export async function callPriceApi(db, maDiem, maVach, fetchImpl = fetch) {
+export async function callPriceApi(db, maDiem, maVach, fetchImpl = safeFetch) {
   const s = getSetting(db, PRICE_KEY, {});
   const c = priceConfig(db);
   if (!s.url || !s.keyEnc) return { status: 'error', code: 'NOT_CONFIGURED', message: 'Chưa cấu hình API giá' };
@@ -52,6 +55,7 @@ export async function callPriceApi(db, maDiem, maVach, fetchImpl = fetch) {
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), c.timeoutSec * 1000);
   try {
     const r = await fetchImpl(url, { headers: { 'X-API-Key': decryptSecret(s.keyEnc), Accept: 'application/json' }, signal: ctl.signal });
+    if (r.status >= 300 && r.status < 400) return { status: 'error', code: 'REDIRECT', message: 'API giá trả chuyển hướng, không được theo (hãy nhập đúng địa chỉ cuối cùng)' };
     if (r.status === 404) return { status: 'notfound' };
     if (r.status === 401 || r.status === 403) return { status: 'error', code: 'AUTH', message: `API giá từ chối khóa (HTTP ${r.status})` };
     if (r.status === 429) return { status: 'error', code: 'RATE', message: 'API giá báo gọi quá nhiều (429)' };
@@ -62,6 +66,7 @@ export async function callPriceApi(db, maDiem, maVach, fetchImpl = fetch) {
     const promo = j.coKhuyenMai === true && km != null;
     return { status: 'ok', row: { sku: String(j.maHang), barcode: String(j.maVach || maVach), name: String(j.tenHang || maVach).slice(0, 200), price: promo ? km : thuong, list_price: thuong, updatedAt: j.capNhatLuc || null } };
   } catch (e) {
+    if (e instanceof NetBlocked) return { status: 'error', code: 'BLOCKED', message: e.message };
     return { status: 'error', code: e.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK', message: e.name === 'AbortError' ? `API giá không trả lời trong ${c.timeoutSec} giây` : 'Không kết nối được API giá' };
   } finally { clearTimeout(t); }
 }

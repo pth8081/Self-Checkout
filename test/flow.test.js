@@ -369,3 +369,35 @@ test('giỏ bị bỏ quên quá hạn được dọn, giỏ POS đã nhận th�
   assert.equal(app.ctx.db.prepare(`SELECT status FROM transactions WHERE session_id=?`).get(b.id).status, 'cancelled');
   await app.close();
 });
+
+test('bảo mật: không vượt qua kiểm tra mã thiết bị bằng chuỗi /store trong query, mã "-" của đơn đã xóa không dùng được để đọc đơn', async () => {
+  const app = await makeApp();
+  const h = (id) => ({ 'x-device-id': id });
+  // đường dẫn công khai vẫn không cần mã thiết bị
+  assert.equal((await app.inject({ method: 'GET', url: '/api/c/stores' })).statusCode, 200);
+  assert.equal((await app.inject({ method: 'GET', url: '/api/c/store/Q7' })).statusCode, 200);
+  // các đường cần thiết bị: chèn /store vào query không còn bỏ qua kiểm tra
+  for (const url of ['/api/c/history?x=/store', '/api/c/history/SG-Q7-0001?x=/store', '/api/c/transactions/SG-Q7-0001/bill?x=/store', '/api/c/sessions/current?x=/store']) {
+    for (const hd of [h('-'), {}]) {
+      const r = await app.inject({ method: 'GET', url, headers: hd });
+      assert.equal(r.statusCode, 400, `${url} ${JSON.stringify(hd)} -> ${r.statusCode}`);
+    }
+  }
+  await app.close();
+});
+
+test('chống lạm dụng email: mỗi email chỉ nhận vài mã mỗi giờ dù đổi mã thiết bị; sai mã nhiều lần ở nhiều thiết bị cũng bị khóa theo email', async () => {
+  const app = await makeApp();
+  const dev = (i) => `dev-${String(i).padStart(2, '0')}-0123456789abcdef`;
+  const victim = 'nan.nhan@example.com';
+  const req = (i) => call(app, 'POST', '/api/c/identity/request', { body: { email: victim }, device: dev(i) });
+  const got = [];
+  for (let i = 0; i < 5; i++) got.push((await req(i)).status);
+  assert.deepEqual(got, [200, 200, 200, 429, 429], 'đổi mã thiết bị không né được giới hạn theo email: ' + got.join(','));
+  // đoán mã ở nhiều thiết bị: tổng 10 lần sai là khóa email này cho mọi thiết bị
+  const verify = (i, code) => call(app, 'POST', '/api/c/identity/verify', { body: { email: victim, code }, device: dev(i) });
+  let last;
+  for (let i = 0; i < 3; i++) for (let k = 0; k < 4; k++) last = await verify(i, '00000' + k);
+  assert.equal(last.status, 429); assert.equal(last.body.error, 'CODE_LOCKED');
+  await app.close();
+});

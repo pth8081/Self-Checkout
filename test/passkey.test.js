@@ -103,3 +103,13 @@ test('vân tay / khuôn mặt (passkey): đăng ký, đăng nhập không cần 
 });
 
 function fakeDeviceSame(dev) { return dev; }
+
+test('CBOR tự cài: đầu vào độc hại (mảng khổng lồ, lồng quá sâu, độ dài vượt dữ liệu) bị từ chối ngay, không treo', async () => {
+  const { cborDecode } = await import('../server/services/webauthn.js');
+  const t0 = Date.now();
+  assert.throws(() => cborDecode(Buffer.from([0x9a, 0xff, 0xff, 0xff, 0xff])), /không hợp lệ/); // mảng 4 tỷ phần tử
+  assert.throws(() => cborDecode(Buffer.from([0x5a, 0xff, 0xff, 0xff, 0xff, 1, 2])), /không hợp lệ/); // chuỗi byte dài hơn dữ liệu
+  assert.throws(() => cborDecode(Buffer.concat([Buffer.alloc(30, 0x81), Buffer.from([0])])), /không hợp lệ/); // mảng lồng 30 tầng
+  assert.ok(Date.now() - t0 < 200);
+  assert.deepEqual([...cborDecode(Buffer.from([0x82, 0x01, 0x62, 0x68, 0x69])).value], [1, 'hi']); // đầu vào hợp lệ vẫn đọc được
+});

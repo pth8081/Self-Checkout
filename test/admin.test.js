@@ -20,14 +20,17 @@ test('xác thực 2 bước: bật (2 bước có xác nhận) rồi phải nh�
   const on = await call(app, 'POST', '/api/a/users/QT0001/totp/begin', { token, body: {} });
   assert.equal(on.status, 200);
   assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp/confirm', { token, body: { confirmToken: on.body.confirmToken, code: '000000' } })).body.error, 'BAD_TOTP');
+  app.ctx.db.prepare('UPDATE staff SET totp_last = NULL').run(); // các thử nghiệm dùng lại mã trong cùng 30 giây: bỏ qua chống dùng lại (kiểm thử riêng bên dưới)
   assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp/confirm', { token, body: { confirmToken: on.body.confirmToken, code: totpNow(on.body.secret) } })).status, 200);
   const need = await adminLogin(app);
   assert.equal(need.body.totpRequired, true);
   assert.ok(need.body.stepToken && !need.body.token);
   assert.equal((await adminLogin(app, 'QT0001', 'Admin@123', '000000')).body.error, 'BAD_TOTP');
   assert.equal((await call(app, 'POST', '/api/a/login/totp', { body: { stepToken: need.body.stepToken, code: '000000' } })).body.error, 'BAD_TOTP');
+  app.ctx.db.prepare('UPDATE staff SET totp_last = NULL').run(); // các thử nghiệm dùng lại mã trong cùng 30 giây: bỏ qua chống dùng lại (kiểm thử riêng bên dưới)
   const step2 = await call(app, 'POST', '/api/a/login/totp', { body: { stepToken: need.body.stepToken, code: totpNow(on.body.secret) } });
   assert.equal(step2.status, 200); assert.ok(step2.body.token);
+  app.ctx.db.prepare('UPDATE staff SET totp_last = NULL').run(); // các thử nghiệm dùng lại mã trong cùng 30 giây: bỏ qua chống dùng lại (kiểm thử riêng bên dưới)
   const ok = await adminLogin(app, 'QT0001', 'Admin@123', totpNow(on.body.secret));
   assert.equal(ok.status, 200);
   await app.close();
@@ -198,17 +201,20 @@ test('bắt buộc xác thực 2 bước: đăng nhập lần đầu phải thi�
     const bad = await call(app, 'POST', '/api/a/login/2fa-confirm', { body: { confirmToken: first.body.confirmToken, code: '000000' } });
     assert.equal(bad.body.error, 'BAD_TOTP');
     assert.equal((await call(app, 'POST', '/api/a/login/2fa-confirm', { body: { confirmToken: 'rac', code: '123456' } })).status, 401);
+    app.ctx.db.prepare('UPDATE staff SET totp_last = NULL').run(); // các thử nghiệm dùng lại mã trong cùng 30 giây: bỏ qua chống dùng lại (kiểm thử riêng bên dưới)
     const ok = await call(app, 'POST', '/api/a/login/2fa-confirm', { body: { confirmToken: first.body.confirmToken, code: totpNow(first.body.secret) } });
     assert.equal(ok.status, 200, JSON.stringify(ok.body));
     assert.ok(ok.body.token);
     // lần sau: cần mã
     const next = await call(app, 'POST', '/api/a/login', { body: { account: 'QT0001', password: 'Admin@123' } });
     assert.equal(next.body.totpRequired, true);
+    app.ctx.db.prepare('UPDATE staff SET totp_last = NULL').run(); // các thử nghiệm dùng lại mã trong cùng 30 giây: bỏ qua chống dùng lại (kiểm thử riêng bên dưới)
     const in2 = await call(app, 'POST', '/api/a/login', { body: { account: 'QT0001', password: 'Admin@123', totp: totpNow(first.body.secret) } });
     assert.equal(in2.status, 200);
     // không tắt được; xác nhận lại với mã thiết lập cũ thì báo đã bật
     const off = await call(app, 'POST', '/api/a/users/QT0001/totp', { token: in2.body.token, body: { enable: false } });
     assert.equal(off.body.error, 'TOTP_REQUIRED');
+    app.ctx.db.prepare('UPDATE staff SET totp_last = NULL').run(); // các thử nghiệm dùng lại mã trong cùng 30 giây: bỏ qua chống dùng lại (kiểm thử riêng bên dưới)
     assert.equal((await call(app, 'POST', '/api/a/login/2fa-confirm', { body: { confirmToken: first.body.confirmToken, code: totpNow(first.body.secret) } })).body.error, 'ALREADY_2FA');
     await app.close();
   } finally { process.env.REQUIRE_ADMIN_2FA = '0'; }
@@ -283,6 +289,7 @@ test('đổi và gỡ xác thực 2 bước: chính chủ phải nhập mã hi�
     const b = await call(app, 'POST', '/api/a/users/QT0001/totp/begin', { token, body: extra });
     if (b.status !== 200) return b;
     const { secret, confirmToken } = b.body;
+    app.ctx.db.prepare('UPDATE staff SET totp_last = NULL').run(); // các thử nghiệm dùng lại mã trong cùng 30 giây: bỏ qua chống dùng lại (kiểm thử riêng bên dưới)
     const c = await call(app, 'POST', '/api/a/users/QT0001/totp/confirm', { token, body: { confirmToken, code: totpNow(secret) } });
     assert.equal(c.status, 200, JSON.stringify(c.body));
     return { status: 200, secret };
@@ -291,16 +298,21 @@ test('đổi và gỡ xác thực 2 bước: chính chủ phải nhập mã hi�
   // đổi thiết bị: thiếu hoặc sai mã hiện tại thì từ chối
   assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp/begin', { token: t, body: {} })).body.error, 'BAD_TOTP');
   assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp/begin', { token: t, body: { currentCode: '000000' } })).body.error, 'BAD_TOTP');
+  app.ctx.db.prepare('UPDATE staff SET totp_last = NULL').run(); // các thử nghiệm dùng lại mã trong cùng 30 giây: bỏ qua chống dùng lại (kiểm thử riêng bên dưới)
   const second = await enroll(t, { currentCode: totpNow(first.secret) });
   assert.notEqual(second.secret, first.secret);
   // mã của thiết bị cũ không còn dùng được
+  app.ctx.db.prepare('UPDATE staff SET totp_last = NULL').run(); // các thử nghiệm dùng lại mã trong cùng 30 giây: bỏ qua chống dùng lại (kiểm thử riêng bên dưới)
   assert.equal((await adminLogin(app, 'QT0001', 'Admin@123', totpNow(first.secret))).body.error, 'BAD_TOTP');
+  app.ctx.db.prepare('UPDATE staff SET totp_last = NULL').run(); // các thử nghiệm dùng lại mã trong cùng 30 giây: bỏ qua chống dùng lại (kiểm thử riêng bên dưới)
   assert.equal((await adminLogin(app, 'QT0001', 'Admin@123', totpNow(second.secret))).status, 200);
   // chính sách đang bắt buộc thì không gỡ được
   assert.equal((await call(app, 'PUT', '/api/a/security', { token: t, body: { require2fa: true } })).body.policy.require2fa, true);
+  app.ctx.db.prepare('UPDATE staff SET totp_last = NULL').run(); // các thử nghiệm dùng lại mã trong cùng 30 giây: bỏ qua chống dùng lại (kiểm thử riêng bên dưới)
   assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp', { token: t, body: { enable: false, code: totpNow(second.secret) } })).body.error, 'TOTP_REQUIRED');
   await call(app, 'PUT', '/api/a/security', { token: t, body: { require2fa: false } });
   assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp', { token: t, body: { enable: false } })).body.error, 'BAD_TOTP'); // chính chủ cần mã
+  app.ctx.db.prepare('UPDATE staff SET totp_last = NULL').run(); // các thử nghiệm dùng lại mã trong cùng 30 giây: bỏ qua chống dùng lại (kiểm thử riêng bên dưới)
   assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp', { token: t, body: { enable: false, code: totpNow(second.secret) } })).body.enabled, false);
   assert.equal((await adminLogin(app)).status, 200);
   assert.equal((await call(app, 'PUT', '/api/a/security', { token: (await adminLogin(app, 'QT0007')).body.token, body: { require2fa: true } })).status, 403);
@@ -341,4 +353,71 @@ test('một phiên đăng nhập tại một thời điểm: đăng nhập lần
     assert.equal((await call(app, 'GET', '/api/a/overview', { token: D.body.token })).status, 200);
     await app.close();
   } finally { process.env.SINGLE_SESSION = '0'; }
+});
+
+test('giới hạn tốc độ trong ứng dụng: đăng nhập sai nhiều lần từ một IP bị chặn 429, IP khác không ảnh hưởng; X-Forwarded-For giả không đổi được IP khi chỉ tin một chặng', async () => {
+  const app = await makeApp({ rateLimit: true, trustProxy: ['127.0.0.1'] });
+  const login = (xff, remote) => app.inject({ method: 'POST', url: '/api/s/login', payload: { code: 'NV0142', pin: '9999' }, remoteAddress: remote, headers: xff ? { 'x-forwarded-for': xff } : {} });
+  // IP 10.0.0.5 đứng sau proxy 127.0.0.1; khách tự thêm XFF giả ở đầu, proxy thật nối IP thật ở cuối
+  let last;
+  for (let i = 0; i < 22; i++) last = await login(`6.6.${i}.1, 10.0.0.5`, '127.0.0.1');
+  assert.equal(last.statusCode, 429, 'giả XFF để đổi IP không được');
+  assert.ok(Number(last.headers['retry-after']) >= 1);
+  assert.equal((await login('10.0.0.9', '127.0.0.1')).statusCode, 401); // IP khác vẫn dùng được (sai PIN nhưng không bị 429)
+  await app.close();
+});
+
+test('tài khoản quản trị không đăng nhập được bằng PIN ở app nhân viên khi đang bắt buộc 2 bước', async () => {
+  process.env.REQUIRE_ADMIN_2FA = '1';
+  try {
+    const app = await makeApp();
+    const r = await call(app, 'POST', '/api/s/login', { body: { code: 'QT0007', pin: '2345' } });
+    assert.equal(r.status, 401); assert.equal(r.body.error, 'USE_ADMIN');
+    const ok = await call(app, 'POST', '/api/s/login', { body: { code: 'NV0142', pin: '1111' } });
+    assert.equal(ok.status, 200);
+    await app.close();
+  } finally { process.env.REQUIRE_ADMIN_2FA = '0'; }
+});
+
+test('mã 2 bước: khóa lưu dạng mã hóa trong CSDL (bản thô cũ được nâng cấp), mỗi mã chỉ dùng một lần', async () => {
+  const app = await makeApp();
+  const t = (await adminLogin(app)).body.token;
+  const b = await call(app, 'POST', '/api/a/users/QT0001/totp/begin', { token: t, body: {} });
+  const secret = b.body.secret;
+  const code = totpNow(secret);
+  assert.equal((await call(app, 'POST', '/api/a/users/QT0001/totp/confirm', { token: t, body: { confirmToken: b.body.confirmToken, code } })).status, 200);
+  const stored = app.ctx.db.prepare("SELECT totp_secret FROM staff WHERE id='QT0001'").get().totp_secret;
+  assert.ok(stored.startsWith('enc1:') && !stored.includes(secret), 'khóa 2 bước phải được mã hóa');
+  // mã vừa dùng để xác nhận không dùng lại được để đăng nhập
+  const again = await adminLogin(app, 'QT0001', 'Admin@123', code);
+  assert.equal(again.body.error, 'BAD_TOTP');
+  // mã của bước kế tiếp dùng được một lần, lần hai bị từ chối
+  const next = totpNow(secret, Date.now() + 30000);
+  assert.equal((await adminLogin(app, 'QT0001', 'Admin@123', next)).status, 200);
+  assert.equal((await adminLogin(app, 'QT0001', 'Admin@123', next)).body.error, 'BAD_TOTP');
+  // bản lưu thô cũ vẫn đăng nhập được và được nâng cấp sang mã hóa
+  app.ctx.db.prepare("UPDATE staff SET totp_secret = ?, totp_last = NULL WHERE id='QT0001'").run(secret);
+  assert.equal((await adminLogin(app, 'QT0001', 'Admin@123', totpNow(secret))).status, 200);
+  assert.ok(app.ctx.db.prepare("SELECT totp_secret FROM staff WHERE id='QT0001'").get().totp_secret.startsWith('enc1:'));
+  await app.close();
+});
+
+test('thu hồi phiên: đổi mật khẩu, đổi vai trò hoặc đặt lại PIN làm token cũ hết hiệu lực dù tắt chính sách một phiên', async () => {
+  const app = await makeApp();
+  await call(app, 'PUT', '/api/a/security', { token: (await adminLogin(app)).body.token, body: { singleSession: false } });
+  const chain = (await adminLogin(app)).body.token;
+  const mk = await call(app, 'POST', '/api/a/users', { token: chain, body: { role: 'branch_admin', name: 'QL Q7', storeId: 'Q7', password: 'Matkhau123', pin: '2468' } });
+  const id = mk.body.user.id;
+  const t1 = (await adminLogin(app, id, 'Matkhau123')).body.token;
+  assert.equal((await call(app, 'GET', '/api/a/me', { token: t1 })).status, 200);
+  await new Promise((r) => setTimeout(r, 15));
+  assert.equal((await call(app, 'POST', `/api/a/users/${id}/reset-password`, { token: chain, body: { password: 'Matkhau456' } })).status, 200);
+  const old = await call(app, 'GET', '/api/a/me', { token: t1 });
+  assert.equal(old.status, 401); assert.equal(old.body.error, 'SESSION_REVOKED');
+  const t2 = (await adminLogin(app, id, 'Matkhau456')).body.token; // đăng nhập lại bình thường
+  assert.equal((await call(app, 'GET', '/api/a/me', { token: t2 })).status, 200);
+  await new Promise((r) => setTimeout(r, 15));
+  await call(app, 'PUT', `/api/a/users/${id}`, { token: chain, body: { role: 'cashier' } }); // hạ vai trò
+  assert.ok([401, 403].includes((await call(app, 'GET', '/api/a/me', { token: t2 })).status)); // không còn quyền quản trị
+  await app.close();
 });

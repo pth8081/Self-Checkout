@@ -142,11 +142,11 @@ function seedDemoHistory(db) {
       ins.counter.run(store, 'tx', 10000);
     }
   })();
-  void ins.shift;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   if (config.isProd && !process.argv.includes('--force')) { console.error('Từ chối chạy seed ở production (thêm --force nếu thật sự muốn).'); process.exit(1); }
+  if (process.argv.includes('--reset') && config.dbDriver === 'mssql' && process.env.ALLOW_DB_RESET !== '1') { console.error('Từ chối --reset trên SQL Server (xóa toàn bộ bảng). Nếu chắc chắn chạy trên CSDL thử, đặt ALLOW_DB_RESET=1.'); process.exit(1); }
   const db = openDb(config.db);
   if (process.argv.includes('--reset')) {
     if (db.kind === 'mssql') db.resetAll();

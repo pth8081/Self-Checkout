@@ -421,7 +421,7 @@ function PriceApiCard({ stores }) {
         <select class="input" style="max-width:240px" value=${t.storeId} onChange=${(e) => setT({ ...t, storeId: e.target.value })}>${(stores || []).map((x) => html`<option value=${x.id} key=${x.id}>${x.name} (${x.posCode || 'chưa có mã điểm'})</option>`)}</select>
         <input class="input" style="max-width:220px" placeholder="Mã vạch" inputmode="numeric" value=${t.barcode} onInput=${(e) => setT({ ...t, barcode: e.target.value })}/>
         <button class="btn primary sm" disabled=${busy || !t.barcode.trim()} onClick=${test}>Tra giá</button></div>
-      ${res && (res.status === 'ok' ? html`<div class="small num" style="line-height:1.7">Mã hàng <b>${res.row.sku}</b> · ${res.row.name}<br/>Giá thường <b>${fmt.money(res.row.list_price)}</b>${res.row.price !== res.row.list_price ? html` · Giá khuyến mại <b style="color:var(--ok)">${fmt.money(res.row.price)}</b>` : ''} · mã điểm ${res.maDiem} · trả lời trong ${(res.ms / 1000).toFixed(1)} giây</div>`
+      ${res && (res.status === 'ok' ? html`<div class="small num" style="line-height:1.7">Mã hàng <b>${res.row.sku}</b> · ${res.row.name}<br/>Giá thường <b>${fmt.money(res.row.list_price)}</b>${res.row.price !== res.row.list_price ? html` · Giá khuyến mại <b style="color:var(--ok)">${fmt.money(res.row.price)}</b>` : ''} · mã điểm ${res.maDiem}</div>`
         : res.status === 'notfound' ? html`<div class="small">Không có giá cho mã vạch này ở mã điểm ${res.maDiem}.</div>` : html`<div class="small errtext">${res.message}</div>`)}</div>
     <div class="row wrap" style="gap:8px"><button class="btn primary sm" disabled=${busy} onClick=${() => save()}>Lưu</button></div></div>`;
 }

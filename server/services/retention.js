@@ -11,7 +11,7 @@ import { nowIso } from '../util.js';
 
 export const RETENTION_KEY = 'retention';
 export const RETENTION_DEFAULTS = { piiMonths: 12, logDays: 90, auditMonths: 24 };
-const FINAL = `('paid','cancelled','voided')`;
+const FINAL = `('paid','cancelled','voided','handed_off')`; // handed_off: khách bấm xong nhưng Dsmart không báo thanh toán, vẫn phải hết hạn giữ dữ liệu
 
 export function retentionConfig(db) {
   const s = getSetting(db, RETENTION_KEY, {});

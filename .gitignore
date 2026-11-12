@@ -3,3 +3,11 @@ data/*.db
 data/*.db-*
 .env
 *.log
+data/backups/
+.env.*
+!.env.example
+*.pem
+*.key
+*.sqlite
+*.sqlite-*
+*.bak

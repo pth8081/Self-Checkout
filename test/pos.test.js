@@ -1127,3 +1127,61 @@ test('giỏ QR: GET có idx và sku; update dạng thay đổi (sku, qty, add/re
   assert.deepEqual(bill.lines.map((l) => [l.sku, l.qty]), [['SUA01', 1], ['MI01', 2]]);
   await app.close();
 });
+
+test('bảo mật nghiệp vụ: mã đơn Dsmart trùng giữa hai cửa hàng không chặn nhau; mã giỏ phải mang mã chi nhánh; số tiền quá lớn bị từ chối; thanh toán đến sau khi nhả giỏ vẫn ghi nhận; bốc thăm kiểm tra không đổi khi khóa lại', async () => {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  await call(app, 'PUT', '/api/a/stores/Q7', { token: admin, body: { posCode: 'SP-Q7' } });
+  await call(app, 'PUT', '/api/a/stores/Q1', { token: admin, body: { posCode: 'SP-Q1' } });
+  await call(app, 'PUT', '/api/a/stores/Q1', { token: admin, body: { enabled: true } });
+  const mk = async (store, code, dev) => {
+    const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: store }, device: dev });
+    const id = s.body.session.id;
+    await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, store, 'SUA01') }] }, device: dev });
+    return { id, res: await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: code }, device: dev }) };
+  };
+  const DEV2 = 'second-device-0123456789abcdef';
+  // mã giỏ phải bắt đầu bằng mã chi nhánh của phiên (chặn tạo giỏ trùng mã ở chi nhánh khác)
+  const bad = await mk('Q7', 'ZZ-SHARED12', DEVICE); assert.equal(bad.res.status, 400); assert.equal(bad.res.body.error, 'BAD_REF');
+  const a7 = await mk('Q7', 'Q7-AAAAAA23', DEVICE); assert.equal(a7.res.status, 200, JSON.stringify(a7.res.body));
+  const a1 = await mk('Q1', 'Q1-BBBBBB23', DEV2); assert.equal(a1.res.status, 200, JSON.stringify(a1.res.body));
+  const paid = (code, point, extra = {}) => pos(app, key, 'POST', `/baskets/${code}/paid`, { pointCode: point, posOrderRef: 'HD0001', amount: 29000, method: 'cash', ...extra });
+  assert.equal((await paid('Q7-AAAAAA23', 'SP-Q7')).status, 200);
+  const other = await paid('Q1-BBBBBB23', 'SP-Q1'); // cùng mã đơn HD0001 ở cửa hàng khác: vẫn ghi nhận, không lộ mã giao dịch của cửa hàng kia
+  assert.equal(other.status, 200, JSON.stringify(other.body));
+  assert.equal(JSON.stringify(other.body).includes('SG-Q7'), false);
+  assert.equal((await paid('Q7-AAAAAA23', 'SP-Q7')).body.duplicate, true); // báo lại cùng đơn vẫn an toàn
+  // số tiền: quá lớn bị từ chối
+  const c = await mk('Q7', 'Q7-CCCCCC23', 'third-device-0123456789abcdef'); assert.equal(c.res.status, 200);
+  assert.equal((await paid('Q7-CCCCCC23', 'SP-Q7', { posOrderRef: 'HD0002', amount: 1e300 })).status, 400);
+  assert.equal((await paid('Q7-CCCCCC23', 'SP-Q7', { posOrderRef: 'HD0002', amount: 3_000_000_000 })).body.error, 'BAD_AMOUNT');
+  // quản trị nhả giỏ khi Dsmart đã nhận, rồi Dsmart báo thanh toán: tiền thật đã thu nên vẫn ghi nhận
+  assert.equal((await pos(app, key, 'POST', '/baskets/Q7-CCCCCC23/update', { pointCode: 'SP-Q7', posOrderRef: 'HD0002', changes: [{ sku: 'SUA01', qty: 1, op: 'add' }] })).status, 200);
+  const txId = app.ctx.db.prepare("SELECT id FROM transactions WHERE cart_code='Q7-CCCCCC23'").get().id;
+  const rel = await call(app, 'POST', `/api/a/pos/orders/${txId}/release`, { token: admin, body: { reason: 'Thu ngân treo máy' } });
+  assert.equal(rel.status, 200, JSON.stringify(rel.body));
+  const late = await paid('Q7-CCCCCC23', 'SP-Q7', { posOrderRef: 'HD0002', amount: 58000 });
+  assert.equal(late.status, 200, JSON.stringify(late.body));
+  assert.equal(app.ctx.db.prepare('SELECT status FROM transactions WHERE id=?').get(txId).status, 'paid');
+  await app.close();
+});
+
+test('bốc thăm kiểm tra ngẫu nhiên cố định theo phiên: mở khóa rồi khóa lại không đổi kết quả (classic)', async () => {
+  let n = 0;
+  const app = await makeApp({ rng: () => (n++ % 2 === 0 ? 0 : 0.99) }); // lần đầu trúng kiểm tra, lần sau nếu bốc lại sẽ không trúng
+  const admin = (await adminLogin(app)).body.token;
+  await call(app, 'PUT', '/api/a/stores/Q7/config', { token: admin, body: { randomCheckRate: 50 } });
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  const id = s.body.session.id;
+  await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }] } });
+  const first = await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash' } });
+  assert.equal(first.status, 200, JSON.stringify(first.body));
+  const flags = [first.body.transaction.checkRequired];
+  for (let i = 0; i < 4; i++) {
+    await call(app, 'POST', `/api/c/sessions/${id}/unlock`);
+    flags.push((await call(app, 'POST', `/api/c/sessions/${id}/lock`, { body: { method: 'cash' } })).body.transaction.checkRequired);
+  }
+  assert.equal(new Set(flags).size, 1, 'kết quả bốc thăm phải giống nhau: ' + flags.join(','));
+  await app.close();
+});

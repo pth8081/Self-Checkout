@@ -14,7 +14,7 @@ if (config.dbDriver === 'mssql') {
 const dir = process.env.BACKUP_DIR || path.join(path.dirname(config.dbFile), 'backups');
 const keep = Math.max(1, Number(process.env.BACKUP_KEEP || 14));
 if (!fs.existsSync(config.dbFile)) { console.error(`Không thấy CSDL: ${config.dbFile}`); process.exit(1); }
-fs.mkdirSync(dir, { recursive: true });
+fs.mkdirSync(dir, { recursive: true, mode: 0o700 }); // bản sao chứa email khách, băm mật khẩu, khóa 2 bước: chỉ chủ tài khoản chạy ứng dụng đọc được
 
 const stamp = new Date(Date.now() + config.tzOffsetHours * 3600_000).toISOString().replace(/[-:T]/g, '').slice(0, 12);
 const dest = path.join(dir, `brg-${stamp.slice(0, 8)}-${stamp.slice(8, 12)}.db`);
@@ -23,6 +23,7 @@ try {
   await src.backup(dest);
 } finally { src.close(); }
 
+try { fs.chmodSync(dest, 0o600); fs.chmodSync(dir, 0o700); } catch { /* hệ thống tệp không hỗ trợ: bỏ qua */ }
 const chk = new Database(dest);
 chk.pragma('journal_mode = DELETE'); // bản sao là một file duy nhất, không kèm -wal/-shm
 const res = chk.pragma('integrity_check', { simple: true });

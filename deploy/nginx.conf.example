@@ -31,17 +31,20 @@ server {
   gzip_min_length 1024;
   gzip_types text/css application/javascript application/json image/svg+xml application/manifest+json;
 
+  server_tokens off;
   client_max_body_size 1m;
+  client_header_timeout 15s;
+  client_body_timeout 15s;
 
   proxy_http_version 1.1;
   proxy_set_header Connection "";
   proxy_set_header Host $host;
   proxy_set_header X-Real-IP $remote_addr;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-For $remote_addr;
   proxy_set_header X-Forwarded-Proto $scheme;
 
   # Chống dò mật khẩu và PIN: tối đa khoảng 10 lần mỗi phút cho mỗi địa chỉ IP
-  location ~ ^/api/(s|a)/login$ {
+  location ~ ^/api/(s|a)/login {
     limit_req zone=brg_login burst=10 nodelay;
     proxy_pass http://brg;
   }

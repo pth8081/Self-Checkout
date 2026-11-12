@@ -15,10 +15,10 @@ function mssqlCfg(database) {
 }
 function adminSql(text) { const b = createBridge(mssqlCfg('master')); try { b.call(text); } finally { b.close(); } }
 
-export async function makeApp({ rng = () => 0.99, demo = false, basket = false, mailer } = {}) {
+export async function makeApp({ rng = () => 0.99, demo = false, basket = false, mailer, rateLimit = false, trustProxy = false } = {}) {
   let dbSpec = ':memory:', dbName = null;
   if (TEST_MSSQL) { dbName = `brg_t_${Math.random().toString(36).slice(2, 10)}`; adminSql(`CREATE DATABASE ${dbName} COLLATE Vietnamese_100_CI_AS`); dbSpec = mssqlCfg(dbName); }
-  const app = buildApp({ dbFile: dbSpec, rng, mailer });
+  const app = buildApp({ dbFile: dbSpec, rng, mailer, rateLimit, trustProxy });
   if (dbName) {
     const close = app.close.bind(app);
     app.close = async (...a) => { const r = await close(...a); try { adminSql(`ALTER DATABASE ${dbName} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE ${dbName}`); } catch { /* bỏ qua */ } return r; };

@@ -18,9 +18,10 @@ export function crc16(str) {
 export const BASKET_PREFIX_SHORT = 'BRG2';
 
 /** Mã giỏ do điện thoại tự sinh nên tạo được cả khi mất mạng. Ví dụ Q7-LM3K2AB. */
-export function makeBasketRef(storeId, now = Date.now(), rnd = Math.random) {
+const secureRnd = () => { const a = new Uint32Array(1); globalThis.crypto.getRandomValues(a); return a[0] / 4294967296; }; // ngẫu nhiên mật mã, không dùng Math.random (đoán được)
+export function makeBasketRef(storeId, now = Date.now(), rnd = secureRnd) {
   const t = Math.floor(now / 1000).toString(36).toUpperCase().slice(-5);
-  const r = Array.from({ length: 3 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(rnd() * 32)]).join('');
+  const r = Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(rnd() * 32)]).join('');
   return `${String(storeId).toUpperCase()}-${t}${r}`;
 }
 

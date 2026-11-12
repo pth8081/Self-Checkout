@@ -295,7 +295,10 @@ function drawCheck(ctx, session, cfg, total) {
   const prev = db.prepare(`SELECT 1 FROM transactions WHERE device_id = ? AND status = 'paid' LIMIT 1`).get(session.device_id);
   if (!prev) rate = Math.max(rate, cfg.rate_first_time);
   if (total >= cfg.high_value_threshold) rate = Math.max(rate, cfg.rate_high_value);
-  return rng() < rate;
+  // Kết quả bốc thăm cố định cho mỗi phiên: mở khóa rồi khóa lại giỏ không bốc lại được (nếu không, khách lặp lại tới khi trúng "không bị kiểm tra").
+  let roll = session.check_roll;
+  if (roll === null || roll === undefined) { roll = rng(); db.prepare('UPDATE scan_sessions SET check_roll = ? WHERE id = ?').run(roll, session.id); }
+  return roll < rate;
 }
 
 export function lockSession(ctx, session, { method, acceptChanges = false, buyer = null }) {
@@ -373,6 +376,8 @@ export function lockBasket(ctx, session, { ref, email } = {}) {
   if (!store.pos_code) throw conflict('NO_POS_CODE', 'Cửa hàng chưa có Mã điểm nên chưa thanh toán được. Hãy báo nhân viên');
   const code = String(ref || '').toUpperCase();
   if (!/^[A-Z0-9]{1,6}-[A-Z0-9]{6,12}$/.test(code)) throw bad('BAD_REF', 'Mã giỏ không hợp lệ');
+  // Mã giỏ phải bắt đầu bằng mã chi nhánh của chính phiên này: nhờ đó duy nhất trên toàn hệ thống, không thể tạo giỏ trùng mã ở chi nhánh khác để chen vào giỏ của người khác.
+  if (code.split('-')[0] !== String(session.store_id).toUpperCase()) throw bad('BAD_REF', 'Mã giỏ không thuộc chi nhánh này');
   const same = db.prepare('SELECT * FROM transactions WHERE store_id = ? AND cart_code = ?').get(session.store_id, code);
   const mail = String(email || '').trim().toLowerCase();
   if (mail && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(mail)) throw bad('BAD_EMAIL', 'Email không hợp lệ');

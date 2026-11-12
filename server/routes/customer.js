@@ -1,5 +1,6 @@
+import crypto from 'node:crypto';
 import { config } from '../config.js';
-import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, randomCode } from '../util.js';
+import { HttpError, bad, notFound, conflict, nowIso, localDate, randomCode } from '../util.js';
 import {
   getStoreConfig, storeView, createOrResumeSession, sessionView, applyOps, lockSession, lockBasket, finishBasket, unlockSession, abandonSession, txView
 } from '../services/core.js';
@@ -21,8 +22,10 @@ export default async function customerRoutes(app) {
   // Khách không đăng nhập: mỗi thiết bị có một mã ngẫu nhiên dài do trình duyệt tạo và giữ bí mật.
   app.addHook('preHandler', async (req) => {
     const id = req.headers['x-device-id'];
-    if (req.url.includes('/store') && req.method === 'GET') { req.deviceId = typeof id === 'string' ? id : ''; return; }
-    if (req.method === 'GET' && req.url.startsWith('/api/c/bill/')) { req.deviceId = ''; return; } // link bill trong email: chữ ký thay cho đăng nhập
+    // Chỉ các đường dẫn công khai (so khớp CHÍNH XÁC phần đường dẫn, không tính query) mới khỏi cần mã thiết bị.
+    const path = req.url.split('?')[0];
+    if (req.method === 'GET' && (path === '/api/c/stores' || /^\/api\/c\/store\/[^/]+$/.test(path))) { req.deviceId = ''; return; }
+    if (req.method === 'GET' && /^\/api\/c\/bill\/[^/]+(\/pdf)?$/.test(path)) { req.deviceId = ''; return; } // link bill trong email: chữ ký thay cho đăng nhập
     const okId = (v) => typeof v === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(v);
     const hasCookie = /(?:^|;\s*)brgd=[A-Za-z0-9_-]{16,64}/.test(req.headers.cookie || '');
     if (!okId(id) && !hasCookie) throw bad('NO_DEVICE', 'Thiếu mã thiết bị');
@@ -33,7 +36,7 @@ export default async function customerRoutes(app) {
     if (!saved && okId(id)) req.cookieToSet = id;
   });
   app.addHook('onSend', async (req, reply) => {
-    if (req.cookieToSet) reply.header('set-cookie', `brgd=${req.cookieToSet}; Path=/api/c; Max-Age=31536000; HttpOnly; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+    if (req.cookieToSet) reply.header('set-cookie', `brgd=${req.cookieToSet}; Path=/api/c; Max-Age=31536000; HttpOnly; SameSite=Lax${config.isProd ? '; Secure' : ''}`);
   });
 
   const session = (req) => {
@@ -135,6 +138,8 @@ export default async function customerRoutes(app) {
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (!MAIL.test(email) || email.length > 120) throw bad('BAD_EMAIL', 'Email không hợp lệ');
     if (!['awaiting_counter', 'handed_off', 'paid'].includes(tx.status)) throw conflict('NOT_ACTIVE', 'Giao dịch này không còn nhận bill');
+    // Chống lạm dụng gửi thư: mỗi giao dịch đổi địa chỉ nhận tối đa 3 lần mỗi ngày, mỗi địa chỉ nhận tối đa 5 bill mỗi giờ (cho mọi giao dịch, mọi thiết bị).
+    if (tx.bill_email !== email && (!ctx.limiter.hit(`billmail-tx|${tx.id}`, 3, 24 * 3600_000).ok || !ctx.limiter.hit(`billmail-to|${email}`, 5, 3600_000).ok)) throw new HttpError(429, 'TOO_MANY', 'Đã gửi bill quá nhiều lần, hãy thử lại sau');
     if (tx.bill_email !== email) db.prepare(`UPDATE transactions SET bill_email = ?, bill_email_status = NULL, bill_email_tries = 0, bill_email_error = NULL WHERE id = ?`).run(email, tx.id);
     if (tx.status === 'paid') {
       if (!ctx.mailer.enabled()) throw new HttpError(503, 'EMAIL_NOT_CONFIGURED', 'Hệ thống chưa cấu hình gửi email');
@@ -212,6 +217,8 @@ export default async function customerRoutes(app) {
   app.post('/identity/request', async (req) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (!EMAIL.test(email)) throw bad('BAD_EMAIL', 'Email không hợp lệ');
+    // Giới hạn theo ĐỊA CHỈ EMAIL (mọi thiết bị cộng lại): mã thiết bị do khách tự đặt nên không thể là căn cứ duy nhất.
+    if (!ctx.limiter.hit(`idreq|${email}`, 3, 3600_000).ok) throw new HttpError(429, 'TOO_MANY', 'Email này đã nhận mã quá nhiều lần, hãy thử lại sau');
     const prev = db.prepare('SELECT expires_at FROM identity_codes WHERE device_id = ? AND email = ?').get(req.deviceId, email);
     if (prev && new Date(prev.expires_at).getTime() - 9 * 60_000 > Date.now()) throw new HttpError(429, 'TOO_SOON', 'Vui lòng đợi một phút trước khi gửi lại mã');
     const code = randomCode(6);
@@ -234,10 +241,13 @@ export default async function customerRoutes(app) {
   });
   app.post('/identity/verify', async (req) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
+    if (ctx.limiter.peek(`idfail|${email}`) >= 10) throw new HttpError(429, 'CODE_LOCKED', 'Nhập sai quá nhiều lần, hãy thử lại sau một giờ');
     const row = db.prepare('SELECT * FROM identity_codes WHERE device_id = ? AND email = ?').get(req.deviceId, email);
     if (!row || row.expires_at < nowIso()) throw bad('CODE_EXPIRED', 'Mã đã hết hạn, hãy gửi lại');
     if (row.tries >= 5) throw bad('CODE_LOCKED', 'Nhập sai quá nhiều lần, hãy gửi lại mã');
-    if (row.code !== String(req.body?.code || '').trim()) {
+    const given = Buffer.from(String(req.body?.code || '').trim().padEnd(6).slice(0, 6)), want = Buffer.from(String(row.code).padEnd(6).slice(0, 6));
+    if (!crypto.timingSafeEqual(given, want) || String(req.body?.code || '').trim().length !== String(row.code).length) {
+      ctx.limiter.hit(`idfail|${email}`, 10, 3600_000); // tổng số lần sai của email này, bất kể thiết bị nào
       db.prepare('UPDATE identity_codes SET tries = tries + 1 WHERE device_id = ? AND email = ?').run(req.deviceId, email);
       throw bad('CODE_WRONG', 'Mã chưa đúng');
     }
@@ -245,5 +255,4 @@ export default async function customerRoutes(app) {
     db.prepare('INSERT INTO device_emails(device_id,email,verified_at) VALUES(?,?,?) ON CONFLICT(device_id,email) DO UPDATE SET verified_at=excluded.verified_at').run(req.deviceId, email, nowIso());
     return { linked: true, email };
   });
-  void forbidden;
 }

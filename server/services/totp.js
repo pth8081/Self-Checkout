@@ -35,6 +35,19 @@ export function hotp(secret, counter, digits = 6) {
 export const totpNow = (secret, time = Date.now()) => hotp(secret, Math.floor(time / 30000));
 
 /** Cho phép lệch ±1 bước (30 giây) để bù đồng hồ. */
+/** Trả về bước thời gian (30 giây) khớp với mã, hoặc null nếu mã sai. */
+export function matchTotpStep(secret, code, time = Date.now()) {
+  const c = String(code || '').trim();
+  if (!/^\d{6}$/.test(c)) return null;
+  const step = Math.floor(time / 30000);
+  let found = null;
+  for (const d of [-1, 0, 1]) {
+    const expected = hotp(secret, step + d);
+    if (crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(c))) found = step + d; // không thoát sớm: thời gian không phụ thuộc vị trí khớp
+  }
+  return found;
+}
+
 export function verifyTotp(secret, code, time = Date.now()) {
   const c = String(code || '').trim();
   if (!/^\d{6}$/.test(c)) return false;

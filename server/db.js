@@ -174,7 +174,7 @@ export const MIGRATIONS = [
   ['store_config', 'payment_source', "TEXT NOT NULL DEFAULT 'manual'"], ['store_config', 'guard_check', 'INTEGER NOT NULL DEFAULT 1'],
   ['transactions', 'pos_order_ref', 'TEXT'], ['transactions', 'pos_status', 'TEXT'], ['transactions', 'pos_claimed_at', 'TEXT'],
   ['transactions', 'pos_cashier', 'TEXT'], ['transactions', 'pos_terminal', 'TEXT'], ['transactions', 'pos_amount', 'INTEGER'],
-  ['staff', 'username', 'TEXT'], ['staff', 'session_id', 'TEXT'], ['staff', 'session_seen', 'TEXT'], ['staff', 'session_info', 'TEXT'], ['transactions', 'pos_invoice_no', 'TEXT'], ['transactions', 'buyer_json', 'TEXT'], ['transactions', 'guard_skipped', 'INTEGER NOT NULL DEFAULT 0']
+  ['scan_sessions', 'check_roll', 'REAL'], ['staff', 'username', 'TEXT'], ['staff', 'session_id', 'TEXT'], ['staff', 'totp_last', 'INTEGER'], ['staff', 'sec_epoch', 'TEXT'], ['staff', 'session_seen', 'TEXT'], ['staff', 'session_info', 'TEXT'], ['transactions', 'pos_invoice_no', 'TEXT'], ['transactions', 'buyer_json', 'TEXT'], ['transactions', 'guard_skipped', 'INTEGER NOT NULL DEFAULT 0']
 ];
 export const EXTRA_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_tx_pos_ref ON transactions(pos_order_ref)',

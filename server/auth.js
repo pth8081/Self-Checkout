@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import { config } from './config.js';
 import { nowIso, unauthorized, forbidden } from './util.js';
 import { getSetting } from './db.js';
+import { matchTotpStep } from './services/totp.js';
+import { encryptSecret, decryptSecret } from './services/mailer.js';
 
 // ---- Mật khẩu / PIN: scrypt + salt ----
 export function hashSecret(secret) {
@@ -21,7 +23,7 @@ export function verifySecret(secret, stored) {
 // ---- Token ký HMAC (không lưu trạng thái) ----
 const b64 = (b) => Buffer.from(b).toString('base64url');
 export function sign(payload, ttlHours = config.authTokenHours) {
-  const body = b64(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + ttlHours * 3600 }));
+  const body = b64(JSON.stringify({ ...payload, iat: Date.now(), exp: Math.floor(Date.now() / 1000) + ttlHours * 3600 }));
   const sig = crypto.createHmac('sha256', config.secret).update(body).digest('base64url');
   return `${body}.${sig}`;
 }
@@ -74,6 +76,8 @@ export function authenticate(db, kind) {
     const user = db.prepare('SELECT * FROM staff WHERE id = ?').get(p.uid);
     if (!user || !user.active) throw unauthorized('INACTIVE', 'Tài khoản đã bị khóa');
     if (kind === 'admin' && !isManager(user)) throw forbidden();
+    // Token cấp trước thời điểm thu hồi (đổi mật khẩu, PIN, vai trò) không còn hiệu lực.
+    if (user.sec_epoch && (p.iat || 0) < Date.parse(user.sec_epoch)) throw unauthorized('SESSION_REVOKED', 'Thông tin đăng nhập của tài khoản vừa thay đổi, hãy đăng nhập lại.');
     if (kind === 'admin') {
       // Một phiên đăng nhập tại một thời điểm: đăng nhập ở thiết bị khác sẽ đổi mã phiên, phiên cũ bị từ chối ở lần gọi sau.
       if (securityPolicy(db).singleSession && (p.sid || null) !== (user.session_id || null)) {
@@ -109,4 +113,33 @@ export function securityPolicy(db) {
     requireCaptcha: typeof s.requireCaptcha === 'boolean' ? s.requireCaptcha : process.env.REQUIRE_CAPTCHA !== '0',
     singleSession: typeof s.singleSession === 'boolean' ? s.singleSession : process.env.SINGLE_SESSION !== '0'
   };
+}
+
+/** Tốn thời gian băm như khi kiểm tra mật khẩu thật, dùng khi tài khoản không tồn tại, để không đo được thời gian mà đoán ra mã tài khoản có thật. */
+let DUMMY = null;
+export function burnScrypt() { DUMMY ||= hashSecret('burn-' + Math.random()); verifySecret('x', DUMMY); }
+
+// ---- Khóa bí mật 2 bước (TOTP): lưu dạng mã hóa, mỗi mã chỉ dùng một lần ----
+const SEALED = 'enc1:';
+/** Mã hóa khóa 2 bước trước khi lưu vào CSDL (khóa dẫn xuất từ APP_SECRET), để lộ file CSDL/sao lưu không làm lộ 2 bước. */
+export const sealTotp = (secret) => SEALED + encryptSecret(secret);
+/** Đọc khóa 2 bước của tài khoản (chấp nhận cả bản lưu thô cũ). */
+export const totpSecretOf = (user) => (user?.totp_secret ? (user.totp_secret.startsWith(SEALED) ? decryptSecret(user.totp_secret.slice(SEALED.length)) : user.totp_secret) : '');
+/**
+ * Kiểm tra mã 6 số của tài khoản. Không chấp nhận lại mã (hoặc mã cũ hơn) đã dùng thành công. Bản lưu thô cũ được nâng cấp sang mã hóa khi dùng thành công.
+ */
+export function checkTotp(db, user, code) {
+  const secret = totpSecretOf(user);
+  if (!secret) return false;
+  const step = matchTotpStep(secret, code);
+  if (step === null) return false;
+  if (user.totp_last !== null && user.totp_last !== undefined && step <= user.totp_last) return false; // mã đã dùng
+  db.prepare('UPDATE staff SET totp_last = ?, totp_secret = ? WHERE id = ?').run(step, user.totp_secret.startsWith(SEALED) ? user.totp_secret : sealTotp(secret), user.id);
+  user.totp_last = step;
+  return true;
+}
+
+/** Thu hồi mọi phiên đang đăng nhập của tài khoản (gọi khi đổi mật khẩu, PIN, vai trò). */
+export function revokeSessions(db, userId) {
+  db.prepare('UPDATE staff SET sec_epoch = ?, session_id = NULL, session_seen = NULL, session_info = NULL WHERE id = ?').run(new Date().toISOString(), userId);
 }

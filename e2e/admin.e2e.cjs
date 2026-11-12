@@ -62,7 +62,7 @@ let ADMIN_TOKEN;
   ok('khôi phục GV', (await sw('Tiền mặt Chi nhánh Gò Vấp').getAttribute('aria-checked')) === 'true');
   ok('online khóa', await sw('Thanh toán online Chi nhánh Quận 7').isDisabled());
   // QR cổng
-  await p.locator('button:has-text("Mã QR dán cổng vào")').nth(2).click(); await p.waitForSelector('.overlay svg');
+  await p.locator('button[aria-label^="Mã QR dán cổng vào"]').nth(2).click(); await p.waitForSelector('.overlay svg');
   ok('QR cổng có link', (await p.inputValue('[aria-label="Đường dẫn chi nhánh"]')) === B + '/c/?s=Q7');
   await shot('stores-qr');
   await p.emulateMedia({ media: 'print' }); await p.screenshot({ path: `${SP}/shots/stores-qr-print.png` }); await p.emulateMedia({ media: 'screen' });
@@ -104,18 +104,19 @@ let ADMIN_TOKEN;
   await row.locator('button:has-text("Quản lý")').click(); await p.click('text=Đặt lại mã PIN'); await p.fill('[aria-label="Mã PIN mới"]', '9876'); await p.click('.sheet button[type=submit]'); await p.waitForTimeout(500);
   await shot('users-d');
   // 2FA
-  await p.click('button:has-text("Bật xác thực 2 bước")'); await p.waitForSelector('#totp-secret');
+  await p.click('button.primary:has-text("Bật xác thực 2 bước")'); await p.waitForSelector('#totp-secret');
   const secret = (await p.textContent('#totp-secret')).trim(); ok('hiện secret + QR', secret.length >= 16 && (await p.locator('.sheet svg').count()) > 0);
   await shot('totp');
-  await p.click('text=Tôi đã lưu xong');
+  await p.fill('[aria-label="Mã xác thực"]', totpNow(secret)); await p.click('.sheet button:has-text("Xác nhận")'); await p.waitForSelector('text=Đã bật xác thực 2 bước'); // bật 2 bước có xác nhận bằng mã
   await p.click('aside.side button[aria-label="Đăng xuất"]'); await p.waitForSelector('form');
   await login('QT0001', 'Admin@123'); await p.waitForSelector('[aria-label="Mã xác thực 6 số"]');
   ok('yêu cầu TOTP', true); await shot('login-totp');
   await p.fill('[aria-label="Mã xác thực 6 số"]', '000000'); await p.click('button[type=submit]'); await p.waitForTimeout(500);
   ok('mã TOTP sai báo lỗi', (await p.locator('[role=alert]').textContent()).includes('chưa đúng'));
-  await p.fill('[aria-label="Mã xác thực 6 số"]', totpNow(secret)); await p.click('button[type=submit]');
+  // mỗi mã chỉ dùng một lần: mã vừa dùng để xác nhận không dùng lại được, nên lấy mã của bước kế tiếp
+  await p.fill('[aria-label="Mã xác thực 6 số"]', totpNow(secret, Date.now() + 30000)); await p.click('button[type=submit]');
   await p.waitForSelector('main'); ok('đăng nhập bằng TOTP', true);
-  ADMIN_TOKEN = (await j('POST', '/api/a/login', { account: 'QT0001', password: 'Admin@123', totp: totpNow(secret) })).token;
+  ADMIN_TOKEN = await p.evaluate(() => localStorage.getItem('brg_a_token'));
 
   // --- Báo cáo ---
   await go('/reports'); await p.click('button:has-text("30 ngày")'); await p.waitForTimeout(600);
@@ -180,7 +181,9 @@ let ADMIN_TOKEN;
 
   // tắt 2FA
   await go('/users');
-  await p.locator('.card:has-text("Xác thực 2 bước của tôi") button:has-text("Quản lý")').click(); await p.click('text=Tắt xác thực 2 bước'); await p.click('.sheet button.danger'); await p.waitForTimeout(700);
+  await p.locator('.card:has-text("Bảo mật đăng nhập của tôi") button:has-text("Quản lý bảo mật")').click(); await p.click('button:has-text("Gỡ xác thực 2 bước")');
+  await p.waitForTimeout(31000); // mỗi mã chỉ dùng một lần: chờ sang bước 30 giây kế tiếp để có mã chưa dùng
+  await p.fill('[aria-label="Mã 6 số hiện tại"]', totpNow(secret, Date.now() + 30000)); await p.click('.sheet button.danger'); await p.waitForTimeout(900); // gỡ cần nhập mã hiện tại
   ok('tắt 2FA', (await p.textContent('main')).includes('Chưa bật'));
 
   // --- Đăng xuất & branch admin ---
