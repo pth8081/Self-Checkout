@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Thử quét mã trên iPhone</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 16px; background: #111; color: #eee; }
+  video { width: 100%; max-height: 60vh; background: #000; border-radius: 12px; object-fit: cover; }
+  button { font-size: 18px; padding: 12px 18px; border-radius: 10px; border: 0; background: #F07F1A; color: #fff; margin: 8px 8px 8px 0; }
+  #out { font-size: 20px; word-break: break-all; margin-top: 12px; }
+</style></head>
+<body>
+  <h2>Thử quét mã</h2>
+  <!-- BẮT BUỘC: playsinline và muted -->
+  <video id="cam" playsinline muted autoplay></video>
+  <div>
+    <button id="b1">Quét mã vạch</button><button id="b2">Quét QR</button><button id="b3">Dừng</button>
+  </div>
+  <div id="state">Chưa bật camera</div>
+  <div id="out"></div>
+  <script src="zxing.min.js"></script>
+  <script src="iphone-scanner.js"></script>
+  <script>
+    let s;
+    const go = (kind) => {                      // gọi trong sự kiện chạm: iOS bắt buộc
+      if (s) s.stop();
+      s = new PhoneScanner(document.getElementById('cam'), {
+        kind,
+        onScan: (t) => { document.getElementById('out').textContent = 'Mã: ' + t; },
+        onState: (st, e) => { document.getElementById('state').textContent = 'Trạng thái: ' + st + (e ? ' (' + e.name + ')' : ''); },
+      });
+      s.start();
+    };
+    b1.onclick = () => go('barcode'); b2.onclick = () => go('qr'); b3.onclick = () => s && s.stop();
+  </script>
+</body></html>
