@@ -421,3 +421,51 @@ test('thu hồi phiên: đổi mật khẩu, đổi vai trò hoặc đặt lại
   assert.ok([401, 403].includes((await call(app, 'GET', '/api/a/me', { token: t2 })).status)); // không còn quyền quản trị
   await app.close();
 });
+
+test('nhập lại mật khẩu cho thao tác nhạy cảm: thiếu hoặc sai mật khẩu bị từ chối, đúng thì làm được; quản trị chuỗi cuối cùng không bị hạ quyền; email nhân viên được kiểm tra', async () => {
+  process.env.REQUIRE_REAUTH = '1';
+  try {
+    const app = await makeApp();
+    const t = (await adminLogin(app)).body.token;
+    const call2 = (method, url, body, pw) => app.inject({ method, url, headers: { authorization: `Bearer ${t}`, 'content-type': 'application/json', ...(pw ? { 'x-reauth': pw } : {}) }, payload: body ? JSON.stringify(body) : undefined }).then((r) => ({ status: r.statusCode, body: r.json() }));
+    // tạo khóa POS, đổi chính sách, tạo quản trị: cần nhập lại mật khẩu
+    assert.equal((await call2('POST', '/api/a/pos/keys', { name: 'POS' })).body.error, 'REAUTH_REQUIRED');
+    assert.equal((await call2('POST', '/api/a/pos/keys', { name: 'POS' }, 'SaiMatKhau1')).body.error, 'REAUTH_REQUIRED');
+    assert.equal((await call2('POST', '/api/a/pos/keys', { name: 'POS' }, 'Admin@123')).status, 200);
+    assert.equal((await call2('PUT', '/api/a/security', { requireCaptcha: false })).body.error, 'REAUTH_REQUIRED');
+    assert.equal((await call2('PUT', '/api/a/security', { requireCaptcha: false }, 'Admin@123')).status, 200);
+    const mk = (extra, pw) => call2('POST', '/api/a/users', { role: 'chain_admin', name: 'QT phụ', password: 'Matkhau123', pin: '1234', ...extra }, pw);
+    assert.equal((await mk({})).body.error, 'REAUTH_REQUIRED');
+    const ok = await mk({ email: 'qt.phu@congty.vn' }, 'Admin@123'); assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    // thao tác không nhạy cảm (nhân viên thường) không cần nhập lại
+    assert.equal((await call2('POST', '/api/a/users', { role: 'cashier', name: 'Thu ngân', storeId: 'Q7', pin: '4321' })).status, 200);
+    // email: sai định dạng và trùng
+    assert.equal((await call2('POST', '/api/a/users', { role: 'cashier', name: 'X', storeId: 'Q7', pin: '4321', email: 'khong-phai-email' })).body.error, 'BAD_EMAIL');
+    assert.equal((await call2('POST', '/api/a/users', { role: 'cashier', name: 'Y', storeId: 'Q7', pin: '4321', email: 'QT.PHU@congty.vn' })).body.error, 'EMAIL_TAKEN');
+    // quản trị chuỗi cuối cùng: có hai quản trị chuỗi (QT0001 và QT phụ) thì hạ được một, không hạ được người còn lại
+    const other = ok.body.user.id;
+    assert.equal((await call2('PUT', `/api/a/users/${other}`, { role: 'cashier', storeId: 'Q7' })).status, 200);
+    assert.equal((await call2('PUT', '/api/a/users/QT0001', { role: 'branch_admin' })).body.error, 'LAST_CHAIN_ADMIN');
+    await app.close();
+  } finally { process.env.REQUIRE_REAUTH = '0'; }
+});
+
+test('link bill trong email có hạn sử dụng (BILL_LINK_DAYS), hết hạn thì không xem được', async () => {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  await call(app, 'PUT', '/api/a/stores/Q7', { token: admin, body: { posCode: 'SP-Q7' } });
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  const id = s.body.session.id;
+  await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: (await import('./helpers.js')).barcodeOf(app, 'Q7', 'SUA01') }] } });
+  await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: 'Q7-LINKEXP23' } });
+  await call(app, 'POST', '/api/pos/v1/baskets/Q7-LINKEXP23/paid', { token: key, body: { pointCode: 'SP-Q7', posOrderRef: 'HDX1', amount: 29000, method: 'cash' } });
+  const tx = app.ctx.db.prepare("SELECT id FROM transactions WHERE cart_code='Q7-LINKEXP23'").get();
+  const { makeBillToken } = await import('../server/services/qr.js');
+  const token = makeBillToken(tx.id);
+  assert.equal((await app.inject({ method: 'GET', url: `/api/c/bill/${token}` })).statusCode, 200);
+  app.ctx.db.prepare("UPDATE transactions SET paid_at = ? WHERE id = ?").run(new Date(Date.now() - 200 * 86400000).toISOString(), tx.id);
+  const old = await app.inject({ method: 'GET', url: `/api/c/bill/${token}` });
+  assert.equal(old.statusCode, 404); assert.equal(old.json().error, 'BILL_EXPIRED');
+  await app.close();
+});

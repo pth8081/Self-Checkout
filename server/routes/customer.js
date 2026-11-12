@@ -153,6 +153,9 @@ export default async function customerRoutes(app) {
     const t = parseBillToken(req.params.token);
     const tx = t && db.prepare('SELECT * FROM transactions WHERE id = ?').get(t.txId);
     if (!tx || tx.status !== 'paid') throw notFound('BILL_NOT_FOUND', 'Không tìm thấy bill');
+    // Link trong email có hạn: sau BILL_LINK_DAYS ngày (mặc định 180) kể từ lúc thanh toán thì hết hiệu lực; khách vẫn xem được bill từ lịch sử mua sắm trên thiết bị của mình.
+    const days = Number(process.env.BILL_LINK_DAYS ?? 180);
+    if (days > 0 && tx.paid_at && Date.now() - Date.parse(tx.paid_at) > days * 86_400_000) throw notFound('BILL_EXPIRED', 'Link xem bill đã hết hạn. Hãy mở bill từ lịch sử mua sắm trong ứng dụng.');
     return tx;
   };
   app.get('/bill/:token', async (req) => ({ bill: billOf(ctx, byToken(req)) }));

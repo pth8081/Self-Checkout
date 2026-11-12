@@ -291,6 +291,7 @@ function NewKey({ stores, onClose, onDone }) {
     <h2>Tạo khóa API cho Dsmart POS</h2>
     <${Field} label="Tên khóa" hint="Ví dụ: KiotViet quầy Q7"><input class="input" value=${name} maxlength="60" onInput=${(e) => setName(e.target.value)} autofocus aria-label="Tên khóa"/><//>
     <${Field} label="Phạm vi" hint="Khóa theo chi nhánh chỉ nhận được giỏ hàng của chi nhánh đó"><select class="input" value=${sid} onChange=${(e) => setSid(e.target.value)} aria-label="Phạm vi khóa"><option value="">Tất cả chi nhánh</option>${stores.map((s) => html`<option value=${s.id} key=${s.id}>${s.name}</option>`)}</select><//>
+    ${!sid && html`<${Banner} tone="warn" icon="alert" title="Khóa dùng cho mọi chi nhánh">Nếu khóa này bị lộ, người khác báo thanh toán được cho bất kỳ cửa hàng nào. Nên tạo mỗi chi nhánh một khóa riêng (chọn chi nhánh ở mục Phạm vi).<//>`}
     ${err && html`<div class="errtext" role="alert">${err}</div>`}
     <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : 'Tạo khóa'}</button>
     <button class="btn txt" type="button" onClick=${onClose}>Hủy</button></form><//>`;
@@ -779,7 +780,8 @@ function SecurityPolicyCard() {
     <div class="small muted">Áp dụng cho mọi tài khoản quản trị. Đăng nhập bằng vân tay / khuôn mặt (passkey) đã gồm xác minh người dùng nên không cần mã hình và mã 2 bước.</div></div></div>
     <div class="row" style="margin:8px 0"><${Switch} checked=${d.require2fa} label="Bắt buộc xác thực 2 bước" onChange=${(v) => set('require2fa', v)}/><span><b>Bắt buộc xác thực 2 bước</b><div class="xs muted">Bật: tài khoản chưa có 2 bước phải thiết lập ngay khi đăng nhập, và không ai gỡ được 2 bước. Tắt: ai cũng gỡ hoặc không dùng 2 bước được.</div></span></div>
     <div class="row" style="margin:8px 0"><${Switch} checked=${d.requireCaptcha} label="Bắt buộc mã hình 4 số khi đăng nhập" onChange=${(v) => set('requireCaptcha', v)}/><span><b>Bắt buộc mã hình 4 số khi đăng nhập</b><div class="xs muted">Hạn chế chương trình tự dò mật khẩu. Mỗi hình chỉ thử được một lần.</div></span></div>
-    <div class="row" style="margin:8px 0"><${Switch} checked=${d.singleSession} label="Mỗi tài khoản chỉ đăng nhập một thiết bị" onChange=${(v) => set('singleSession', v)}/><span><b>Mỗi tài khoản chỉ đăng nhập một thiết bị</b><div class="xs muted">Bật: đăng nhập ở thiết bị mới phải xác nhận và sẽ đăng xuất thiết bị đang dùng. Tắt: nhiều thiết bị dùng cùng lúc được.</div></span></div></div>`;
+    <div class="row" style="margin:8px 0"><${Switch} checked=${d.singleSession} label="Mỗi tài khoản chỉ đăng nhập một thiết bị" onChange=${(v) => set('singleSession', v)}/><span><b>Mỗi tài khoản chỉ đăng nhập một thiết bị</b><div class="xs muted">Bật: đăng nhập ở thiết bị mới phải xác nhận và sẽ đăng xuất thiết bị đang dùng. Tắt: nhiều thiết bị dùng cùng lúc được.</div></span></div>
+    <div class="row" style="margin:8px 0"><${Switch} checked=${d.requireReauth} label="Nhập lại mật khẩu cho thao tác nhạy cảm" onChange=${(v) => set('requireReauth', v)}/><span><b>Nhập lại mật khẩu cho thao tác nhạy cảm</b><div class="xs muted">Bật: tạo quản trị, cấp hoặc thu hồi khóa POS, đặt lại mật khẩu người khác, đổi cấu hình tích hợp và chính sách bảo mật đều hỏi lại mật khẩu của bạn, để phiên bị đánh cắp không đủ chiếm quyền.</div></span></div></div>`;
 }
 
 export function Users({ me, stores, onMe }) {
