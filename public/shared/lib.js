@@ -31,7 +31,7 @@ export const fmt = {
     return `${Math.round(s / 3600)} giờ trước`;
   },
   digits: (s) => String(s ?? '').replace(/\D/g, ''),
-  method: (m) => ({ cash: 'Tiền mặt', qr_transfer: 'Chuyển khoản', card: 'Thẻ', ewallet: 'Ví điện tử', other: 'Khác', pos: 'Tại quầy (Dsmart POS)', basket: 'Giỏ QR (tại quầy)', online: 'Thanh toán online' }[m] || m),
+  method: (m) => ({ mixed: 'Nhiều hình thức', cash: 'Tiền mặt', qr_transfer: 'Chuyển khoản', card: 'Thẻ', ewallet: 'Ví điện tử', other: 'Khác', pos: 'Tại quầy (Dsmart POS)', basket: 'Giỏ QR (tại quầy)', online: 'Thanh toán online' }[m] || m),
   tone: (i) => (i * 47) % 360
 };
 export const todayStr = () => { const d = new Date(Date.now() + 7 * 3600_000); return d.toISOString().slice(0, 10); };
@@ -114,17 +114,22 @@ export class ApiError extends Error {
 }
 
 /** Tạo client gọi API. headers() trả về header bổ sung (token, mã thiết bị). */
-export function createApi({ base, headers = () => ({}), onUnauthorized }) {
-  async function request(method, path, body) {
+export function createApi({ base, headers = () => ({}), onUnauthorized, onReauth }) {
+  async function request(method, path, body, extra = {}, attempt = 0) {
     let res;
     try {
-      res = await fetch(base + path, { method, headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...headers() }, body: body === undefined ? undefined : JSON.stringify(body) });
+      res = await fetch(base + path, { method, headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...headers(), ...extra }, body: body === undefined ? undefined : JSON.stringify(body) });
     } catch {
       throw new ApiError(0, 'NETWORK', 'Không kết nối được máy chủ. Hãy kiểm tra mạng.');
     }
     const ct = res.headers.get('content-type') || '';
     const data = ct.includes('json') ? await res.json().catch(() => ({})) : null;
     if (!res.ok) {
+      // Thao tác nhạy cảm: máy chủ đòi nhập lại mật khẩu của chính người đang dùng; hỏi rồi gửi lại đúng yêu cầu đó một lần.
+      if (res.status === 403 && data?.error === 'REAUTH_REQUIRED' && onReauth && attempt < 3) {
+        const pw = await onReauth(data.message); // sai mật khẩu thì hỏi lại (tối đa 3 lần)
+        if (pw) return request(method, path, body, { 'X-Reauth': pw }, attempt + 1);
+      }
       if (res.status === 401 && onUnauthorized && !['BAD_LOGIN', 'LOCKED', 'TOTP_REQUIRED', 'BAD_TOTP'].includes(data?.error)) onUnauthorized(data);
       throw new ApiError(res.status, data?.error || 'ERROR', data?.message || 'Có lỗi xảy ra, vui lòng thử lại', data);
     }

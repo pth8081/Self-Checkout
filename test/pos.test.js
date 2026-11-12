@@ -1185,3 +1185,29 @@ test('bốc thăm kiểm tra ngẫu nhiên cố định theo phiên: mở khóa 
   assert.equal(new Set(flags).size, 1, 'kết quả bốc thăm phải giống nhau: ' + flags.join(','));
   await app.close();
 });
+
+test('Dsmart: thanh toán nhiều hình thức, hoàn theo sku, link giao dịch tự dựng từ mã đơn', async () => {
+  const app = await makeApp({ basket: true });
+  const admin = (await adminLogin(app)).body.token;
+  const key = (await call(app, 'POST', '/api/a/pos/keys', { token: admin, body: { name: 'POS' } })).body.key;
+  assert.equal((await call(app, 'PUT', '/api/a/pos/links', { token: admin, body: { transactionUrlTemplate: 'http://x/{posOrderRef}' } })).status, 400);
+  assert.equal((await call(app, 'PUT', '/api/a/pos/links', { token: admin, body: { transactionUrlTemplate: 'https://dsmart.example/gd/{posOrderRef}' } })).status, 200);
+  const s = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  const id = s.body.session.id;
+  const sua = barcodeOf(app, 'Q7', 'SUA01');
+  await call(app, 'POST', `/api/c/sessions/${id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: sua }, { id: 'b', type: 'scan', barcode: sua }] } });
+  const code = 'Q7-SPLIT2345';
+  const tx = (await call(app, 'POST', `/api/c/sessions/${id}/basket`, { body: { ref: code } })).body.transaction;
+  const base = { posOrderRef: 'P-SPLIT', pointCode: 'SP-Q7', amount: tx.total };
+  const bad1 = await pos(app, key, 'POST', `/baskets/${code}/paid`, { ...base, payments: [{ method: 'cash', amount: 1000 }, { method: 'card', amount: 1000 }] });
+  assert.equal(bad1.body.error, 'BAD_PAYMENTS');
+  const ok = await pos(app, key, 'POST', `/baskets/${code}/paid`, { ...base, payments: [{ method: 'cash', amount: tx.total - 10000 }, { method: 'card', amount: 10000 }], lines: [{ sku: 'SUA01', qty: 2 }] });
+  assert.equal(ok.status, 200);
+  const row = app.ctx.db.prepare('SELECT method, pos_transaction_url FROM transactions WHERE id = ?').get(tx.id);
+  assert.equal(row.method, 'mixed');
+  assert.equal(app.ctx.db.prepare('SELECT COUNT(*) n FROM payments WHERE transaction_id = ?').get(tx.id).n, 2);
+  assert.equal(row.pos_transaction_url, 'https://dsmart.example/gd/P-SPLIT');
+  const refund = (b) => pos(app, key, 'POST', `/baskets/${code}/refund`, { pointCode: 'SP-Q7', posOrderRef: 'P-SPLIT', ...b });
+  assert.equal((await refund({ refundRef: 'R1', amount: 20000, lines: [{ sku: 'SUA01', qty: 1, amount: 20000 }] })).status, 200);
+  assert.equal((await refund({ refundRef: 'R2', amount: 20000, lines: [{ sku: 'SUA01', qty: 2, amount: 20000 }] })).body.error, 'REFUND_TOO_LARGE');
+});

@@ -291,6 +291,7 @@ function NewKey({ stores, onClose, onDone }) {
     <h2>Tạo khóa API cho Dsmart POS</h2>
     <${Field} label="Tên khóa" hint="Ví dụ: KiotViet quầy Q7"><input class="input" value=${name} maxlength="60" onInput=${(e) => setName(e.target.value)} autofocus aria-label="Tên khóa"/><//>
     <${Field} label="Phạm vi" hint="Khóa theo chi nhánh chỉ nhận được giỏ hàng của chi nhánh đó"><select class="input" value=${sid} onChange=${(e) => setSid(e.target.value)} aria-label="Phạm vi khóa"><option value="">Tất cả chi nhánh</option>${stores.map((s) => html`<option value=${s.id} key=${s.id}>${s.name}</option>`)}</select><//>
+    ${!sid && html`<${Banner} tone="warn" icon="alert" title="Khóa dùng cho mọi chi nhánh">Nếu khóa này bị lộ, người khác báo thanh toán được cho bất kỳ cửa hàng nào. Nên tạo mỗi chi nhánh một khóa riêng (chọn chi nhánh ở mục Phạm vi).<//>`}
     ${err && html`<div class="errtext" role="alert">${err}</div>`}
     <button class="btn primary" type="submit" disabled=${busy}>${busy ? html`<${Spinner} sm/>` : 'Tạo khóa'}</button>
     <button class="btn txt" type="button" onClick=${onClose}>Hủy</button></form><//>`;
@@ -328,6 +329,20 @@ function PosApiCard({ d, stores, reload }) {
     <div class="hint">${hasGuide ? html`Xem hướng dẫn <a href="#/huong-dan/13-ket-noi-pos">Kết nối Dsmart POS</a> trong mục Hướng dẫn hệ thống.` : 'Hướng dẫn "Kết nối Dsmart POS" sẽ có trong mục Hướng dẫn hệ thống.'} Bật chế độ thu tiền qua Dsmart POS cho từng chi nhánh ở mục Chi nhánh.</div>
     ${adding && html`<${NewKey} stores=${stores} onClose=${() => setAdding(false)} onDone=${() => { keys.reload(); reload(); }}/>`}
     ${revoke && html`<${Confirm} title="Thu hồi khóa này?" text=${`Khóa "${revoke.name}" sẽ ngừng dùng được ngay. Dsmart POS đang dùng khóa này sẽ không gọi được vào BRG nữa. Không thể hoàn tác.`} ok="Thu hồi" cancel="Giữ lại" danger busy=${busy} onOk=${doRevoke} onCancel=${() => setRevoke(null)}/>`}
+  </div>`;
+}
+
+function PosLinkCard() {
+  const cur = useAsync(() => api.get('/pos/links'), []);
+  const [v, setV] = useState(null);
+  const [busy, run] = useBusy();
+  const val = v ?? cur.data?.transactionUrlTemplate ?? '';
+  const save = () => run(async () => { await api.put('/pos/links', { transactionUrlTemplate: val.trim() }); await cur.reload(); setV(null); }, 'Đã lưu mẫu link');
+  return html`<div class="card" id="pos-links">
+    <div class="cardhead"><div class="ico-tile green"><${Icon} name="link"/></div><div class="grow"><h2>Link chi tiết giao dịch</h2>
+      <div class="small muted">Dsmart POS không cần gửi link giao dịch: BRG tự dựng từ mã đơn theo mẫu dưới đây. Để trống nếu Dsmart POS tự gửi.</div></div></div>
+    <${Field} label="Mẫu link (bắt buộc https và có {posOrderRef})"><input class="input" value=${val} placeholder="https://dsmart.vn/giao-dich/{posOrderRef}" onInput=${(e) => setV(e.target.value)}/><//>
+    <div class="row"><button class="btn primary" disabled=${busy || v === null} onClick=${save}>Lưu</button></div>
   </div>`;
 }
 
@@ -589,6 +604,7 @@ export function Integrations({ stores, reloadStores }) {
       ${d.note && html`<${Banner} tone=${d.isProd ? 'warn' : 'info'} icon="info" title=${d.isProd ? 'Nguồn giá: file CSV' : 'Đang chạy bản giả lập'}>${d.note}<//>`}
       <${PosCard} d=${d} reload=${async () => { await st.reload(); reloadStores?.(); }}/>
       <${PosApiCard} d=${d} stores=${stores} reload=${st.reload}/>
+      <${PosLinkCard}/>
       <${PointsCard} onChanged=${reloadStores}/>
       <${PriceApiCard} stores=${stores}/>
       <${EmailCard}/>
@@ -779,7 +795,8 @@ function SecurityPolicyCard() {
     <div class="small muted">Áp dụng cho mọi tài khoản quản trị. Đăng nhập bằng vân tay / khuôn mặt (passkey) đã gồm xác minh người dùng nên không cần mã hình và mã 2 bước.</div></div></div>
     <div class="row" style="margin:8px 0"><${Switch} checked=${d.require2fa} label="Bắt buộc xác thực 2 bước" onChange=${(v) => set('require2fa', v)}/><span><b>Bắt buộc xác thực 2 bước</b><div class="xs muted">Bật: tài khoản chưa có 2 bước phải thiết lập ngay khi đăng nhập, và không ai gỡ được 2 bước. Tắt: ai cũng gỡ hoặc không dùng 2 bước được.</div></span></div>
     <div class="row" style="margin:8px 0"><${Switch} checked=${d.requireCaptcha} label="Bắt buộc mã hình 4 số khi đăng nhập" onChange=${(v) => set('requireCaptcha', v)}/><span><b>Bắt buộc mã hình 4 số khi đăng nhập</b><div class="xs muted">Hạn chế chương trình tự dò mật khẩu. Mỗi hình chỉ thử được một lần.</div></span></div>
-    <div class="row" style="margin:8px 0"><${Switch} checked=${d.singleSession} label="Mỗi tài khoản chỉ đăng nhập một thiết bị" onChange=${(v) => set('singleSession', v)}/><span><b>Mỗi tài khoản chỉ đăng nhập một thiết bị</b><div class="xs muted">Bật: đăng nhập ở thiết bị mới phải xác nhận và sẽ đăng xuất thiết bị đang dùng. Tắt: nhiều thiết bị dùng cùng lúc được.</div></span></div></div>`;
+    <div class="row" style="margin:8px 0"><${Switch} checked=${d.singleSession} label="Mỗi tài khoản chỉ đăng nhập một thiết bị" onChange=${(v) => set('singleSession', v)}/><span><b>Mỗi tài khoản chỉ đăng nhập một thiết bị</b><div class="xs muted">Bật: đăng nhập ở thiết bị mới phải xác nhận và sẽ đăng xuất thiết bị đang dùng. Tắt: nhiều thiết bị dùng cùng lúc được.</div></span></div>
+    <div class="row" style="margin:8px 0"><${Switch} checked=${d.requireReauth} label="Nhập lại mật khẩu cho thao tác nhạy cảm" onChange=${(v) => set('requireReauth', v)}/><span><b>Nhập lại mật khẩu cho thao tác nhạy cảm</b><div class="xs muted">Bật: tạo quản trị, cấp hoặc thu hồi khóa POS, đặt lại mật khẩu người khác, đổi cấu hình tích hợp và chính sách bảo mật đều hỏi lại mật khẩu của bạn, để phiên bị đánh cắp không đủ chiếm quyền.</div></span></div></div>`;
 }
 
 export function Users({ me, stores, onMe }) {

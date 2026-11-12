@@ -3,6 +3,7 @@
 //   2. Dsmart POS báo đơn đã thanh toán, BRG tự xác nhận và cho khách ra (thu ngân không phải xác nhận lại).
 //   3. Dsmart POS báo đơn đã hủy.
 // Mọi lời gọi đều idempotent theo mã đơn Dsmart POS (posOrderRef), gọi lại không tạo trùng.
+import { getSetting, setSetting } from '../db.js';
 import crypto from 'node:crypto';
 import { config } from '../config.js';
 import { nowIso, bad, notFound, conflict, forbidden, money } from '../util.js';
@@ -136,6 +137,15 @@ function cleanBill(body, db, tx) {
 
 
 /** Link hóa đơn điện tử và link giao dịch Dsmart POS gửi kèm. Chỉ nhận https, tối đa 600 ký tự, không khoảng trắng. */
+const POSLINK_KEY = 'pos_links';
+/** Mẫu link giao dịch: BRG tự dựng link từ posOrderRef khi Dsmart POS không gửi transactionUrl. Ví dụ https://dsmart.vn/giao-dich/{posOrderRef} */
+export const posLinkConfig = (db) => ({ transactionUrlTemplate: getSetting(db, POSLINK_KEY, {}).transactionUrlTemplate || '' });
+export function savePosLinkConfig(db, b = {}) {
+  const t = String(b.transactionUrlTemplate ?? '').trim();
+  if (t && (!/^https:\/\/[^\s{}]+\{posOrderRef\}[^\s{}]*$/.test(t) || t.length > 300)) return { error: 'Mẫu link phải bắt đầu bằng https://, chứa {posOrderRef} đúng một lần, không có khoảng trắng, tối đa 300 ký tự' };
+  setSetting(db, POSLINK_KEY, { transactionUrlTemplate: t });
+  return { config: posLinkConfig(db) };
+}
 const LINK_RE = /^https:\/\/[^\s]{1,590}$/;
 function cleanLinks(body, strict = false) {
   const out = {}; const warnings = [];
@@ -183,7 +193,20 @@ export function orderPaid(ctx, scope, ref, body = {}, storeId) {
   if (!late && !['awaiting_counter', 'handed_off'].includes(tx.status)) throw conflict('NOT_PAYABLE', 'Đơn không ở trạng thái chờ thanh toán');
   const amount = body.amount;
   if (!Number.isInteger(amount) || amount <= 0 || amount > MAX_AMOUNT) throw bad('BAD_AMOUNT', `amount là số nguyên dương, đơn vị đồng, tối đa ${MAX_AMOUNT.toLocaleString('vi-VN')}`);
-  if (!POS_METHODS.includes(body.method)) throw bad('BAD_METHOD', `method phải là một trong: ${POS_METHODS.join(', ')}`);
+  // Một giỏ có thể thanh toán bằng NHIỀU hình thức: gửi `payments: [{ method, amount }, ...]` (tổng amount phải bằng `amount`). Không gửi thì dùng `method` như cũ.
+  let pays;
+  if (body.payments !== undefined && body.payments !== null) {
+    if (!Array.isArray(body.payments) || body.payments.length < 1 || body.payments.length > 6) throw bad('BAD_PAYMENTS', 'payments là danh sách từ 1 đến 6 hình thức thanh toán');
+    pays = body.payments.map((p, i) => {
+      if (!POS_METHODS.includes(p?.method) || !Number.isInteger(p?.amount) || p.amount <= 0 || p.amount > MAX_AMOUNT) throw bad('BAD_PAYMENTS', `Dòng ${i + 1} của payments cần method (${POS_METHODS.join(', ')}) và amount là số nguyên dương`);
+      return { method: p.method, amount: p.amount };
+    });
+    if (pays.reduce((a, p) => a + p.amount, 0) !== amount) throw bad('BAD_PAYMENTS', 'Tổng amount của payments phải bằng amount');
+  } else {
+    if (!POS_METHODS.includes(body.method)) throw bad('BAD_METHOD', `method phải là một trong: ${POS_METHODS.join(', ')} (hoặc gửi payments khi thanh toán nhiều hình thức)`);
+    pays = [{ method: body.method, amount }];
+  }
+  const txMethod = pays.length === 1 ? pays[0].method : 'mixed';
   const invoiceNo = body.invoiceNo ? String(body.invoiceNo).slice(0, 64) : null;
   const { lines } = cleanBill(body, db, tx);
   const xtra = lines ? extraOf(JSON.parse(tx.items_json), lines) : { extraQty: 0, extraValue: 0, lessQty: 0 };
@@ -192,11 +215,14 @@ export function orderPaid(ctx, scope, ref, body = {}, storeId) {
   const differs = amount !== tx.total;
   db.transaction(() => {
     const exp = new Date(Date.now() + config.receiptTtlMinutes * 60000).toISOString();
-    db.prepare(`INSERT INTO payments(transaction_id,store_id,kind,method,amount,collected_by,collected_at,provider,provider_ref,confirmations)
-      VALUES(?,?,'main',?,?,?,?,'pos',?,?)`).run(tx.id, tx.store_id, body.method, amount, `Dsmart POS:${cashier || scope.name}`, ts, ref,
-      JSON.stringify({ paidAt: body.paidAt || null, terminal: body.terminal || tx.pos_terminal || null, note: body.note || null }));
+    for (const pm of pays) {
+      db.prepare(`INSERT INTO payments(transaction_id,store_id,kind,method,amount,collected_by,collected_at,provider,provider_ref,confirmations)
+        VALUES(?,?,'main',?,?,?,?,'pos',?,?)`).run(tx.id, tx.store_id, pm.method, pm.amount, `Dsmart POS:${cashier || scope.name}`, ts, ref,
+        JSON.stringify({ paidAt: body.paidAt || null, terminal: body.terminal || tx.pos_terminal || null, note: body.note || null }));
+    }
     db.prepare(`UPDATE transactions SET status='paid', method=?, paid_at=?, receipt_expires_at=?, extra_due=0, pos_status='paid', pos_amount=?,
-      pos_invoice_no=?, pos_cashier=?, pos_bill_json=?, extra_qty=?, extra_value=?, less_qty=? WHERE id=?`).run(body.method, ts, exp, amount, invoiceNo, cashier || null, lines ? JSON.stringify(lines) : null, xtra.extraQty, xtra.extraValue, xtra.lessQty, tx.id);
+      pos_invoice_no=?, pos_cashier=?, pos_bill_json=?, extra_qty=?, extra_value=?, less_qty=? WHERE id=?`).run(txMethod, ts, exp, amount, invoiceNo, cashier || null, lines ? JSON.stringify(lines) : null, xtra.extraQty, xtra.extraValue, xtra.lessQty, tx.id);
+    if (!links.transactionUrl) { const t = posLinkConfig(db).transactionUrlTemplate; if (t) links.transactionUrl = t.replace('{posOrderRef}', encodeURIComponent(ref)); } // BRG tự dựng link giao dịch từ mã đơn
     saveLinks(db, tx.id, links);
     if (!late) db.prepare(`UPDATE scan_sessions SET status='paid', ended_at=? WHERE id=?`).run(ts, tx.session_id); // giỏ đã bị khách sửa: phiên có thể đang giữ giỏ mới, không đụng tới
     if (late) audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `Dsmart POS:${scope.name}`, action: 'pos.paid_after_cancel', entity: 'transaction', entityId: tx.id, data: { amount, posOrderRef: ref } });
@@ -206,7 +232,7 @@ export function orderPaid(ctx, scope, ref, body = {}, storeId) {
         .run(tx.id, buyer.taxCode ? 'company' : 'retail', buyer.email || null, buyer.taxCode || null, buyer.companyName || null, buyer.address || null, invoiceNo, ts);
     }
     audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `Dsmart POS:${scope.name}`, action: 'payment.collected', entity: 'transaction', entityId: tx.id,
-      data: { source: 'pos', method: body.method, amount, posOrderRef: ref, invoiceNo, cashier } });
+      data: { source: 'pos', method: txMethod, payments: pays.length > 1 ? pays : undefined, amount, posOrderRef: ref, invoiceNo, cashier } });
     if (differs) audit(db, { storeId: tx.store_id, actorType: 'system', actorId: `Dsmart POS:${scope.name}`, action: 'pos.amount_differs', entity: 'transaction', entityId: tx.id, data: { brgTotal: tx.total, posAmount: amount, suspicious: amount < tx.total * 0.5 || amount > tx.total * 2 + 100000 } });
     if (tx.guard_skipped) {
       if (late) db.prepare(`UPDATE transactions SET exit_status='exited', exited_at=?, exited_by='SYSTEM', exited_gate='Không có bảo vệ' WHERE id=?`).run(ts, tx.id);
@@ -357,13 +383,20 @@ export function basketRefund(ctx, scope, code, body = {}) {
   let lines = null;
   if (body.lines !== undefined && body.lines !== null) {
     if (!Array.isArray(body.lines) || !body.lines.length || body.lines.length > 300) throw bad('BAD_LINES', 'lines là danh sách 1 đến 300 dòng');
+    const find = itemResolver(db, tx);
     lines = body.lines.map((l, i) => {
-      const barcode = l?.barcode ? String(l.barcode).trim().slice(0, 32) : null;
-      const name = String(l?.name || '').trim().slice(0, 200) || (barcode ? nameOf(barcode) : '');
+      const key = lineKey(l, true);
       const qty = Number(l?.qty), amt = Number(l?.amount);
-      if (!name || !(qty > 0 && qty < 100000) || !(Number.isInteger(amt) && amt >= 0)) throw bad('BAD_LINES', `Dòng hoàn ${i + 1} không hợp lệ: cần barcode (mã hàng), qty > 0, amount (tiền hoàn của dòng, số nguyên đồng)`);
-      return { barcode, name, qty, amount: amt };
+      if (!key || !(qty > 0 && qty < 100000) || !(Number.isInteger(amt) && amt >= 0)) throw bad('BAD_LINES', `Dòng hoàn ${i + 1} không hợp lệ: cần sku (SKU_ID) hoặc barcode, qty > 0, amount (tiền hoàn của dòng, số nguyên đồng)`);
+      const it = findLine(find, l, true);
+      return { sku: it.sku, barcode: it.barcode, name: String(l?.name || '').trim().slice(0, 200) || it.name, qty, amount: amt };
     });
+    // Không hoàn quá số lượng đã bán của từng mặt hàng (tính cả các lần hoàn trước). Mặt hàng không có trong đơn đã bán thì chỉ bị giới hạn bởi số tiền.
+    const soldRows = tx.pos_bill_json ? JSON.parse(tx.pos_bill_json) : JSON.parse(tx.items_json);
+    const sold = new Map(); for (const r of soldRows) sold.set(String(r.barcode ?? r.sku), (sold.get(String(r.barcode ?? r.sku)) || 0) + Number(r.qty));
+    const back = new Map(); for (const r of db.prepare('SELECT lines_json FROM refunds WHERE transaction_id = ? AND lines_json IS NOT NULL').all(tx.id)) for (const l of JSON.parse(r.lines_json)) back.set(String(l.barcode ?? l.sku), (back.get(String(l.barcode ?? l.sku)) || 0) + Number(l.qty));
+    const now = new Map(); for (const l of lines) now.set(String(l.barcode), (now.get(String(l.barcode)) || 0) + l.qty);
+    for (const [k, q] of now) if (sold.has(k) && q + (back.get(k) || 0) > sold.get(k) && !db.prepare('SELECT 1 FROM refunds WHERE transaction_id = ? AND ref = ?').get(tx.id, refundRef)) throw conflict('REFUND_TOO_LARGE', 'Số lượng hoàn vượt số lượng đã bán của mặt hàng này', { barcode: k });
   }
   const done = db.prepare('SELECT * FROM refunds WHERE transaction_id = ? AND ref = ?').get(tx.id, refundRef);
   const sum = () => db.prepare('SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE transaction_id = ?').get(tx.id).s;

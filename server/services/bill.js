@@ -6,7 +6,7 @@ import { getSetting } from '../db.js';
 const FONT = new URL('../assets/fonts/', import.meta.url);
 const font = (n) => fs.readFileSync(new URL(n, FONT));
 
-const METHOD = { cash: 'Tiền mặt', qr_transfer: 'Chuyển khoản', card: 'Thẻ', ewallet: 'Ví điện tử', pos: 'Tại quầy', basket: 'Tại quầy' };
+const METHOD = { mixed: 'Nhiều hình thức', cash: 'Tiền mặt', qr_transfer: 'Chuyển khoản', card: 'Thẻ', ewallet: 'Ví điện tử', pos: 'Tại quầy', basket: 'Tại quầy' };
 
 /** Link hóa đơn điện tử và link giao dịch do Dsmart POS gửi kèm khi báo thanh toán (hoặc gửi bổ sung sau). */
 export const linksOf = (tx) => ({ invoiceUrl: tx.pos_invoice_url || null, transactionUrl: tx.pos_transaction_url || null });

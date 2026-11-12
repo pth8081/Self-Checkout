@@ -111,7 +111,8 @@ export function securityPolicy(db) {
   return {
     require2fa: typeof s.require2fa === 'boolean' ? s.require2fa : process.env.REQUIRE_ADMIN_2FA !== '0',
     requireCaptcha: typeof s.requireCaptcha === 'boolean' ? s.requireCaptcha : process.env.REQUIRE_CAPTCHA !== '0',
-    singleSession: typeof s.singleSession === 'boolean' ? s.singleSession : process.env.SINGLE_SESSION !== '0'
+    singleSession: typeof s.singleSession === 'boolean' ? s.singleSession : process.env.SINGLE_SESSION !== '0',
+    requireReauth: typeof s.requireReauth === 'boolean' ? s.requireReauth : process.env.REQUIRE_REAUTH !== '0'
   };
 }
 

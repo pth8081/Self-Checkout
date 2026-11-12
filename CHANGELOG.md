@@ -2,6 +2,14 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 3.8 (2026-11-12)
+
+- Làm rõ API Dsmart POS: thanh toán nhiều hình thức, hoàn theo sku, mẫu link giao dịch
+
+## 3.7 (2026-11-12)
+
+- Xử lý việc bảo mật còn tồn: nhập lại mật khẩu cho thao tác nhạy cảm, link bill có hạn 180 ngày, luôn còn quản trị chuỗi, kiểm tra email nhân viên, quản trị chi nhánh tự quản lý passkey và 2 bước, cảnh báo khóa POS dùng cho mọi chi nhánh; cập nhật tài liệu tích hợp POS
+
 ## 3.6 (2026-11-12)
 
 - Bảo mật đợt 3: CSP và header chống nhúng khung, giới hạn CBOR, bỏ thời gian phản hồi trong kiểm tra API giá, dọn mã thừa (21 ảnh PNG, dòng void, currency), 4 thư viện giao diện chuyển sang devDependencies, cập nhật hướng dẫn triển khai và Nginx mẫu

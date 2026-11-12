@@ -1,11 +1,12 @@
 // Thành phần và tiện ích dùng chung của web quản trị.
-import { html, useState, useRef, useEffect, createApi, Icon, Pill, Banner, toast, fmt, todayStr, ErrorBox, Loading, Empty, Confirm } from '/shared/lib.js';
+import { html, useState, useRef, useEffect, createApi, Icon, Pill, Banner, toast, fmt, todayStr, ErrorBox, Loading, Empty, Confirm, Sheet, Field, render } from '/shared/lib.js';
 
 export const S = { token: null, onLogout: null };
 export const api = createApi({
   base: '/api/a',
   headers: () => (S.token ? { Authorization: `Bearer ${S.token}` } : {}),
-  onUnauthorized: (data) => S.onLogout?.(data)
+  onUnauthorized: (data) => S.onLogout?.(data),
+  onReauth: (msg) => askPassword(msg)
 });
 
 export const store = {
@@ -195,4 +196,24 @@ export async function passkeyCreate(o) {
   const cred = await navigator.credentials.create({ publicKey: { ...o, challenge: fromB64u(o.challenge), user: { ...o.user, id: fromB64u(o.user.id) }, excludeCredentials: o.excludeCredentials?.map((c) => ({ ...c, id: fromB64u(c.id) })) } });
   const r = cred.response;
   return { id: cred.id, rawId: toB64u(cred.rawId), type: cred.type, response: { clientDataJSON: toB64u(r.clientDataJSON), attestationObject: toB64u(r.attestationObject) } };
+}
+
+// ---- Hỏi lại mật khẩu cho thao tác nhạy cảm (hộp thoại dựng tạm, trả về mật khẩu hoặc null nếu hủy) ----
+function ReauthDialog({ message, onDone }) {
+  const [pw, setPw] = useState('');
+  const submit = (e) => { e.preventDefault(); if (pw) onDone(pw); };
+  return html`<${Sheet} center onClose=${() => onDone(null)}><form class="stack" onSubmit=${submit}>
+    <h2>Xác nhận bằng mật khẩu</h2>
+    <p class="muted">${message || 'Nhập lại mật khẩu của bạn để xác nhận thao tác này.'}</p>
+    <${Field} label="Mật khẩu của bạn"><input class="input" type="password" autocomplete="current-password" value=${pw} onInput=${(e) => setPw(e.target.value)} aria-label="Mật khẩu xác nhận" autofocus/><//>
+    <button class="btn primary" type="submit" disabled=${!pw}>Xác nhận</button>
+    <button class="btn txt" type="button" onClick=${() => onDone(null)}>Hủy</button></form><//>`;
+}
+export function askPassword(message) {
+  return new Promise((resolve) => {
+    const box = document.createElement('div');
+    document.body.appendChild(box);
+    const done = (v) => { render(null, box); box.remove(); resolve(v); };
+    render(html`<${ReauthDialog} message=${message} onDone=${done}/>`, box);
+  });
 }
