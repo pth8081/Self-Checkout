@@ -9,10 +9,10 @@ import { retentionConfig, validateRetention, runRetention, RETENTION_KEY, RETENT
 import { publicSettings, saveSettings, SECURE_MODES, TLS_MODES, explainMailError } from '../services/mailer.js';
 import { cartDiffOf } from '../services/bill.js';
 import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, sqlLocalDate, money, normCode, unauthorized } from '../util.js';
-import { authenticate, sign, verify, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager, cleanUsername, usernameTaken, securityPolicy, burnScrypt } from '../auth.js';
+import { authenticate, sign, verify, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager, cleanUsername, usernameTaken, securityPolicy, burnScrypt, checkTotp, sealTotp, revokeSessions } from '../auth.js';
 import { newCaptcha, checkCaptcha } from '../services/captcha.js';
 import { registrationOptions, verifyRegistration, authenticationOptions, verifyAuthentication } from '../services/webauthn.js';
-import { verifyTotp, randomSecret, otpauthUri } from '../services/totp.js';
+import { verifyTotp, matchTotpStep, randomSecret, otpauthUri } from '../services/totp.js';
 import { audit } from '../services/audit.js';
 import { retryPendingInvoices } from '../services/invoice.js';
 import { getStoreConfig, txView, voidTransaction, resolveHeld, shiftStats, markExited } from '../services/core.js';
@@ -56,7 +56,7 @@ export default async function adminRoutes(app) {
     if (!verifySecret(String(req.body?.password || ''), user.pw_hash)) { recordFail(db, user); throw fail(); }
     if (user.totp_secret) {
       if (req.body?.totp) { // gửi kèm mã trong cùng yêu cầu (dùng cho công cụ gọi API)
-        if (!verifyTotp(user.totp_secret, req.body.totp)) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
+        if (!checkTotp(db, user, req.body.totp)) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
         return finishLogin(user, 'password', req);
       }
       return { totpRequired: true, stepToken: sign({ uid: user.id, kind: 'admin-totp' }, 5 / 60) };
@@ -116,8 +116,8 @@ export default async function adminRoutes(app) {
     const user = db.prepare('SELECT * FROM staff WHERE id = ?').get(p.uid);
     if (!user || !user.active || !isManager(user) || !user.totp_secret) throw unauthorized();
     checkLocked(user);
-    if (!verifyTotp(user.totp_secret, String(req.body?.code || ''))) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
-    return finishLogin(user, 'password', req);
+    if (!checkTotp(db, user, String(req.body?.code || ''))) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
+    return finishLogin(db.prepare('SELECT * FROM staff WHERE id = ?').get(user.id), 'password', req);
   });
   // Bước 2 của lần thiết lập xác thực 2 bước đầu tiên: nhập mã 6 số từ app để xác nhận, rồi mới được vào.
   app.post('/login/2fa-confirm', async (req) => {
@@ -128,7 +128,7 @@ export default async function adminRoutes(app) {
     checkLocked(user);
     if (user.totp_secret) throw conflict('ALREADY_2FA', 'Tài khoản đã bật xác thực 2 bước, hãy đăng nhập lại');
     if (!verifyTotp(p.secret, String(req.body?.code || ''))) { recordFail(db, user); throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng'); }
-    db.prepare('UPDATE staff SET totp_secret = ? WHERE id = ?').run(p.secret, user.id);
+    db.prepare('UPDATE staff SET totp_secret = ?, totp_last = ? WHERE id = ?').run(sealTotp(p.secret), matchTotpStep(p.secret, req.body?.code) ?? null, user.id);
     audit(db, { storeId: user.store_id, actorType: 'admin', actorId: user.id, action: 'user.totp_on', entity: 'user', entityId: user.id, data: { firstLogin: true } });
     return finishLogin(db.prepare('SELECT * FROM staff WHERE id = ?').get(user.id), 'password', req);
   });
@@ -695,6 +695,7 @@ export default async function adminRoutes(app) {
       }
       db.prepare('UPDATE staff SET username=?, name=?, email=?, role=?, active=?, failed=0, locked_until=CASE WHEN ? = 1 THEN NULL ELSE locked_until END WHERE id=?')
         .run(username, b.name?.trim() || u.name, b.email ?? u.email, role, b.active === undefined ? u.active : (b.active ? 1 : 0), b.active ? 1 : 0, u.id);
+      if (role !== u.role || (b.active !== undefined && !b.active)) revokeSessions(db, u.id); // đổi vai trò hoặc khóa tài khoản: thu hồi phiên đang dùng
       audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.updated', entity: 'user', entityId: u.id, data: { role: b.role, active: b.active } });
       return { user: userView(db.prepare('SELECT * FROM staff WHERE id = ?').get(u.id)) };
     });
@@ -702,6 +703,7 @@ export default async function adminRoutes(app) {
       const u = userScoped(req);
       if (!validPin(req.body?.pin)) throw bad('BAD_PIN', 'PIN gồm 4–6 chữ số');
       db.prepare('UPDATE staff SET pin_hash = ?, failed = 0, locked_until = NULL WHERE id = ?').run(hashSecret(req.body.pin), u.id);
+      revokeSessions(db, u.id);
       audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.pin_reset', entity: 'user', entityId: u.id });
       return { ok: true };
     });
@@ -710,6 +712,7 @@ export default async function adminRoutes(app) {
       const u = userScoped(req);
       if (!strongPassword(req.body?.password)) throw bad('WEAK_PASSWORD', 'Mật khẩu tối thiểu 8 ký tự, có cả chữ và số');
       db.prepare('UPDATE staff SET pw_hash = ?, failed = 0, locked_until = NULL WHERE id = ?').run(hashSecret(req.body.password), u.id);
+      revokeSessions(db, u.id);
       audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.password_reset', entity: 'user', entityId: u.id });
       return { ok: true };
     });
@@ -722,7 +725,7 @@ export default async function adminRoutes(app) {
       return u;
     };
     const needCurrent = (req, u) => {
-      if (u.id === req.user.id && u.totp_secret && !verifyTotp(u.totp_secret, String(req.body?.currentCode || req.body?.code || ''))) throw unauthorized('BAD_TOTP', 'Nhập đúng mã 6 số hiện tại trong app xác thực để tiếp tục');
+      if (u.id === req.user.id && u.totp_secret && !checkTotp(db, u, String(req.body?.currentCode || req.body?.code || ''))) throw unauthorized('BAD_TOTP', 'Nhập đúng mã 6 số hiện tại trong app xác thực để tiếp tục');
     };
     s.post('/users/:id/totp/begin', async (req) => {
       const u = totpActor(req);
@@ -736,7 +739,7 @@ export default async function adminRoutes(app) {
       if (!p || p.kind !== 'totp-enroll' || p.uid !== u.id || p.by !== req.user.id) throw unauthorized('EXPIRED', 'Phiên thiết lập đã hết hạn, hãy bắt đầu lại');
       if (!verifyTotp(p.secret, String(req.body?.code || ''))) throw unauthorized('BAD_TOTP', 'Mã xác thực chưa đúng');
       const changed = !!u.totp_secret;
-      db.prepare('UPDATE staff SET totp_secret = ? WHERE id = ?').run(p.secret, u.id);
+      db.prepare('UPDATE staff SET totp_secret = ?, totp_last = ? WHERE id = ?').run(sealTotp(p.secret), matchTotpStep(p.secret, req.body?.code) ?? null, u.id);
       audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.totp_on', entity: 'user', entityId: u.id, data: { changed } });
       return { enabled: true };
     });

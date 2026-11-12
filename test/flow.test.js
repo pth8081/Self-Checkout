@@ -385,3 +385,19 @@ test('bảo mật: không vượt qua kiểm tra mã thiết bị bằng chuỗi
   }
   await app.close();
 });
+
+test('chống lạm dụng email: mỗi email chỉ nhận vài mã mỗi giờ dù đổi mã thiết bị; sai mã nhiều lần ở nhiều thiết bị cũng bị khóa theo email', async () => {
+  const app = await makeApp();
+  const dev = (i) => `dev-${String(i).padStart(2, '0')}-0123456789abcdef`;
+  const victim = 'nan.nhan@example.com';
+  const req = (i) => call(app, 'POST', '/api/c/identity/request', { body: { email: victim }, device: dev(i) });
+  const got = [];
+  for (let i = 0; i < 5; i++) got.push((await req(i)).status);
+  assert.deepEqual(got, [200, 200, 200, 429, 429], 'đổi mã thiết bị không né được giới hạn theo email: ' + got.join(','));
+  // đoán mã ở nhiều thiết bị: tổng 10 lần sai là khóa email này cho mọi thiết bị
+  const verify = (i, code) => call(app, 'POST', '/api/c/identity/verify', { body: { email: victim, code }, device: dev(i) });
+  let last;
+  for (let i = 0; i < 3; i++) for (let k = 0; k < 4; k++) last = await verify(i, '00000' + k);
+  assert.equal(last.status, 429); assert.equal(last.body.error, 'CODE_LOCKED');
+  await app.close();
+});
