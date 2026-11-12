@@ -432,9 +432,8 @@ export default async function adminRoutes(app) {
       if (!barcode) throw bad('BARCODE_REQUIRED', 'Nhập mã vạch cần tra');
       if (!st) throw notFound('STORE_NOT_FOUND', 'Không tìm thấy chi nhánh');
       if (!st.pos_code) throw conflict('NO_POS_CODE', 'Chi nhánh này chưa có mã điểm');
-      const t0 = Date.now();
       const r = await callPriceApi(db, st.pos_code, barcode);
-      return { ...r, maDiem: st.pos_code, ms: Date.now() - t0 };
+      return { ...r, maDiem: st.pos_code };
     });
 
     // ---------------- Xóa dữ liệu cá nhân theo yêu cầu của một khách ----------------

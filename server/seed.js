@@ -142,7 +142,6 @@ function seedDemoHistory(db) {
       ins.counter.run(store, 'tx', 10000);
     }
   })();
-  void ins.shift;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

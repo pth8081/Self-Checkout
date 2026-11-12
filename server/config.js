@@ -48,6 +48,5 @@ export const config = {
   maxPinFails: 5,
   lockMinutes: 15,
   // Địa chỉ công khai của hệ thống (dùng làm link trong email), ví dụ https://scan.hcrc.vn
-  publicUrl: (process.env.PUBLIC_URL || '').replace(/\/$/, ''),
-  currency: 'VND'
+  publicUrl: (process.env.PUBLIC_URL || '').replace(/\/$/, '')
 };

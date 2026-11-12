@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
 import { createLimiter, registerRateLimit } from './rate-limit.js';
 import { createMailer } from './services/mailer.js';
 import { appVersion } from './version.js';
@@ -14,6 +17,20 @@ import adminRoutes from './routes/admin.js';
 import posRoutes from './routes/pos.js';
 
 /** Dựng ứng dụng. Tham số cho phép thay CSDL, RNG, adapter khi kiểm thử. */
+/** Dựng chính sách CSP: script nội tuyến duy nhất được phép là các khối <script> không có src trong các file index.html của ba ứng dụng (băm SHA-256). */
+function buildCsp() {
+  const hashes = new Set();
+  const dirs = ['', 'a', 'c', 's'];
+  for (const d of dirs) {
+    try {
+      const html = fs.readFileSync(path.join(config.publicDir, d, 'index.html'), 'utf8');
+      for (const m of html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)) hashes.add(`'sha256-${crypto.createHash('sha256').update(m[1]).digest('base64')}'`);
+    } catch { /* thiếu file thì bỏ qua */ }
+  }
+  return ["default-src 'self'", `script-src 'self' ${[...hashes].join(' ')}`.trim(), "style-src 'self' 'unsafe-inline'", "img-src 'self' data: blob:", "font-src 'self'", "connect-src 'self'",
+    "media-src 'self' blob:", "worker-src 'self'", "manifest-src 'self'", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'", "form-action 'self'"].join('; ');
+}
+
 export function buildApp({ dbFile = config.db, rng = Math.random, logger = false, pos, invoicer, mailer, trustProxy = false, rateLimit = !config.devMode } = {}) {
   const db = openDb(dbFile);
   // Dọn cấu hình của tính năng đồng bộ tồn kho đã gỡ (có thể còn khóa API đã mã hóa trong bảng cấu hình của bản 2.1 đến 2.9).
@@ -29,7 +46,15 @@ export function buildApp({ dbFile = config.db, rng = Math.random, logger = false
   ctx.limiter = createLimiter();
   if (rateLimit) registerRateLimit(app, ctx.limiter);
 
+  // Header bảo mật cho mọi phản hồi. CSP: chỉ chạy script cùng nguồn + đúng các script nội tuyến có sẵn (importmap, tính băm từ chính các file index.html),
+  // không cho nhúng trang vào khung (chống clickjacking), không cho kết nối ra ngoài trang, không cho <object>/<base>.
+  const csp = buildCsp();
   app.addHook('onSend', async (req, reply) => {
+    reply.header('Content-Security-Policy', csp);
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Cross-Origin-Opener-Policy', 'same-origin');
+    reply.header('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(), payment=(), publickey-credentials-get=(self), publickey-credentials-create=(self)');
+    if (config.isProd && config.publicUrl.startsWith('https://')) reply.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Referrer-Policy', 'same-origin');
     if (req.url.startsWith('/api/')) reply.header('Cache-Control', 'no-store');

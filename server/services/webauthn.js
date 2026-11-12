@@ -12,7 +12,9 @@ export const credHash = (credIdB64u) => sha256(Buffer.from(String(credIdB64u), '
 // ---- CBOR tối thiểu (số nguyên, chuỗi byte, chuỗi, mảng, bản đồ, true/false/null) ----
 export function cborDecode(buf, start = 0) {
   let o = start;
-  const item = () => {
+  // Giới hạn chống đầu vào độc hại làm treo máy chủ: tối đa 8 tầng lồng nhau, 128 phần tử mỗi mảng/bản đồ, và độ dài khai báo không vượt dữ liệu thật.
+  const item = (depth = 0) => {
+    if (depth > 8 || o >= buf.length) throw new Error('CBOR không hợp lệ');
     const first = buf[o++]; const mt = first >> 5, ai = first & 31;
     let v;
     if (ai < 24) v = ai;
@@ -21,13 +23,15 @@ export function cborDecode(buf, start = 0) {
     else if (ai === 26) { v = buf.readUInt32BE(o); o += 4; }
     else if (ai === 27) { v = Number(buf.readBigUInt64BE(o)); o += 8; }
     else throw new Error('CBOR không hỗ trợ');
+    if ((mt === 2 || mt === 3) && o + v > buf.length) throw new Error('CBOR không hợp lệ');
+    if ((mt === 4 || mt === 5) && v > 128) throw new Error('CBOR không hợp lệ');
     switch (mt) {
       case 0: return v;
       case 1: return -1 - v;
       case 2: { const r = buf.subarray(o, o + v); o += v; return r; }
       case 3: { const r = buf.toString('utf8', o, o + v); o += v; return r; }
-      case 4: { const a = []; for (let i = 0; i < v; i++) a.push(item()); return a; }
-      case 5: { const m = new Map(); for (let i = 0; i < v; i++) { const k = item(); m.set(k, item()); } return m; }
+      case 4: { const a = []; for (let i = 0; i < v; i++) a.push(item(depth + 1)); return a; }
+      case 5: { const m = new Map(); for (let i = 0; i < v; i++) { const k = item(depth + 1); m.set(k, item(depth + 1)); } return m; }
       case 7: if (ai === 20) return false; if (ai === 21) return true; if (ai === 22 || ai === 23) return null; throw new Error('CBOR không hỗ trợ');
       default: throw new Error('CBOR không hỗ trợ');
     }

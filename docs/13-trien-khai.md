@@ -85,10 +85,13 @@ Bảng biến môi trường:
 
 | Biến | Mặc định | Ý nghĩa |
 |------|----------|---------|
-| `NODE_ENV` | | Đặt `production`. Khi đó **`APP_SECRET` bắt buộc**, công cụ thử nghiệm bị tắt, không chạy được `seed` |
+| `NODE_ENV` | | Đặt `production`. **Từ bản 3.4, mọi trường hợp không đặt `BRG_DEV=1` đều chạy như production**: `APP_SECRET` riêng là bắt buộc (không có khóa mặc định), công cụ thử nghiệm bị tắt, mã xác nhận email không hiện ra màn hình, không chạy được `seed` |
+| `BRG_DEV` | | `1` chỉ dùng trên máy phát triển. **Không đặt ở máy chủ thật** |
 | `APP_SECRET` | | Khóa ký đăng nhập và QR biên nhận. Giữ bí mật, sao lưu riêng. Đổi khóa làm mọi QR chưa dùng mất hiệu lực và mọi người phải đăng nhập lại |
 | `PORT`, `HOST` | `3000`, `0.0.0.0` | Đặt `HOST=127.0.0.1` để chỉ Nginx truy cập được |
-| `TRUST_PROXY` | | `1` khi chạy sau Nginx |
+| `TRUST_PROXY` | | `1` khi Nginx chạy cùng máy (chỉ tin `X-Forwarded-For` do Nginx gửi). Nginx ở máy khác: ghi địa chỉ máy đó (`172.16.70.5`, nhiều địa chỉ ngăn bằng dấu phẩy). Dùng cho giới hạn tốc độ và nhật ký theo IP; trong Nginx đặt `proxy_set_header X-Forwarded-For $remote_addr;` |
+| `OUTBOUND_BLOCK_PRIVATE`, `OUTBOUND_ALLOWED_HOSTS`, `OUTBOUND_SMTP_PORTS` | | Chống SSRF cho API giá và SMTP. Luôn chặn loopback, `169.254.x.x` (metadata đám mây), `0.0.0.0`. `OUTBOUND_BLOCK_PRIVATE=1` chặn thêm mạng riêng; `OUTBOUND_ALLOWED_HOSTS=api.hcrc.vn,smtp.congty.vn` chỉ cho đúng các máy chủ đó (khuyến nghị); cổng SMTP mặc định `25,465,587,2525` |
+| `REQUIRE_ADMIN_2FA`, `REQUIRE_CAPTCHA`, `SINGLE_SESSION` | bật | Chính sách đăng nhập quản trị (đổi được ở trang Tài khoản và phân quyền) |
 | `DB_FILE` | `data/brg.db` | Đường dẫn file CSDL. Đặt ngoài thư mục mã nguồn, ví dụ `/var/lib/brg/brg.db` |
 | `RECEIPT_TTL_MIN` | `180` | Thời hạn QR biên nhận (phút). Chỉ dùng ở luồng cũ có bảo vệ cổng ra |
 | `PUBLIC_URL` | | Địa chỉ công khai, ví dụ `https://scan.hcrc.vn`. Dùng làm link xem bill trong email. Không đặt thì email vẫn gửi (kèm PDF) nhưng không có link |
@@ -255,7 +258,9 @@ Các mức, từ nhẹ đến nặng:
 
 ## 10. Danh sách kiểm tra trước khi mở cho khách
 
-- [ ] `NODE_ENV=production`, `APP_SECRET` ngẫu nhiên dài, `.env` quyền 600, không nằm trong git
+- [ ] `NODE_ENV=production`, `APP_SECRET` ngẫu nhiên dài (`openssl rand -hex 32`), **không có `BRG_DEV`**, `.env` quyền 600, không nằm trong git
+- [ ] Chạy ứng dụng bằng `npm run start:prod` (hoặc PM2 với `--env-file=.env`), **không** chạy `npm run dev`/`seed`
+- [ ] `OUTBOUND_ALLOWED_HOSTS` đặt đúng máy chủ API giá và SMTP; đã đặt `PUBLIC_URL` https (cần cho vân tay / khuôn mặt)
 - [ ] Chạy bằng người dùng `brg` (không phải root); `HOST=127.0.0.1`; tường lửa chỉ mở 22, 80, 443
 - [ ] HTTPS hợp lệ, tự gia hạn; camera chạy được trên điện thoại thật
 - [ ] Không dùng dữ liệu và tài khoản mẫu; quản trị chuỗi đã bật xác thực 2 bước

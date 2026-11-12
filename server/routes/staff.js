@@ -1,4 +1,4 @@
-import { bad, notFound, nowIso, unauthorized } from '../util.js';
+import { bad, notFound, unauthorized } from '../util.js';
 import { authenticate, sign, verifySecret, checkLocked, recordFail, recordOk, canCash, canGate, isManager, burnScrypt, securityPolicy } from '../auth.js';
 import {
   storeView, activeShift, shiftStats, startShift, endShift, findCart, queue, collectPayment, cancelCart,
@@ -82,5 +82,4 @@ export default async function staffRoutes(app) {
       return { transactions: rows.map((t) => txView(ctx, t, { staff: true })) };
     });
   });
-  void nowIso;
 }
