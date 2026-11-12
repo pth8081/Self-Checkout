@@ -9,7 +9,7 @@ import { retentionConfig, validateRetention, runRetention, RETENTION_KEY, RETENT
 import { publicSettings, saveSettings, SECURE_MODES, TLS_MODES, explainMailError } from '../services/mailer.js';
 import { cartDiffOf } from '../services/bill.js';
 import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, sqlLocalDate, money, normCode, unauthorized } from '../util.js';
-import { authenticate, sign, verify, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager, cleanUsername, usernameTaken, securityPolicy } from '../auth.js';
+import { authenticate, sign, verify, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager, cleanUsername, usernameTaken, securityPolicy, burnScrypt } from '../auth.js';
 import { newCaptcha, checkCaptcha } from '../services/captcha.js';
 import { registrationOptions, verifyRegistration, authenticationOptions, verifyAuthentication } from '../services/webauthn.js';
 import { verifyTotp, randomSecret, otpauthUri } from '../services/totp.js';
@@ -51,7 +51,7 @@ export default async function adminRoutes(app) {
     const account = String(req.body?.account || '').trim();
     const user = findAccount(account);
     const fail = () => unauthorized('BAD_LOGIN', 'Tài khoản hoặc mật khẩu chưa đúng');
-    if (!user || !user.active || !user.pw_hash || !isManager(user)) throw fail();
+    if (!user || !user.active || !user.pw_hash || !isManager(user)) { burnScrypt(); throw fail(); }
     checkLocked(user);
     if (!verifySecret(String(req.body?.password || ''), user.pw_hash)) { recordFail(db, user); throw fail(); }
     if (user.totp_secret) {

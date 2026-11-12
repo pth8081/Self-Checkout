@@ -3,10 +3,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const isProd = process.env.NODE_ENV === 'production';
+// Chỉ chạy ở chế độ phát triển khi nói rõ (BRG_DEV=1, hoặc đang chạy kiểm thử). Mọi trường hợp khác là production: bắt buộc có khóa bí mật riêng,
+// tắt công cụ thử (/dev/*), không trả mã xác nhận email ra màn hình, cookie có cờ Secure. Không còn "quên đặt NODE_ENV thì thành chế độ thử".
+const DEV_SECRET = 'dev-only-secret-change-me';
+const devMode = process.env.BRG_DEV === '1' || !!process.env.NODE_TEST_CONTEXT;
+const isProd = !devMode;
 
-if (isProd && !process.env.APP_SECRET) {
-  throw new Error('APP_SECRET là bắt buộc khi chạy production');
+if (isProd) {
+  const s = process.env.APP_SECRET;
+  if (!s || s === DEV_SECRET) throw new Error('APP_SECRET là bắt buộc (chuỗi ngẫu nhiên dài, tạo bằng: openssl rand -hex 32). Chạy thử trên máy phát triển thì đặt BRG_DEV=1.');
+  if (s.length < 32) console.warn('[CẢNH BÁO] APP_SECRET ngắn hơn 32 ký tự, nên đổi sang chuỗi ngẫu nhiên dài hơn (openssl rand -hex 32). Đổi khóa thì mọi phiên đăng nhập và QR chưa dùng mất hiệu lực.');
 }
 
 // CSDL: mặc định SQLite (một file). DB_DRIVER=mssql để dùng SQL Server (xem hướng dẫn triển khai).
@@ -24,6 +30,7 @@ if (mssql && (!mssql.server || !mssql.user || !mssql.password)) throw new Error(
 export const config = {
   root,
   isProd,
+  devMode,
   port: Number(process.env.PORT || 3000),
   host: process.env.HOST || '0.0.0.0',
   dbFile: process.env.DB_FILE || path.join(root, 'data', 'brg.db'),
@@ -31,7 +38,7 @@ export const config = {
   db: mssql || (process.env.DB_FILE || path.join(root, 'data', 'brg.db')), // đối số cho openDb
   publicDir: path.join(root, 'public'),
   // Khóa ký token đăng nhập và QR biên nhận.
-  secret: process.env.APP_SECRET || 'dev-only-secret-change-me',
+  secret: process.env.APP_SECRET || DEV_SECRET,
   tzOffsetHours: 7, // Việt Nam, không có giờ mùa hè
   receiptTtlMinutes: Number(process.env.RECEIPT_TTL_MIN || 180),
   // Số mặt hàng khác nhau tối đa trong một giỏ (giới hạn hợp lý cho một lần đi chợ; mã QR luôn ngắn nên không phụ thuộc số này).

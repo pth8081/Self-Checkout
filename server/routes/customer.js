@@ -21,8 +21,10 @@ export default async function customerRoutes(app) {
   // Khách không đăng nhập: mỗi thiết bị có một mã ngẫu nhiên dài do trình duyệt tạo và giữ bí mật.
   app.addHook('preHandler', async (req) => {
     const id = req.headers['x-device-id'];
-    if (req.url.includes('/store') && req.method === 'GET') { req.deviceId = typeof id === 'string' ? id : ''; return; }
-    if (req.method === 'GET' && req.url.startsWith('/api/c/bill/')) { req.deviceId = ''; return; } // link bill trong email: chữ ký thay cho đăng nhập
+    // Chỉ các đường dẫn công khai (so khớp CHÍNH XÁC phần đường dẫn, không tính query) mới khỏi cần mã thiết bị.
+    const path = req.url.split('?')[0];
+    if (req.method === 'GET' && (path === '/api/c/stores' || /^\/api\/c\/store\/[^/]+$/.test(path))) { req.deviceId = ''; return; }
+    if (req.method === 'GET' && /^\/api\/c\/bill\/[^/]+(\/pdf)?$/.test(path)) { req.deviceId = ''; return; } // link bill trong email: chữ ký thay cho đăng nhập
     const okId = (v) => typeof v === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(v);
     const hasCookie = /(?:^|;\s*)brgd=[A-Za-z0-9_-]{16,64}/.test(req.headers.cookie || '');
     if (!okId(id) && !hasCookie) throw bad('NO_DEVICE', 'Thiếu mã thiết bị');
@@ -33,7 +35,7 @@ export default async function customerRoutes(app) {
     if (!saved && okId(id)) req.cookieToSet = id;
   });
   app.addHook('onSend', async (req, reply) => {
-    if (req.cookieToSet) reply.header('set-cookie', `brgd=${req.cookieToSet}; Path=/api/c; Max-Age=31536000; HttpOnly; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+    if (req.cookieToSet) reply.header('set-cookie', `brgd=${req.cookieToSet}; Path=/api/c; Max-Age=31536000; HttpOnly; SameSite=Lax${config.isProd ? '; Secure' : ''}`);
   });
 
   const session = (req) => {

@@ -6,7 +6,15 @@ import { runRetention } from './services/retention.js';
 import { retryBillEmails } from './services/bill-email.js';
 
 // TRUST_PROXY=1 khi chạy sau Nginx để ghi đúng địa chỉ IP khách trong nhật ký.
-const app = buildApp({ logger: { level: process.env.LOG_LEVEL || 'info' }, trustProxy: process.env.TRUST_PROXY === '1' });
+// Chỉ tin X-Forwarded-For do proxy NẰM TRONG danh sách này gửi tới (mặc định khi TRUST_PROXY=1: Nginx chạy cùng máy, địa chỉ loopback).
+// Proxy ở máy khác: TRUST_PROXY=172.16.70.5 (nhiều địa chỉ ngăn bằng dấu phẩy). Không dùng `true` (tin mọi chặng) vì khách tự thêm X-Forwarded-For giả để đổi IP.
+function trustedProxies() {
+  const v = (process.env.TRUST_PROXY || '').trim();
+  if (!v || v === '0') return false;
+  if (v === '1' || v === 'true') return ['127.0.0.1', '::1'];
+  return v.split(',').map((x) => x.trim()).filter(Boolean);
+}
+const app = buildApp({ logger: { level: process.env.LOG_LEVEL || 'info' }, trustProxy: trustedProxies() });
 const { db, pos } = app.ctx;
 
 // Công việc nền chỉ nên chạy ở MỘT tiến trình. RUN_JOBS=0 để tắt ở tiến trình phụ (nếu có).

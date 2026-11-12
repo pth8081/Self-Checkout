@@ -2,6 +2,10 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 3.4 (2026-11-12)
+
+- Bảo mật đợt 1: sửa lỗ hổng bỏ qua mã thiết bị (đọc đơn khách đã xóa), bắt buộc APP_SECRET riêng (chỉ BRG_DEV=1 mới chạy thử), chống SSRF cho API giá và SMTP, giới hạn tốc độ trong ứng dụng, trustProxy an toàn, quản trị không vào bằng PIN, chống đo thời gian liệt kê tài khoản, seed/backup/.gitignore an toàn hơn
+
 ## 3.3 (2026-11-11)
 
 - Responsive điện thoại: bảng tự xếp thành thẻ trên màn hình hẹp (quản trị, nhân viên, khách), nút không bị bóp chữ; khách thấy thanh toán thành công nhanh hơn (3 giây)

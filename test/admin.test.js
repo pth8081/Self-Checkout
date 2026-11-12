@@ -342,3 +342,27 @@ test('một phiên đăng nhập tại một thời điểm: đăng nhập lần
     await app.close();
   } finally { process.env.SINGLE_SESSION = '0'; }
 });
+
+test('giới hạn tốc độ trong ứng dụng: đăng nhập sai nhiều lần từ một IP bị chặn 429, IP khác không ảnh hưởng; X-Forwarded-For giả không đổi được IP khi chỉ tin một chặng', async () => {
+  const app = await makeApp({ rateLimit: true, trustProxy: ['127.0.0.1'] });
+  const login = (xff, remote) => app.inject({ method: 'POST', url: '/api/s/login', payload: { code: 'NV0142', pin: '9999' }, remoteAddress: remote, headers: xff ? { 'x-forwarded-for': xff } : {} });
+  // IP 10.0.0.5 đứng sau proxy 127.0.0.1; khách tự thêm XFF giả ở đầu, proxy thật nối IP thật ở cuối
+  let last;
+  for (let i = 0; i < 22; i++) last = await login(`6.6.${i}.1, 10.0.0.5`, '127.0.0.1');
+  assert.equal(last.statusCode, 429, 'giả XFF để đổi IP không được');
+  assert.ok(Number(last.headers['retry-after']) >= 1);
+  assert.equal((await login('10.0.0.9', '127.0.0.1')).statusCode, 401); // IP khác vẫn dùng được (sai PIN nhưng không bị 429)
+  await app.close();
+});
+
+test('tài khoản quản trị không đăng nhập được bằng PIN ở app nhân viên khi đang bắt buộc 2 bước', async () => {
+  process.env.REQUIRE_ADMIN_2FA = '1';
+  try {
+    const app = await makeApp();
+    const r = await call(app, 'POST', '/api/s/login', { body: { code: 'QT0007', pin: '2345' } });
+    assert.equal(r.status, 401); assert.equal(r.body.error, 'USE_ADMIN');
+    const ok = await call(app, 'POST', '/api/s/login', { body: { code: 'NV0142', pin: '1111' } });
+    assert.equal(ok.status, 200);
+    await app.close();
+  } finally { process.env.REQUIRE_ADMIN_2FA = '0'; }
+});

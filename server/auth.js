@@ -110,3 +110,7 @@ export function securityPolicy(db) {
     singleSession: typeof s.singleSession === 'boolean' ? s.singleSession : process.env.SINGLE_SESSION !== '0'
   };
 }
+
+/** Tốn thời gian băm như khi kiểm tra mật khẩu thật, dùng khi tài khoản không tồn tại, để không đo được thời gian mà đoán ra mã tài khoản có thật. */
+let DUMMY = null;
+export function burnScrypt() { DUMMY ||= hashSecret('burn-' + Math.random()); verifySecret('x', DUMMY); }

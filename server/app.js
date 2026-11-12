@@ -1,3 +1,4 @@
+import { createLimiter, registerRateLimit } from './rate-limit.js';
 import { createMailer } from './services/mailer.js';
 import { appVersion } from './version.js';
 import Fastify from 'fastify';
@@ -13,7 +14,7 @@ import adminRoutes from './routes/admin.js';
 import posRoutes from './routes/pos.js';
 
 /** Dựng ứng dụng. Tham số cho phép thay CSDL, RNG, adapter khi kiểm thử. */
-export function buildApp({ dbFile = config.db, rng = Math.random, logger = false, pos, invoicer, mailer, trustProxy = false } = {}) {
+export function buildApp({ dbFile = config.db, rng = Math.random, logger = false, pos, invoicer, mailer, trustProxy = false, rateLimit = !config.devMode } = {}) {
   const db = openDb(dbFile);
   // Dọn cấu hình của tính năng đồng bộ tồn kho đã gỡ (có thể còn khóa API đã mã hóa trong bảng cấu hình của bản 2.1 đến 2.9).
   try { db.prepare("DELETE FROM settings WHERE key IN ('stock_api', 'stock_api_last')").run(); } catch { /* bỏ qua */ }
@@ -25,6 +26,8 @@ export function buildApp({ dbFile = config.db, rng = Math.random, logger = false
 
   const app = Fastify({ logger, bodyLimit: 1_000_000, trustProxy });
   app.decorate('ctx', ctx);
+  ctx.limiter = createLimiter();
+  if (rateLimit) registerRateLimit(app, ctx.limiter);
 
   app.addHook('onSend', async (req, reply) => {
     reply.header('X-Content-Type-Options', 'nosniff');

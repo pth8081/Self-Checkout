@@ -369,3 +369,19 @@ test('giỏ bị bỏ quên quá hạn được dọn, giỏ POS đã nhận th�
   assert.equal(app.ctx.db.prepare(`SELECT status FROM transactions WHERE session_id=?`).get(b.id).status, 'cancelled');
   await app.close();
 });
+
+test('bảo mật: không vượt qua kiểm tra mã thiết bị bằng chuỗi /store trong query, mã "-" của đơn đã xóa không dùng được để đọc đơn', async () => {
+  const app = await makeApp();
+  const h = (id) => ({ 'x-device-id': id });
+  // đường dẫn công khai vẫn không cần mã thiết bị
+  assert.equal((await app.inject({ method: 'GET', url: '/api/c/stores' })).statusCode, 200);
+  assert.equal((await app.inject({ method: 'GET', url: '/api/c/store/Q7' })).statusCode, 200);
+  // các đường cần thiết bị: chèn /store vào query không còn bỏ qua kiểm tra
+  for (const url of ['/api/c/history?x=/store', '/api/c/history/SG-Q7-0001?x=/store', '/api/c/transactions/SG-Q7-0001/bill?x=/store', '/api/c/sessions/current?x=/store']) {
+    for (const hd of [h('-'), {}]) {
+      const r = await app.inject({ method: 'GET', url, headers: hd });
+      assert.equal(r.statusCode, 400, `${url} ${JSON.stringify(hd)} -> ${r.statusCode}`);
+    }
+  }
+  await app.close();
+});

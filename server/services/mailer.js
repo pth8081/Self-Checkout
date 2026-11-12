@@ -2,6 +2,7 @@
 // Mật khẩu SMTP được mã hóa bằng khóa dẫn xuất từ APP_SECRET và không bao giờ trả lại cho trình duyệt.
 import crypto from 'node:crypto';
 import nodemailer from 'nodemailer';
+import { assertHostAllowed, resolveAllowed } from './net-guard.js';
 import { config } from '../config.js';
 import { getSetting, setSetting } from '../db.js';
 
@@ -51,7 +52,9 @@ export function saveSettings(db, b) {
   const secure = String(b.secure ?? cur.secure ?? 'starttls');
   const from = String(b.from ?? cur.from ?? '').trim();
   if (host && !/^[A-Za-z0-9.-]{1,253}$/.test(host)) throw Object.assign(new Error('Máy chủ SMTP không hợp lệ'), { code: 'BAD_HOST' });
+  if (host) { try { assertHostAllowed(host); } catch (e) { throw Object.assign(new Error(e.message), { code: 'BAD_HOST' }); } }
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw Object.assign(new Error('Cổng không hợp lệ'), { code: 'BAD_PORT' });
+  if (!config.devMode && !smtpPorts().includes(port)) throw Object.assign(new Error(`Cổng SMTP thường dùng là ${smtpPorts().join(', ')}. Cổng khác cần khai báo OUTBOUND_SMTP_PORTS trong .env`), { code: 'BAD_PORT' });
   if (!SECURE_MODES[secure]) throw Object.assign(new Error('Kiểu bảo mật không hợp lệ'), { code: 'BAD_SECURE' });
   if (from && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(from)) throw Object.assign(new Error('Địa chỉ người gửi không hợp lệ'), { code: 'BAD_FROM' });
   const tlsMode = String(b.tlsMode ?? cur.tlsMode ?? 'verify');
@@ -74,8 +77,10 @@ export function saveSettings(db, b) {
   return publicSettings(db);
 }
 
+const smtpPorts = () => (process.env.OUTBOUND_SMTP_PORTS || '25,465,587,2525').split(',').map((x) => Number(x.trim())).filter(Boolean);
+
 /** transportFactory(options) cho phép kiểm thử thay bằng bản giả. */
-export function createMailer(db, { transportFactory = (o) => nodemailer.createTransport(o) } = {}) {
+export function createMailer(db, { transportFactory } = {}) {
   const cfg = () => getSetting(db, KEY, {});
   const options = (s) => ({
     host: s.host, port: s.port, secure: s.secure === 'ssl', requireTLS: s.secure === 'starttls', ignoreTLS: s.secure === 'none',
@@ -83,13 +88,21 @@ export function createMailer(db, { transportFactory = (o) => nodemailer.createTr
     tls: { rejectUnauthorized: s.tlsMode !== 'insecure', ca: s.tlsMode === 'ca' && s.caPem ? s.caPem : undefined, servername: s.servername || undefined },
     connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 20_000
   });
+  // Phân giải tên máy chủ và kiểm tra địa chỉ THẬT trước khi nối (chống trỏ SMTP vào dịch vụ nội bộ/metadata); giữ tên gốc để kiểm tra chứng chỉ.
+  const guardedOptions = async (s) => {
+    const ip = await resolveAllowed(s.host);
+    const o = options(s);
+    if (ip !== s.host) { o.host = ip; o.tls = { ...o.tls, servername: s.servername || s.host }; }
+    return o;
+  };
   return {
     enabled: () => { const s = cfg(); return !!(s.host && s.from); },
     /** Gửi một email. Ném lỗi nếu chưa cấu hình hoặc máy chủ SMTP từ chối. */
     async send({ to, subject, text, html, attachments }) {
       const s = cfg();
       if (!(s.host && s.from)) throw Object.assign(new Error('Chưa cấu hình email'), { code: 'EMAIL_NOT_CONFIGURED' });
-      const t = transportFactory(options(s));
+      // Bản thật: kiểm tra địa chỉ đích trước khi nối. Bản giả của kiểm thử (transportFactory) bỏ qua bước phân giải.
+      const t = transportFactory ? transportFactory(options(s)) : nodemailer.createTransport(await guardedOptions(s));
       return t.sendMail({ from: s.fromName ? { name: s.fromName, address: s.from } : s.from, to, subject, text, html, attachments });
     }
   };
@@ -106,5 +119,6 @@ export function explainMailError(e) {
   if (c === 'EAUTH' || /Invalid login|authentication/i.test(msg)) return 'Máy chủ email từ chối tài khoản hoặc mật khẩu.';
   if (/wrong version number|packet length too long/i.test(msg)) return 'Sai kiểu bảo mật. Cổng 465 thường dùng "SSL/TLS", cổng 587 thường dùng "STARTTLS".';
   if (['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET', 'ESOCKET'].includes(c) || /timeout/i.test(msg)) return `Không kết nối được tới máy chủ email (${c || 'lỗi mạng'}). Kiểm tra địa chỉ, cổng và tường lửa.`;
-  return msg.slice(0, 160);
+  if (c === 'NET_BLOCKED') return msg;
+  return 'Không gửi được email (máy chủ email từ chối hoặc phản hồi không đúng). Chi tiết có trong nhật ký của máy chủ ứng dụng.';
 }

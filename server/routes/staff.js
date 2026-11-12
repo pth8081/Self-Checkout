@@ -1,5 +1,5 @@
 import { bad, notFound, nowIso, unauthorized } from '../util.js';
-import { authenticate, sign, verifySecret, checkLocked, recordFail, recordOk, canCash, canGate, isManager } from '../auth.js';
+import { authenticate, sign, verifySecret, checkLocked, recordFail, recordOk, canCash, canGate, isManager, burnScrypt, securityPolicy } from '../auth.js';
 import {
   storeView, activeShift, shiftStats, startShift, endShift, findCart, queue, collectPayment, cancelCart,
   txView, gateScan, recordCheck, resolveHeld, gateHistory
@@ -18,12 +18,14 @@ export default async function staffRoutes(app) {
     const code = String(req.body?.code || '').trim().toUpperCase();
     const pin = String(req.body?.pin || '');
     const user = db.prepare('SELECT * FROM staff WHERE id = ?').get(code);
-    if (!user || !user.active || !user.pin_hash) throw unauthorized('BAD_LOGIN', 'Mã nhân viên hoặc PIN chưa đúng');
+    if (!user || !user.active || !user.pin_hash) { burnScrypt(); throw unauthorized('BAD_LOGIN', 'Mã nhân viên hoặc PIN chưa đúng'); }
     checkLocked(user);
     if (!verifySecret(pin, user.pin_hash)) {
       recordFail(db, user);
       throw unauthorized('BAD_LOGIN', 'Mã nhân viên hoặc PIN chưa đúng');
     }
+    // Quản trị (có mật khẩu, mã hình, 2 bước, một phiên) không được vào bằng PIN 4 số: đăng nhập ở trang quản trị. Chỉ áp dụng khi hệ thống đang bắt buộc 2 bước.
+    if (isManager(user) && securityPolicy(db).require2fa) throw unauthorized('USE_ADMIN', 'Tài khoản quản trị hãy đăng nhập ở trang quản trị (/a/)');
     if (!user.store_id) throw unauthorized('NO_STORE', 'Tài khoản này không thuộc chi nhánh nào, hãy dùng trang quản trị');
     recordOk(db, user);
     return { token: sign({ uid: user.id, kind: 'staff' }), user: userView(user), store: storeView(db, user.store_id) };
