@@ -287,7 +287,7 @@ Dùng khi hóa đơn phát hành sau lúc báo thanh toán, hoặc muốn đổi
 {
   "pointCode": "SP-0107",
   "posOrderRef": "POS-20261105-000123",
-  "invoiceUrl": "https://hoadon.dsmart.vn/tra-cuu/ABC123",
+  "invoiceUrl": "https://<tên-miền-nhà-cung-cấp-hóa-đơn>/tra-cuu/ABC123",
   "transactionUrl": "https://dsmart.vn/giao-dich/POS-20261105-000123"
 }
 ```
