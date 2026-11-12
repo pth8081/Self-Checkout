@@ -14,7 +14,9 @@ function trustedProxies() {
   if (v === '1' || v === 'true') return ['127.0.0.1', '::1'];
   return v.split(',').map((x) => x.trim()).filter(Boolean);
 }
-const app = buildApp({ logger: { level: process.env.LOG_LEVEL || 'info' }, trustProxy: trustedProxies() });
+// Link xem bill chứa token trong đường dẫn: che phần token trước khi ghi nhật ký.
+const redact = (u) => String(u || '').replace(/(\/api\/c\/bill\/)[^/?#\s]+/, '$1[che]').replace(/(\/api\/c\/receipt\/)[^/?#\s]+/, '$1[che]');
+const app = buildApp({ logger: { level: process.env.LOG_LEVEL || 'info', serializers: { req: (r) => ({ method: r.method, url: redact(r.url), host: r.host, remoteAddress: r.ip, remotePort: r.socket?.remotePort }) } }, trustProxy: trustedProxies() });
 const { db, pos } = app.ctx;
 
 // Công việc nền chỉ nên chạy ở MỘT tiến trình. RUN_JOBS=0 để tắt ở tiến trình phụ (nếu có).

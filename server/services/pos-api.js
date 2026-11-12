@@ -26,7 +26,13 @@ const byCode = (db, code) => db.prepare('SELECT * FROM transactions WHERE cart_c
 // Mã đơn Dsmart (posOrderRef) chỉ duy nhất trong phạm vi MỘT cửa hàng: nhiều cửa hàng có thể cùng gửi HD0001. Luôn tra kèm chi nhánh khi biết (từ giỏ hoặc từ khóa API gắn chi nhánh).
 const byRef = (db, ref, storeId) => (storeId
   ? db.prepare('SELECT * FROM transactions WHERE pos_order_ref = ? AND store_id = ? ORDER BY created_at DESC LIMIT 1').get(String(ref || ''), storeId)
-  : db.prepare('SELECT * FROM transactions WHERE pos_order_ref = ? ORDER BY created_at DESC LIMIT 1').get(String(ref || '')));
+  : oneRef(db, String(ref || '')));
+/** Khóa không gắn chi nhánh mà mã đơn có ở nhiều cửa hàng thì không đoán: trả lỗi để POS gọi theo mã giỏ (có mã điểm). */
+function oneRef(db, ref) {
+  const rows = db.prepare('SELECT * FROM transactions WHERE pos_order_ref = ? ORDER BY created_at DESC LIMIT 2').all(ref);
+  if (rows.length > 1 && rows[0].store_id !== rows[1].store_id) throw conflict('AMBIGUOUS_REF', 'Mã đơn này có ở nhiều cửa hàng, hãy gọi theo mã giỏ (/baskets/{mã giỏ}/...)');
+  return rows[0];
+}
 function inScope(scope, tx) { if (scope.storeId && scope.storeId !== tx.store_id) throw forbidden('STORE_FORBIDDEN', 'Khóa API này không dùng cho chi nhánh của giỏ hàng'); }
 
 /** Dữ liệu giỏ hàng trả cho Dsmart POS: các mặt hàng đã chốt giá (Dsmart POS tự tính lại theo giá và khuyến mãi của Dsmart POS). */
@@ -119,7 +125,7 @@ function cleanBill(body, db, tx) {
     lines = body.lines.map((l, i) => {
       const key = lineKey(l, true);
       const qty = Number(l?.qty);
-      const optInt = (v) => v === undefined || v === null || (Number.isInteger(Number(v)) && Number(v) >= 0);
+      const optInt = (v) => v === undefined || v === null || (Number.isInteger(Number(v)) && Number(v) >= 0 && Number(v) <= MAX_AMOUNT);
       if (!key || !(qty > 0 && qty < 100000) || !optInt(l?.lineTotal) || !optInt(l?.discount) || !optInt(l?.unitPrice)) {
         throw bad('BAD_LINES', `Dòng ${i + 1} không hợp lệ: cần sku (SKU_ID) hoặc barcode, qty > 0; unitPrice, discount, lineTotal nếu gửi phải là số nguyên đồng`);
       }
@@ -147,14 +153,20 @@ export function savePosLinkConfig(db, b = {}) {
   return { config: posLinkConfig(db) };
 }
 const LINK_RE = /^https:\/\/[^\s]{1,590}$/;
+// Ký tự điều khiển, chữ ẩn/đảo chiều (bidi, zero-width), dấu nháy, ngoặc nhọn, gạch chéo ngược và ký tự @ sau phần tên miền giả (userinfo) đều bị từ chối.
+const LINK_BAD = /[\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff"'<>\\`{}|^]/;
+function safeUrl(u) {
+  if (!LINK_RE.test(u) || u.length > 600 || LINK_BAD.test(u)) return false;
+  try { const x = new URL(u); return x.protocol === 'https:' && !x.username && !x.password && x.hostname.includes('.'); } catch { return false; }
+}
 function cleanLinks(body, strict = false) {
   const out = {}; const warnings = [];
   for (const k of ['invoiceUrl', 'transactionUrl']) {
     const v = body?.[k];
     if (v === undefined || v === null || v === '') continue;
     const u = String(v).trim();
-    if (LINK_RE.test(u) && u.length <= 600) out[k] = u;
-    else if (strict) throw bad('BAD_URL', `${k} phải bắt đầu bằng https://, không có khoảng trắng, tối đa 600 ký tự`);
+    if (safeUrl(u)) out[k] = u;
+    else if (strict) throw bad('BAD_URL', `${k} phải bắt đầu bằng https://, không có khoảng trắng, không có ký tự lạ, không chứa user@, tối đa 600 ký tự`);
     else warnings.push(`${k} bị bỏ qua: phải bắt đầu bằng https://, không có khoảng trắng, tối đa 600 ký tự`);
   }
   return { links: out, warnings };
@@ -176,6 +188,7 @@ export function orderPaid(ctx, scope, ref, body = {}, storeId) {
     exitStatus: db.prepare('SELECT exit_status FROM transactions WHERE id = ?').get(tx.id).exit_status, amountMatches: money(tx.pos_amount) === tx.total });
   if (tx.status === 'paid') {
     // Báo lại: không tạo thêm khoản thu, nhưng nhận bill nếu lần trước chưa gửi.
+    if (Number.isInteger(body.amount) && tx.pos_amount != null && body.amount !== tx.pos_amount) throw conflict('PAID_MISMATCH', 'Đơn này đã được báo thanh toán với số tiền khác. Không ghi đè', { amount: tx.pos_amount });
     const { lines } = cleanBill(body, db, tx);
     if (lines && !tx.pos_bill_json) {
       const x = extraOf(JSON.parse(tx.items_json), lines);
@@ -292,8 +305,7 @@ function basketTx(ctx, scope, code, body) {
   const { db } = ctx;
   const tx = db.prepare('SELECT * FROM transactions WHERE cart_code = ? AND method = ?').get(String(code).toUpperCase(), 'basket')
     || db.prepare(`SELECT * FROM transactions WHERE cart_code = ? AND pos_order_ref IS NOT NULL`).get(String(code).toUpperCase());
-  if (!tx) throw notFound('BASKET_NOT_FOUND', 'Chưa thấy giỏ này. Điện thoại khách có thể đang mất mạng, hãy thử lại sau');
-  inScope(scope, tx);
+  if (!tx || (scope.storeId && scope.storeId !== tx.store_id)) throw notFound('BASKET_NOT_FOUND', 'Chưa thấy giỏ này. Điện thoại khách có thể đang mất mạng, hãy thử lại sau'); // giỏ của chi nhánh khác cũng báo 404: không tiết lộ mã giỏ có thật
   // Mã điểm là khóa bảo vệ: Dsmart POS phải gửi mã điểm của CHÍNH cửa hàng mình, sai thì từ chối ngay.
   const point = String(body.pointCode || '').trim();
   if (!point) throw bad('POINT_REQUIRED', 'pointCode (mã điểm của cửa hàng Dsmart POS đang bán) là bắt buộc');
@@ -308,10 +320,10 @@ function basketTx(ctx, scope, code, body) {
   }
   return { tx, ref };
 }
-function basketByCode(ctx, scope, code, body) {
+function basketByCode(ctx, scope, code, body, claim = false) {
   const { db } = ctx;
   const { tx, ref } = basketTx(ctx, scope, code, body);
-  if (!tx.pos_order_ref) {
+  if (claim && !tx.pos_order_ref) { // chỉ lệnh thanh toán/hủy mới được nhận giỏ; refund, invoice thì chỉ tra cứu (gọi nhầm không được khóa giỏ khách)
     db.prepare(`UPDATE transactions SET pos_order_ref=?, pos_status='claimed', pos_claimed_at=?, pos_cashier=COALESCE(?, pos_cashier), pos_terminal=COALESCE(?, pos_terminal) WHERE id=?`)
       .run(ref, nowIso(), body.cashier ? String(body.cashier).slice(0, 40) : null, body.terminal ? String(body.terminal).slice(0, 40) : null, tx.id);
   }
@@ -322,7 +334,7 @@ export function basketInvoice(ctx, scope, code, body = {}) {
   const { db } = ctx;
   const { ref, storeId } = basketByCode(ctx, scope, code, body);
   const tx = byRef(db, ref, storeId);
-  if (tx.status !== 'paid') throw conflict('NOT_PAID', 'Đơn chưa thanh toán. Hãy báo thanh toán (paid) trước, hoặc gửi kèm link trong lệnh paid');
+  if (!tx || tx.status !== 'paid') throw conflict('NOT_PAID', 'Đơn chưa thanh toán. Hãy báo thanh toán (paid) trước, hoặc gửi kèm link trong lệnh paid');
   const { links } = cleanLinks(body, true);
   if (!links.invoiceUrl && !links.transactionUrl) throw bad('LINK_REQUIRED', 'Cần ít nhất một trong invoiceUrl, transactionUrl');
   saveLinks(db, tx.id, links);
@@ -330,12 +342,12 @@ export function basketInvoice(ctx, scope, code, body = {}) {
   return { ok: true, status: 'paid', ...linksOf(db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.id)) };
 }
 export function basketPaid(ctx, scope, code, body = {}) {
-  const { ref, storeId } = basketByCode(ctx, scope, code, body);
+  const { ref, storeId } = basketByCode(ctx, scope, code, body, true);
   return orderPaid(ctx, scope, ref, body, storeId);
 }
 export function basketCancelled(ctx, scope, code, body = {}) {
   let found;
-  try { found = basketByCode(ctx, scope, code, body); }
+  try { found = basketByCode(ctx, scope, code, body, true); }
   catch (e) {
     // BRG chưa có giỏ này (điện thoại khách chưa gửi lên): không có gì để hủy, Dsmart POS không cần thử lại.
     if (e.code === 'BASKET_NOT_FOUND') return { ok: true, status: 'unknown', message: 'BRG Scan & Checkout chưa có giỏ này nên không có gì để hủy' };
@@ -371,6 +383,7 @@ export function basketRefund(ctx, scope, code, body = {}) {
   const { db } = ctx;
   const { ref, storeId } = basketByCode(ctx, scope, code, body);
   const tx = byRef(db, ref, storeId);
+  if (!tx) throw conflict('NOT_REFUNDABLE', 'Chưa có đơn thanh toán với mã đơn này nên không hoàn trả được');
   if (tx.status === 'voided') throw conflict('ORDER_CANCELLED', 'Đơn này đã bị hủy');
   if (tx.status !== 'paid') throw conflict('NOT_REFUNDABLE', 'Chỉ hoàn trả được đơn đã thanh toán. Đơn chưa thu tiền thì dùng lệnh hủy');
   const refundRef = String(body.refundRef || '').trim().slice(0, 64);
@@ -387,8 +400,9 @@ export function basketRefund(ctx, scope, code, body = {}) {
     lines = body.lines.map((l, i) => {
       const key = lineKey(l, true);
       const qty = Number(l?.qty), amt = Number(l?.amount);
-      if (!key || !(qty > 0 && qty < 100000) || !(Number.isInteger(amt) && amt >= 0)) throw bad('BAD_LINES', `Dòng hoàn ${i + 1} không hợp lệ: cần sku (SKU_ID) hoặc barcode, qty > 0, amount (tiền hoàn của dòng, số nguyên đồng)`);
+      if (!key || !(qty > 0 && qty < 100000) || !(Number.isInteger(amt) && amt >= 0 && amt <= MAX_AMOUNT)) throw bad('BAD_LINES', `Dòng hoàn ${i + 1} không hợp lệ: cần sku (SKU_ID) hoặc barcode, qty > 0, amount (tiền hoàn của dòng, số nguyên đồng)`);
       const it = findLine(find, l, true);
+      if (!it.known) throw bad('BAD_LINES', `Dòng hoàn ${i + 1}: mặt hàng "${key}" không có trong đơn đã bán`);
       return { sku: it.sku, barcode: it.barcode, name: String(l?.name || '').trim().slice(0, 200) || it.name, qty, amount: amt };
     });
     // Không hoàn quá số lượng đã bán của từng mặt hàng (tính cả các lần hoàn trước). Mặt hàng không có trong đơn đã bán thì chỉ bị giới hạn bởi số tiền.
@@ -396,7 +410,9 @@ export function basketRefund(ctx, scope, code, body = {}) {
     const sold = new Map(); for (const r of soldRows) sold.set(String(r.barcode ?? r.sku), (sold.get(String(r.barcode ?? r.sku)) || 0) + Number(r.qty));
     const back = new Map(); for (const r of db.prepare('SELECT lines_json FROM refunds WHERE transaction_id = ? AND lines_json IS NOT NULL').all(tx.id)) for (const l of JSON.parse(r.lines_json)) back.set(String(l.barcode ?? l.sku), (back.get(String(l.barcode ?? l.sku)) || 0) + Number(l.qty));
     const now = new Map(); for (const l of lines) now.set(String(l.barcode), (now.get(String(l.barcode)) || 0) + l.qty);
-    for (const [k, q] of now) if (sold.has(k) && q + (back.get(k) || 0) > sold.get(k) && !db.prepare('SELECT 1 FROM refunds WHERE transaction_id = ? AND ref = ?').get(tx.id, refundRef)) throw conflict('REFUND_TOO_LARGE', 'Số lượng hoàn vượt số lượng đã bán của mặt hàng này', { barcode: k });
+    if (lines.reduce((a, l) => a + l.amount, 0) !== amount) throw bad('BAD_LINES', 'Tổng amount của các dòng hoàn phải bằng amount của lệnh hoàn');
+    for (const [k] of now) if (!sold.has(k)) throw bad('BAD_LINES', 'Có mặt hàng không nằm trong đơn đã bán');
+    for (const [k, q] of now) if (q + (back.get(k) || 0) > sold.get(k) && !db.prepare('SELECT 1 FROM refunds WHERE transaction_id = ? AND ref = ?').get(tx.id, refundRef)) throw conflict('REFUND_TOO_LARGE', 'Số lượng hoàn vượt số lượng đã bán của mặt hàng này', { barcode: k });
   }
   const done = db.prepare('SELECT * FROM refunds WHERE transaction_id = ? AND ref = ?').get(tx.id, refundRef);
   const sum = () => db.prepare('SELECT COALESCE(SUM(amount),0) s FROM refunds WHERE transaction_id = ?').get(tx.id).s;

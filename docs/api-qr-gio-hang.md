@@ -567,3 +567,13 @@ Khách có thể quét rồi bỏ đi, hoặc bấm Thanh toán nhưng không ra
 - **`transactionUrl` tùy chọn:** quản trị cấu hình mẫu link (`PUT /api/a/pos/links`, ví dụ `https://dsmart.vn/giao-dich/{posOrderRef}`); BRG tự dựng khi POS không gửi.
 - **`/refund` theo `sku`:** `lines: [{ sku, qty, amount }]`, không hoàn quá số lượng đã bán (`409 REFUND_TOO_LARGE`); `reason` có thể bỏ trống.
 - **`/update` và `/cancelled`** không bắt buộc với Dsmart POS. `/paid` gửi muộn (cuối ngày) vẫn được nhận kể cả khi giỏ đã quá hạn 30 phút hoặc bị quản lý nhả (ghi nhật ký "thanh toán sau khi hủy"). `invoiceUrl` có thể null, bổ sung sau bằng `/invoice`.
+
+## Quy tắc chặt hơn (từ phiên bản 3.9)
+
+- **Link hóa đơn / giao dịch:** chỉ nhận `https://`, tối đa 600 ký tự, không chứa `user@` trong địa chỉ, không có ký tự điều khiển, ký tự ẩn hoặc đảo chiều, dấu nháy, `<`, `>`, `\`. Link sai bị bỏ qua và trả kèm `warnings` (lệnh `/invoice` thì trả `400 BAD_URL`).
+- **Hoàn trả theo dòng:** `sku` (hoặc `barcode`) phải đúng mặt hàng có trong đơn đã bán, **không phân biệt hoa thường thì không nhận ra** (gửi đúng SKU_ID); tổng `amount` các dòng phải bằng `amount` của lệnh hoàn, nếu không trả `400 BAD_LINES`. Tổng số lượng hoàn không vượt số lượng đã bán (`409 REFUND_TOO_LARGE`).
+- **Báo thanh toán lặp:** gửi lại lệnh `paid` cho đơn đã thanh toán với `amount` khác số đã ghi thì trả `409 PAID_MISMATCH` (cùng số tiền thì `duplicate: true` như trước).
+- **Mã đơn trùng giữa nhiều cửa hàng** khi dùng khóa không gắn chi nhánh: trả `409 AMBIGUOUS_REF`; hãy gọi theo mã giỏ (`/baskets/{mã giỏ}/...`).
+- `refund` và `invoice` chỉ tra cứu, **không còn "nhận" giỏ**: gọi nhầm không làm khóa giỏ của khách.
+- Giỏ thuộc chi nhánh khác khóa API trả `404 BASKET_NOT_FOUND` (không còn `403`) để không lộ mã giỏ có thật.
+- Mọi số tiền trong dòng (`unitPrice`, `discount`, `lineTotal`, `amount`) tối đa 2.000.000.000.

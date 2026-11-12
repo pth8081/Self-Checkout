@@ -1,5 +1,5 @@
 // Web quản trị BRG Scan & Checkout (chuỗi + chi nhánh).
-import { html, render, useState, useEffect, useMemo, useCallback, useRoute, go, toast, Toasts, Header, Drawer, Icon, Logo, Spinner, OfflineBar, Field, registerSW, ErrorBox, QR, copyText, fmt, AppVersion } from '/shared/lib.js';
+import { safeDecode, html, render, useState, useEffect, useMemo, useCallback, useRoute, go, toast, Toasts, Header, Drawer, Icon, Logo, Spinner, OfflineBar, Field, registerSW, ErrorBox, QR, copyText, fmt, AppVersion } from '/shared/lib.js';
 import { api, S, store, ROLE_VI, passkeyGet, Banner } from '/a/common.js';
 import { Overview, Stores, Integrations, Reports, Users, Audit } from '/a/pages-chain.js';
 import { GuideList, GuideDoc } from '/a/guides.js';
@@ -192,13 +192,13 @@ function Shell({ session, setSession, reloadStores, logout }) {
     case 'users': view = html`<${Users} me=${me} stores=${stores} onMe=${(u) => setSession({ ...session, me: u })}/>`; break;
     case 'audit': view = html`<${Audit} me=${me} stores=${stores}/>`; break;
     case 'today': view = html`<${Today} key=${storeId} ctx=${ctx}/>`; break;
-    case 'transactions': view = seg[1] ? html`<${TxDetail} key=${seg[1]} ctx=${ctx} id=${decodeURIComponent(seg[1])}/>` : html`<${Transactions} key=${storeId} ctx=${ctx}/>`; break;
+    case 'transactions': view = seg[1] ? html`<${TxDetail} key=${seg[1]} ctx=${ctx} id=${safeDecode(seg[1])}/>` : html`<${Transactions} key=${storeId} ctx=${ctx}/>`; break;
     case 'pos-orders': view = html`<${PosOrders} key=${storeId} ctx=${ctx}/>`; break;
     case 'plans': view = html`<${Plans} key=${storeId} ctx=${ctx}/>`; break;
     case 'random-check': view = html`<${RandomCheck} key=${storeId} ctx=${ctx}/>`; break;
     case 'reconcile': view = html`<${Reconcile} key=${storeId} ctx=${ctx}/>`; break;
     case 'unknown-barcodes': view = html`<${Unknown} key=${storeId} ctx=${ctx}/>`; break;
-    case 'huong-dan': view = seg[1] ? html`<${GuideDoc} key=${seg[1]} id=${decodeURIComponent(seg[1])} query=${route.query} onGroup=${setGuideGroup}/>` : html`<${GuideList} group="nghiep-vu"/>`; break;
+    case 'huong-dan': view = seg[1] ? html`<${GuideDoc} key=${seg[1]} id=${safeDecode(seg[1])} query=${route.query} onGroup=${setGuideGroup}/>` : html`<${GuideList} group="nghiep-vu"/>`; break;
     case 'huong-dan-he-thong': view = html`<${GuideList} group="he-thong"/>`; break;
     default: view = null;
   }

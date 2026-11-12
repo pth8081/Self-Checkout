@@ -1,5 +1,5 @@
 import { bad, notFound, unauthorized } from '../util.js';
-import { authenticate, sign, verifySecret, checkLocked, recordFail, recordOk, canCash, canGate, isManager, burnScrypt, securityPolicy } from '../auth.js';
+import { revokeSessions, authenticate, sign, verifySecret, checkLocked, recordFail, recordOk, canCash, canGate, isManager, burnScrypt, securityPolicy } from '../auth.js';
 import {
   storeView, activeShift, shiftStats, startShift, endShift, findCart, queue, collectPayment, cancelCart,
   txView, gateScan, recordCheck, resolveHeld, gateHistory
@@ -34,6 +34,9 @@ export default async function staffRoutes(app) {
   app.register(async (s) => {
     s.addHook('preHandler', authenticate(db, 'staff'));
     s.addHook('preHandler', async (req) => { if (!req.user.store_id) throw bad('NO_STORE', 'Tài khoản không thuộc chi nhánh nào'); });
+
+    // Đăng xuất thật: thu hồi mọi token đang có của tài khoản này (token là HMAC không trạng thái nên cần mốc thu hồi)
+    s.post('/logout', async (req) => { revokeSessions(db, req.user.id); return { ok: true }; });
 
     s.get('/me', async (req) => {
       const sh = activeShift(db, req.user.id);

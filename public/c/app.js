@@ -1,5 +1,5 @@
 // PWA khách BRG Scan & Checkout: điều hướng, khởi động, chốt chặn theo trạng thái giao dịch.
-import { html, render, useRoute, go, useEffect, useState, useRef, Toasts, OfflineBar, registerSW, Loading, ErrorBox, Header, toast } from '/shared/lib.js';
+import { safeDecode, html, render, useRoute, go, useEffect, useState, useRef, Toasts, OfflineBar, registerSW, Loading, ErrorBox, Header, toast } from '/shared/lib.js';
 import { useStore, lastUnlockAt, loadStore, setStoreCode, openSession, refreshSession, resetSession, getState, local, setState, syncBasket } from './store.js';
 import { Welcome, Guide, CameraPermission, CameraBlocked, StoreDisabled, Stores, WebviewNotice, Resume, isWebview } from './screens-start.js';
 import { Scan, Manual, Cart } from './screens-scan.js';
@@ -120,7 +120,7 @@ function App() {
     case path === '/scan' && !!s.session && !!store: return html`<${Scan} s=${s} store=${store} onBlocked=${() => go('/blocked', true)}/><${Toasts}/>`;
     case path === '/manual' && !!s.session && !!store: return html`<${Manual} s=${s} store=${store}/><${Toasts}/>`;
     case path === '/cart' && !!s.session && !!store: return html`<${OfflineBar}/><${Cart} s=${s} store=${store}/><${Toasts}/>`;
-    case path.startsWith('/bill-link/'): return html`<${Bill} token=${decodeURIComponent(path.slice(11))}/><${Toasts}/>`;
+    case path.startsWith('/bill-link/'): return html`<${Bill} token=${safeDecode(path.slice(11))}/><${Toasts}/>`;
     case path.startsWith('/bill/'): return html`<${OfflineBar}/><${Bill} id=${path.slice(6)}/><${Toasts}/>`;
     case path === '/basket' && !!s.basket && !!store: return html`<${OfflineBar}/><${Basket} s=${s} store=${store}/><${Toasts}/>`;
     case path === '/pay' && !!s.session && !!store: return html`<${OfflineBar}/><${PayMethod} s=${s} store=${store}/><${Toasts}/>`;

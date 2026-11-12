@@ -4,7 +4,8 @@ import { createHash } from 'node:crypto';
 import { audit } from './audit.js';
 import { nowIso } from '../util.js';
 
-export const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
+import { isEmail } from '../util.js';
+export const EMAIL_RE = { test: isEmail };
 const norm = (e) => String(e || '').trim().toLowerCase();
 
 function scope(db, email) {

@@ -6,6 +6,8 @@ import htm from 'htm';
 import qrcode from './vendor/qrcode.js';
 
 export const html = htm.bind(h);
+/** decodeURIComponent không ném lỗi khi gặp chuỗi % sai (link bị cắt hoặc cố ý làm trắng trang). */
+export const safeDecode = (x) => { try { return decodeURIComponent(x); } catch { return String(x); } };
 export { h, render, Fragment, useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect };
 
 // ============================== Định dạng ==============================
@@ -102,7 +104,7 @@ export function QR({ text, label = 'Mã QR', ecc = 'M' }) {
       const q = qrcode(0, ecc); q.addData(String(text || ' ')); q.make();
       const n = q.getModuleCount(); const m = 2; let d = '';
       for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c + m} ${r + m}h1v1h-1z`;
-      return `<svg viewBox="0 0 ${n + m * 2} ${n + m * 2}" shape-rendering="crispEdges" role="img" aria-label="${label}"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#0b0f14"/></svg>`;
+      return `<svg viewBox="0 0 ${n + m * 2} ${n + m * 2}" shape-rendering="crispEdges" role="img" aria-label="${String(label ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))}"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#0b0f14"/></svg>`;
     } catch { return ''; }
   }, [text, ecc]);
   return html`<div class="qr" dangerouslySetInnerHTML=${{ __html: svg }}></div>`;

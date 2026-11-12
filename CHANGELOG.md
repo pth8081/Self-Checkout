@@ -2,6 +2,10 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 3.9 (2026-11-12)
+
+- Rà soát an ninh vòng 2: passkey cần nhập lại mật khẩu, chống ReDoS email, đăng xuất nhân viên thu hồi token, siết hoàn trả/link/mã đơn, cấu hình mặc định an toàn hơn
+
 ## 3.8 (2026-11-12)
 
 - Làm rõ API Dsmart POS: thanh toán nhiều hình thức, hoàn theo sku, mẫu link giao dịch

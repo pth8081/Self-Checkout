@@ -12,7 +12,7 @@ const isProd = !devMode;
 if (isProd) {
   const s = process.env.APP_SECRET;
   if (!s || s === DEV_SECRET) throw new Error('APP_SECRET là bắt buộc (chuỗi ngẫu nhiên dài, tạo bằng: openssl rand -hex 32). Chạy thử trên máy phát triển thì đặt BRG_DEV=1.');
-  if (s.length < 32) console.warn('[CẢNH BÁO] APP_SECRET ngắn hơn 32 ký tự, nên đổi sang chuỗi ngẫu nhiên dài hơn (openssl rand -hex 32). Đổi khóa thì mọi phiên đăng nhập và QR chưa dùng mất hiệu lực.');
+  if (s.length < 32) throw new Error('APP_SECRET phải dài ít nhất 32 ký tự (openssl rand -hex 32). Khóa ngắn dò ra được và ký giả được mọi token. Đổi khóa thì mọi phiên đăng nhập và QR chưa dùng mất hiệu lực.');
 }
 
 // CSDL: mặc định SQLite (một file). DB_DRIVER=mssql để dùng SQL Server (xem hướng dẫn triển khai).
@@ -32,7 +32,7 @@ export const config = {
   isProd,
   devMode,
   port: Number(process.env.PORT || 3000),
-  host: process.env.HOST || '0.0.0.0',
+  host: process.env.HOST || (isProd ? '127.0.0.1' : '0.0.0.0'), // production mặc định chỉ nghe nội bộ (đứng sau Nginx); muốn nghe ngoài thì đặt HOST rõ ràng
   dbFile: process.env.DB_FILE || path.join(root, 'data', 'brg.db'),
   dbDriver,
   db: mssql || (process.env.DB_FILE || path.join(root, 'data', 'brg.db')), // đối số cho openDb

@@ -141,6 +141,7 @@ export function checkTotp(db, user, code) {
 }
 
 /** Thu hồi mọi phiên đang đăng nhập của tài khoản (gọi khi đổi mật khẩu, PIN, vai trò). */
-export function revokeSessions(db, userId) {
+export function revokeSessions(db, userId, { passkeys = false } = {}) {
+  if (passkeys) db.prepare('DELETE FROM passkeys WHERE staff_id = ?').run(userId); // đặt lại mật khẩu / khóa tài khoản: gỡ cả thiết bị passkey đã đăng ký
   db.prepare('UPDATE staff SET sec_epoch = ?, session_id = NULL, session_seen = NULL, session_info = NULL WHERE id = ?').run(new Date().toISOString(), userId);
 }

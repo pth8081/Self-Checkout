@@ -1,5 +1,5 @@
 // PWA nhân viên BRG Scan & Checkout: thu ngân + kiểm soát cổng ra.
-import { html, render, useState, useEffect, useCallback, useRoute, go, Drawer, Toasts, OfflineBar, registerSW, toast, Loading, ErrorBox } from '/shared/lib.js';
+import { safeDecode, html, render, useState, useEffect, useCallback, useRoute, go, Drawer, Toasts, OfflineBar, registerSW, toast, Loading, ErrorBox } from '/shared/lib.js';
 import { api, getToken, setToken, setOnUnauth, setOnFlagChange, CSS, roleName, enc, flagsOf, Unavailable } from '/s/common.js';
 import { Login, Home, Lookup, QueueScreen, Cart, Cash, Transfer, Done, Transactions, TxDetail, EndShift } from '/s/screens.js';
 import { GateScan, GateResult, CheckList, Mismatch, HeldList } from '/s/gate.js';
@@ -7,7 +7,7 @@ import { GateScan, GateResult, CheckList, Mismatch, HeldList } from '/s/gate.js'
 const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
 
 function Router({ c, route }) {
-  const seg = route.path.split('/').filter(Boolean).map(decodeURIComponent);
+  const seg = route.path.split('/').filter(Boolean).map(safeDecode);
   const q = route.query;
   const f = flagsOf(c.store);
   if (f.pos && ['thu', 'hang-doi', 'gio', 'da-thu'].includes(seg[0])) return html`<${Unavailable} c=${c} kind="pos"/>`;
@@ -39,7 +39,7 @@ function App() {
   const [shift, setShift] = useState(null);
   const [boot, setBoot] = useState(getToken() ? 'loading' : 'none');
   const [menu, setMenu] = useState(false);
-  const logout = useCallback(() => { setToken(null); setAuth(null); setShift(null); setMenu(false); history.replaceState(null, '', '#/'); }, []);
+  const logout = useCallback(() => { { const t = getToken(); if (t) fetch('/api/s/logout', { method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {}); } setToken(null); setAuth(null); setShift(null); setMenu(false); history.replaceState(null, '', '#/'); }, []);
   const loadMe = useCallback(() => {
     setBoot('loading');
     api.get('/me').then((r) => { setAuth({ user: r.user, store: r.store }); setShift(r.shift); setBoot('ok'); })
