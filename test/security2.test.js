@@ -63,3 +63,28 @@ test('quản trị: tên chi nhánh không chứa ký tự HTML; quản trị ch
   assert.equal((await call(app, 'PUT', '/api/a/stores/Q7', { token: admin, body: { name: { a: 1 } } })).status, 400);
   await app.close();
 });
+
+test('mã đơn Dsmart: duy nhất trong từng cửa hàng ở cả tầng CSDL; cửa hàng khác nhau được cùng mã', async () => {
+  const app = await makeApp({ basket: true });
+  const db = app.ctx.db;
+  assert.ok(db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_tx_store_pos_ref'").get(), 'phải có chỉ mục duy nhất');
+  // tạo một giao dịch mẫu qua API để có dòng dữ liệu thật
+  const admin = (await adminLogin(app)).body.token; void admin;
+  const ss = await call(app, 'POST', '/api/c/sessions', { body: { storeId: 'Q7' } });
+  await call(app, 'POST', `/api/c/sessions/${ss.body.session.id}/ops`, { body: { ops: [{ id: 'a', type: 'scan', barcode: barcodeOf(app, 'Q7', 'SUA01') }] } });
+  await call(app, 'POST', `/api/c/sessions/${ss.body.session.id}/basket`, { body: { ref: 'Q7-UNIQ234567' } });
+  const base = db.prepare('SELECT * FROM transactions LIMIT 1').get();
+  assert.ok(base, 'phải có giao dịch mẫu');
+  const stores = db.prepare('SELECT id FROM stores ORDER BY id LIMIT 2').all().map((s) => s.id);
+  assert.equal(stores.length, 2);
+  const mk = (id, store, ref) => {
+    const cols = Object.keys(base || {});
+    const row = { ...base, id, store_id: store, pos_order_ref: ref, cart_code: id };
+    db.prepare(`INSERT INTO transactions(${cols.join(',')}) VALUES(${cols.map(() => '?').join(',')})`).run(...cols.map((c) => row[c]));
+  };
+  db.prepare('UPDATE transactions SET pos_order_ref = NULL').run();
+  mk('T-A1', stores[0], 'HD0001');
+  mk('T-B1', stores[1], 'HD0001'); // cửa hàng khác: được
+  assert.throws(() => mk('T-A2', stores[0], 'HD0001'), /UNIQUE/); // cùng cửa hàng: bị chặn
+  await app.close();
+});

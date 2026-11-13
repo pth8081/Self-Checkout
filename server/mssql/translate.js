@@ -200,5 +200,7 @@ export function schemaToTsql(schema, migrations, extraIndexes = []) {
 }
 
 function indexSql(unique, name, table, cols, tail) {
-  return `IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'${name}' AND object_id = OBJECT_ID(N'${table}')) CREATE ${unique ? 'UNIQUE ' : ''}INDEX ${name} ON ${table}(${cols})${tail || ''}`;
+  // Chỉ mục duy nhất của mã đơn POS chỉ tạo khi dữ liệu hiện có chưa trùng (không làm hỏng việc khởi động của hệ thống đang chạy).
+  const guard = name === 'idx_tx_store_pos_ref' ? ' AND NOT EXISTS (SELECT 1 FROM transactions WHERE pos_order_ref IS NOT NULL GROUP BY store_id, pos_order_ref HAVING COUNT(*) > 1)' : '';
+  return `IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'${name}' AND object_id = OBJECT_ID(N'${table}'))${guard} CREATE ${unique ? 'UNIQUE ' : ''}INDEX ${name} ON ${table}(${cols})${tail || ''}`;
 }

@@ -577,3 +577,7 @@ Khách có thể quét rồi bỏ đi, hoặc bấm Thanh toán nhưng không ra
 - `refund` và `invoice` chỉ tra cứu, **không còn "nhận" giỏ**: gọi nhầm không làm khóa giỏ của khách.
 - Giỏ thuộc chi nhánh khác khóa API trả `404 BASKET_NOT_FOUND` (không còn `403`) để không lộ mã giỏ có thật.
 - Mọi số tiền trong dòng (`unitPrice`, `discount`, `lineTotal`, `amount`) tối đa 2.000.000.000.
+
+## Mã đơn duy nhất trong từng cửa hàng (từ phiên bản 4.0)
+
+`posOrderRef` duy nhất theo cặp (cửa hàng, mã đơn), được bảo đảm cả ở tầng CSDL (chỉ mục UNIQUE `idx_tx_store_pos_ref`, SQLite và SQL Server). Cửa hàng khác nhau được dùng cùng mã đơn. Hai lệnh đến cùng lúc với cùng mã đơn cho hai giỏ khác nhau thì lệnh sau nhận `409 REF_IN_USE`. API gửi cho Dsmart POS không đổi. Hệ thống đang chạy mà đã có đơn trùng mã trong cùng cửa hàng thì khi khởi động BRG in cảnh báo kèm danh sách và bỏ qua chỉ mục, không tự sửa dữ liệu.

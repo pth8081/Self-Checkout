@@ -178,7 +178,9 @@ export const MIGRATIONS = [
 ];
 export const EXTRA_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_tx_pos_ref ON transactions(pos_order_ref)',
-  "CREATE UNIQUE INDEX IF NOT EXISTS idx_stores_pos_code ON stores(pos_code) WHERE pos_code <> ''"
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_stores_pos_code ON stores(pos_code) WHERE pos_code <> ''",
+  // Mã đơn Dsmart POS duy nhất trong từng cửa hàng (cửa hàng khác nhau được phép trùng mã). Chỉ mục này chỉ được tạo khi dữ liệu hiện có chưa trùng (xem migrate).
+  'CREATE UNIQUE INDEX IF NOT EXISTS idx_tx_store_pos_ref ON transactions(store_id, pos_order_ref) WHERE pos_order_ref IS NOT NULL'
 ];
 function migrate(db) {
   for (const [table, col, def] of MIGRATIONS) {
@@ -186,6 +188,10 @@ function migrate(db) {
   }
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_pos_ref ON transactions(pos_order_ref)');
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_stores_pos_code ON stores(pos_code) WHERE pos_code <> ''");
+  // Không tự xóa hay sửa dữ liệu: nếu đã có đơn trùng mã trong cùng cửa hàng thì chỉ cảnh báo và bỏ qua chỉ mục (code vẫn chặn trùng ở mức ứng dụng).
+  const dup = db.prepare('SELECT store_id, pos_order_ref, COUNT(*) n FROM transactions WHERE pos_order_ref IS NOT NULL GROUP BY store_id, pos_order_ref HAVING COUNT(*) > 1').all();
+  if (dup.length) console.warn(`[CẢNH BÁO] ${dup.length} mã đơn Dsmart POS bị trùng trong cùng cửa hàng nên chưa tạo được ràng buộc duy nhất. Hãy xử lý rồi khởi động lại:`, dup.slice(0, 20).map((d) => `${d.store_id}/${d.pos_order_ref} (${d.n})`).join(', '));
+  else db.exec(EXTRA_INDEXES[2]);
 }
 
 /** Mở CSDL: chuỗi (đường dẫn file hoặc ':memory:') là SQLite; đối tượng { driver: 'mssql', ... } là SQL Server. */

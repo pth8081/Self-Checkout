@@ -62,6 +62,7 @@ export function buildApp({ dbFile = config.db, rng = Math.random, logger = false
 
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof HttpError) return reply.code(err.status).send({ error: err.code, message: err.message, ...err.extra });
+    if (/UNIQUE|duplicate key/i.test(err.message || '') && /idx_tx_store_pos_ref|pos_order_ref/.test(err.message || '')) return reply.code(409).send({ error: 'REF_IN_USE', message: 'Mã đơn Dsmart POS này đã gắn với giỏ khác' }); // hai lệnh đến cùng lúc
     if (err.validation || err.statusCode === 400) return reply.code(400).send({ error: 'BAD_REQUEST', message: 'Dữ liệu gửi lên không hợp lệ' });
     if (err.statusCode && err.statusCode < 500) return reply.code(err.statusCode).send({ error: 'ERROR', message: err.message });
     req.log.error(err);
