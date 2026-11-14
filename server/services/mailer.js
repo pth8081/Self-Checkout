@@ -1,3 +1,4 @@
+import { isEmail } from '../util.js';
 // Gửi email qua máy chủ SMTP của công ty. Cấu hình do quản trị chuỗi nhập ở trang Tích hợp, lưu trong CSDL.
 // Mật khẩu SMTP được mã hóa bằng khóa dẫn xuất từ APP_SECRET và không bao giờ trả lại cho trình duyệt.
 import crypto from 'node:crypto';
@@ -56,7 +57,7 @@ export function saveSettings(db, b) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw Object.assign(new Error('Cổng không hợp lệ'), { code: 'BAD_PORT' });
   if (!config.devMode && !smtpPorts().includes(port)) throw Object.assign(new Error(`Cổng SMTP thường dùng là ${smtpPorts().join(', ')}. Cổng khác cần khai báo OUTBOUND_SMTP_PORTS trong .env`), { code: 'BAD_PORT' });
   if (!SECURE_MODES[secure]) throw Object.assign(new Error('Kiểu bảo mật không hợp lệ'), { code: 'BAD_SECURE' });
-  if (from && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(from)) throw Object.assign(new Error('Địa chỉ người gửi không hợp lệ'), { code: 'BAD_FROM' });
+  if (from && !isEmail(from)) throw Object.assign(new Error('Địa chỉ người gửi không hợp lệ'), { code: 'BAD_FROM' });
   const tlsMode = String(b.tlsMode ?? cur.tlsMode ?? 'verify');
   if (!TLS_MODES[tlsMode]) throw Object.assign(new Error('Kiểu kiểm tra chứng chỉ không hợp lệ'), { code: 'BAD_TLS' });
   const servername = String(b.servername ?? cur.servername ?? '').trim();

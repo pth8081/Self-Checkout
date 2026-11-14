@@ -2,7 +2,7 @@
 // Mọi hàm nhận ctx = { db, pos, invoicer, rng } để dễ kiểm thử.
 import { config } from '../config.js';
 import { nextCounter } from '../db.js';
-import { nowIso, uuid, bad, notFound, conflict, forbidden, money, normCode, localDate } from '../util.js';
+import { nowIso, uuid, bad, notFound, conflict, forbidden, money, normCode, localDate, isEmail } from '../util.js';
 import { totals, itemCount, lineDiscount, promoLabel } from './pricing.js';
 import { normalizeBarcode } from './barcode.js';
 import { vietQrPayload, makeReceiptToken, parseReceiptToken } from './qr.js';
@@ -87,7 +87,7 @@ export function cleanBuyer(b) {
   const email = String(b.email || '').trim();
   const out = {};
   if (email) {
-    if (!/^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/.test(email)) throw bad('BAD_EMAIL', 'Email không hợp lệ');
+    if (!isEmail(email)) throw bad('BAD_EMAIL', 'Email không hợp lệ');
     out.email = email;
   }
   if (b.taxCode || b.companyName || b.address) {
@@ -380,7 +380,7 @@ export function lockBasket(ctx, session, { ref, email } = {}) {
   if (code.split('-')[0] !== String(session.store_id).toUpperCase()) throw bad('BAD_REF', 'Mã giỏ không thuộc chi nhánh này');
   const same = db.prepare('SELECT * FROM transactions WHERE store_id = ? AND cart_code = ?').get(session.store_id, code);
   const mail = String(email || '').trim().toLowerCase();
-  if (mail && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(mail)) throw bad('BAD_EMAIL', 'Email không hợp lệ');
+  if (mail && !isEmail(mail)) throw bad('BAD_EMAIL', 'Email không hợp lệ');
   if (same) {
     if (same.session_id !== session.id) throw conflict('REF_USED', 'Mã giỏ đã dùng, hãy tạo lại');
     if (mail && !same.bill_email) db.prepare('UPDATE transactions SET bill_email = ? WHERE id = ?').run(mail, same.id);
@@ -641,6 +641,8 @@ export function recordCheck(ctx, user, body) {
   if (!['paid', 'awaiting_counter'].includes(tx.status)) throw conflict('NOT_CHECKABLE', 'Giao dịch này không kiểm tra được');
   if (tx.check_done) throw conflict('ALREADY_CHECKED', 'Giao dịch này đã được kiểm tra');
   const place = body.place === 'counter' ? 'counter' : 'gate';
+  if ((place === 'gate' && !canGate(user)) || (place === 'counter' && !canCash(user))) throw forbidden(); // đúng vai trò theo nơi kiểm tra
+  if (place === 'gate' && ['exited', 'held', 'denied'].includes(tx.exit_status)) throw conflict('NOT_CHECKABLE', 'Khách này đã ra cổng hoặc đang chờ quản lý xử lý');
   if (place === 'gate' && !getStoreConfig(db, tx.store_id).cfg.guard_check) throw conflict('GUARD_DISABLED', 'Chi nhánh này không dùng bước kiểm tra của bảo vệ ở cổng ra');
   if (place === 'counter' && tx.status !== 'awaiting_counter') throw conflict('NOT_CHECKABLE', 'Kiểm tra tại quầy chỉ làm trước khi thu tiền');
   if (place === 'gate' && tx.status !== 'paid') throw conflict('NOT_CHECKABLE', 'Giao dịch chưa thanh toán');

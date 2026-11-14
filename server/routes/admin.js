@@ -8,7 +8,7 @@ import { priceConfig, savePriceConfig, callPriceApi } from '../services/price-ap
 import { retentionConfig, validateRetention, runRetention, RETENTION_KEY, RETENTION_DEFAULTS } from '../services/retention.js';
 import { publicSettings, saveSettings, SECURE_MODES, TLS_MODES, explainMailError } from '../services/mailer.js';
 import { cartDiffOf } from '../services/bill.js';
-import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, sqlLocalDate, money, normCode, unauthorized } from '../util.js';
+import { HttpError, bad, notFound, forbidden, conflict, nowIso, localDate, sqlLocalDate, money, normCode, unauthorized, isEmail } from '../util.js';
 import { authenticate, sign, verify, hashSecret, verifySecret, checkLocked, recordFail, recordOk, isManager, cleanUsername, usernameTaken, securityPolicy, burnScrypt, checkTotp, sealTotp, revokeSessions } from '../auth.js';
 import { newCaptcha, checkCaptcha } from '../services/captcha.js';
 import { registrationOptions, verifyRegistration, authenticationOptions, verifyAuthentication } from '../services/webauthn.js';
@@ -106,7 +106,7 @@ export default async function adminRoutes(app) {
   app.post('/logout', async (req) => {
     // Đăng xuất chủ động: xóa phiên nếu đúng là phiên đang dùng (không báo lỗi khi token hết hạn).
     const p = verify(String((req.headers.authorization || '').replace(/^Bearer /, '')));
-    if (p?.kind === 'admin' && p.sid) db.prepare('UPDATE staff SET session_id = NULL, session_seen = NULL, session_info = NULL WHERE id = ? AND session_id = ?').run(p.uid, p.sid);
+    if (p?.kind === 'admin') revokeSessions(db, p.uid); // thu hồi cả khi chính sách một phiên đang tắt
     return { ok: true };
   });
   // Bước 2 khi tài khoản đã bật xác thực 2 bước: nhập mã 6 số từ app.
@@ -168,6 +168,7 @@ export default async function adminRoutes(app) {
     const chainOnly = (req) => { if (req.user.role !== 'chain_admin') throw forbidden('CHAIN_ONLY', 'Chỉ quản trị chuỗi mới thực hiện được'); };
     /** Chi nhánh đang xem: quản trị chi nhánh bị khóa ở chi nhánh của mình. */
     const storeOf = (req) => {
+      if (req.user.role === 'branch_admin' && !req.user.store_id) throw forbidden('NO_STORE', 'Tài khoản chưa gắn chi nhánh');
       const id = req.user.role === 'branch_admin' ? req.user.store_id : String(req.query?.storeId || req.body?.storeId || '').toUpperCase();
       if (!id) throw bad('STORE_REQUIRED', 'Chọn chi nhánh');
       getStoreConfig(db, id);
@@ -271,6 +272,7 @@ export default async function adminRoutes(app) {
     s.post('/stores/import/preview', async (req) => { chainOnly(req); return planStores(db, storesFile(req)); });
     s.post('/stores/import/apply', async (req) => {
       chainOnly(req);
+      reauth(req);
       const r = applyStores(db, storesFile(req), audit, req.user.id);
       audit(db, { actorType: 'admin', actorId: req.user.id, action: 'stores.imported', entity: 'store', entityId: 'file', data: { created: r.created, updated: r.updated } });
       return r;
@@ -306,8 +308,11 @@ export default async function adminRoutes(app) {
         if (!priceConfig(db).enabled && !db.prepare('SELECT 1 FROM product_cache WHERE store_id = ? LIMIT 1').get(id)) throw conflict('NO_PRODUCTS', 'Chi nhánh chưa có dữ liệu sản phẩm, hãy đồng bộ Dsmart POS trước');
         if (c.checkout_mode === 'basket' && !posCode) throw conflict('NO_POS_CODE', 'Hãy nhập Mã điểm của chi nhánh (mã trong hệ thống giá và Dsmart POS) trước khi bật');
       }
+      const nm = b.name === undefined ? st.name : String(b.name).trim();
+      if (typeof b.name !== 'undefined' && (typeof b.name !== 'string' || !nm || nm.length > 80 || /[<>"]/.test(nm))) throw bad('BAD_NAME', 'Tên chi nhánh tối đa 80 ký tự, không chứa < > "');
+      if (b.address !== undefined && (typeof b.address !== 'string' || b.address.length > 200)) throw bad('BAD_ADDRESS', 'Địa chỉ tối đa 200 ký tự');
       db.prepare('UPDATE stores SET name = ?, address = ?, enabled = ?, pos_code = ? WHERE id = ?')
-        .run(b.name?.trim() || st.name, b.address ?? st.address, b.enabled === undefined ? st.enabled : (b.enabled ? 1 : 0), posCode, id);
+        .run(nm, b.address ?? st.address, b.enabled === undefined ? st.enabled : (b.enabled ? 1 : 0), posCode, id);
       audit(db, { storeId: id, actorType: 'admin', actorId: req.user.id, action: 'store.updated', entity: 'store', entityId: id, data: b });
       return { store: storeRow(db.prepare('SELECT * FROM stores WHERE id = ?').get(id)) };
     });
@@ -320,6 +325,7 @@ export default async function adminRoutes(app) {
         if (id !== req.user.store_id) throw forbidden();
         if (Object.keys(b).some((k) => !branchFields.includes(k))) throw forbidden('CHAIN_ONLY', 'Quản trị chi nhánh chỉ đổi được tỷ lệ kiểm tra ngẫu nhiên');
       }
+      if (b.bank !== undefined) reauth(req); // đổi tài khoản nhận tiền QR
       const cur = db.prepare('SELECT * FROM store_config WHERE store_id = ?').get(id);
       const n = { ...cur };
       if (b.payCash !== undefined) n.pay_cash = b.payCash ? 1 : 0;
@@ -393,6 +399,7 @@ export default async function adminRoutes(app) {
     });
     s.post('/integrations/retention/run', async (req) => {
       chainOnly(req);
+      reauth(req);
       const last = runRetention(ctx);
       audit(db, { actorType: 'admin', actorId: req.user.id, action: 'retention.run_manual', entity: 'settings', entityId: RETENTION_KEY, data: last.done });
       return { last };
@@ -458,6 +465,7 @@ export default async function adminRoutes(app) {
     });
     s.post('/privacy/erase', async (req) => {
       chainOnly(req);
+      reauth(req);
       const email = String(req.body?.email ?? '').trim().toLowerCase();
       if (String(req.body?.confirm ?? '').trim().toLowerCase() !== email) throw bad('CONFIRM_MISMATCH', 'Nhập lại đúng email để xác nhận xóa');
       const r = eraseCustomer(ctx, email, { actor: req.user.id, note: req.body?.note });
@@ -478,7 +486,7 @@ export default async function adminRoutes(app) {
     s.post('/integrations/email/test', async (req) => {
       chainOnly(req);
       const to = String(req.body?.to || '').trim();
-      if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(to)) throw bad('BAD_EMAIL', 'Nhập email nhận thử');
+      if (!isEmail(to)) throw bad('BAD_EMAIL', 'Nhập email nhận thử');
       if (!ctx.mailer.enabled()) throw conflict('EMAIL_NOT_CONFIGURED', 'Hãy lưu máy chủ SMTP và địa chỉ người gửi trước');
       try {
         await ctx.mailer.send({ to, subject: 'Email thử từ BRG Scan & Checkout', text: 'Nếu bạn đọc được email này thì cấu hình gửi email đã đúng.', html: '<p>Nếu bạn đọc được email này thì cấu hình gửi email của <b>BRG Scan &amp; Checkout</b> đã đúng.</p>' });
@@ -576,7 +584,7 @@ export default async function adminRoutes(app) {
     });
 
     // Giải cứu khách khi Dsmart POS đã nhận giỏ nhưng không báo kết quả (Dsmart POS sập giữa chừng): quản lý nhả giỏ về cho khách.
-    // Nếu sau đó Dsmart POS vẫn báo "đã thanh toán" cho đơn này thì BRG từ chối (ORDER_CANCELLED) và cần đối soát tay.
+    // Giỏ QR: nếu sau đó Dsmart POS vẫn báo "đã thanh toán" thì BRG vẫn ghi nhận (ghi nhật ký "thanh toán sau khi hủy"). Luồng cũ (carts/orders) thì từ chối ORDER_CANCELLED và cần đối soát tay.
     s.post('/pos/orders/:id/release', async (req) => {
       const tx = txScoped(req);
       if (tx.status !== 'awaiting_counter' || tx.pos_status !== 'claimed') throw conflict('NOT_CLAIMED', 'Chỉ nhả được giỏ đã được Dsmart POS nhận mà chưa thanh toán');
@@ -690,7 +698,7 @@ export default async function adminRoutes(app) {
       if (username === false) throw bad('BAD_USERNAME', 'Tên đăng nhập gồm 3–40 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang (ví dụ anh.dp)');
       if (username && usernameTaken(db, username)) throw conflict('USERNAME_TAKEN', 'Tên đăng nhập này đã có người dùng');
       const email = b.email ? String(b.email).trim().toLowerCase() : null;
-      if (email && (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email) || email.length > 120)) throw bad('BAD_EMAIL', 'Email không hợp lệ');
+      if (email && !isEmail(email)) throw bad('BAD_EMAIL', 'Email không hợp lệ');
       if (email && usernameTaken(db, email, '')) throw conflict('EMAIL_TAKEN', 'Email này đã dùng cho tài khoản khác');
       let id = String(b.id || '').trim().toUpperCase();
       if (!id) {
@@ -718,6 +726,7 @@ export default async function adminRoutes(app) {
       }
       // Luôn còn ít nhất một quản trị chuỗi đang hoạt động (không tự khóa mình ra khỏi hệ thống)
       if (u.role === 'chain_admin' && u.active && (role !== 'chain_admin' || b.active === false) && !db.prepare("SELECT 1 FROM staff WHERE role = 'chain_admin' AND active = 1 AND id <> ?").get(u.id)) throw conflict('LAST_CHAIN_ADMIN', 'Đây là quản trị chuỗi cuối cùng, không thể hạ quyền hoặc khóa');
+      if (role === 'branch_admin' && !u.store_id) throw bad('STORE_REQUIRED', 'Quản trị chi nhánh phải gắn với một chi nhánh');
       let username = u.username || null;
       if (b.username !== undefined) {
         if (req.user.role !== 'chain_admin') throw forbidden('CHAIN_ONLY', 'Chỉ quản trị chuỗi đổi tên đăng nhập');
@@ -726,15 +735,16 @@ export default async function adminRoutes(app) {
         if (username && usernameTaken(db, username, u.id)) throw conflict('USERNAME_TAKEN', 'Tên đăng nhập này đã có người dùng');
       }
       const emailNext = b.email === undefined ? u.email : (String(b.email).trim().toLowerCase() || null);
-      if (b.email !== undefined && emailNext && (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(emailNext) || emailNext.length > 120)) throw bad('BAD_EMAIL', 'Email không hợp lệ');
+      if (b.email !== undefined && emailNext && !isEmail(emailNext)) throw bad('BAD_EMAIL', 'Email không hợp lệ');
       if (b.email !== undefined && emailNext && usernameTaken(db, emailNext, u.id)) throw conflict('EMAIL_TAKEN', 'Email này đã dùng cho tài khoản khác');
       db.prepare('UPDATE staff SET username=?, name=?, email=?, role=?, active=?, failed=0, locked_until=CASE WHEN ? = 1 THEN NULL ELSE locked_until END WHERE id=?')
         .run(username, b.name?.trim() || u.name, emailNext, role, b.active === undefined ? u.active : (b.active ? 1 : 0), b.active ? 1 : 0, u.id);
-      if (role !== u.role || (b.active !== undefined && !b.active)) revokeSessions(db, u.id); // đổi vai trò hoặc khóa tài khoản: thu hồi phiên đang dùng
+      if (role !== u.role || (b.active !== undefined && !b.active)) revokeSessions(db, u.id, { passkeys: b.active !== undefined && !b.active }); // đổi vai trò hoặc khóa tài khoản: thu hồi phiên đang dùng
       audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.updated', entity: 'user', entityId: u.id, data: { role: b.role, active: b.active } });
       return { user: userView(db.prepare('SELECT * FROM staff WHERE id = ?').get(u.id)) };
     });
     s.post('/users/:id/reset-pin', async (req) => {
+      reauth(req);
       const u = userScoped(req);
       if (!validPin(req.body?.pin)) throw bad('BAD_PIN', 'PIN gồm 4–6 chữ số');
       db.prepare('UPDATE staff SET pin_hash = ?, failed = 0, locked_until = NULL WHERE id = ?').run(hashSecret(req.body.pin), u.id);
@@ -748,6 +758,7 @@ export default async function adminRoutes(app) {
       const u = userScoped(req);
       if (!strongPassword(req.body?.password)) throw bad('WEAK_PASSWORD', 'Mật khẩu tối thiểu 8 ký tự, có cả chữ và số');
       db.prepare('UPDATE staff SET pw_hash = ?, failed = 0, locked_until = NULL WHERE id = ?').run(hashSecret(req.body.password), u.id);
+      db.prepare('DELETE FROM passkeys WHERE staff_id = ?').run(u.id); // mật khẩu bị đặt lại vì nghi lộ: gỡ cả passkey
       revokeSessions(db, u.id);
       audit(db, { storeId: u.store_id, actorType: 'admin', actorId: req.user.id, action: 'user.password_reset', entity: 'user', entityId: u.id });
       return { ok: true };
@@ -765,6 +776,7 @@ export default async function adminRoutes(app) {
     };
     s.post('/users/:id/totp/begin', async (req) => {
       const u = totpActor(req);
+      if (u.id !== req.user.id) reauth(req); // đổi 2 bước của người khác
       needCurrent(req, u);
       const secret = randomSecret();
       return { secret, uri: otpauthUri(secret, u.email || u.username || u.id), confirmToken: sign({ uid: u.id, kind: 'totp-enroll', secret, by: req.user.id }, 10 / 60) };
@@ -797,10 +809,12 @@ export default async function adminRoutes(app) {
       return { passkeys: db.prepare('SELECT * FROM passkeys WHERE staff_id = ? ORDER BY created_at').all(u.id).map(passkeyView) };
     });
     s.post('/passkeys/options', async (req) => {
+      reauth(req);
       try { return registrationOptions(req, req.user, db.prepare('SELECT credential_id FROM passkeys WHERE staff_id = ?').all(req.user.id).map((r) => r.credential_id)); }
       catch (e) { throw bad('NO_ORIGIN', e.message); }
     });
     s.post('/passkeys/register', async (req) => {
+      reauth(req); // thêm thiết bị đăng nhập không mật khẩu là thao tác nhạy cảm
       let r;
       try { r = verifyRegistration(req, req.body, req.user.id); } catch (e) { throw bad('BAD_PASSKEY', e.message || 'Không đăng ký được thiết bị'); }
       if (db.prepare('SELECT 1 FROM passkeys WHERE id = ?').get(r.hash)) throw conflict('PASSKEY_EXISTS', 'Thiết bị này đã đăng ký rồi');
@@ -811,6 +825,7 @@ export default async function adminRoutes(app) {
       return { passkeys: db.prepare('SELECT * FROM passkeys WHERE staff_id = ? ORDER BY created_at').all(req.user.id).map(passkeyView) };
     });
     s.delete('/users/:id/passkeys/:pid', async (req) => {
+      reauth(req);
       const u = userScoped(req);
       if (u.id !== req.user.id && req.user.role !== 'chain_admin') throw forbidden();
       const n = db.prepare('DELETE FROM passkeys WHERE id = ? AND staff_id = ?').run(String(req.params.pid), u.id).changes;
@@ -1015,6 +1030,7 @@ export default async function adminRoutes(app) {
 
     // ---------------- Nhật ký ----------------
     s.get('/audit', async (req) => {
+      if (req.user.role === 'branch_admin' && !req.user.store_id) throw forbidden('NO_STORE', 'Tài khoản chưa gắn chi nhánh');
       const storeId = req.user.role === 'branch_admin' ? req.user.store_id : (req.query.storeId ? String(req.query.storeId).toUpperCase() : null);
       const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 60));
       const rows = storeId ? db.prepare('SELECT * FROM audit_events WHERE store_id = ? ORDER BY id DESC LIMIT ?').all(storeId, limit)

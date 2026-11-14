@@ -11,7 +11,8 @@ const LS = {
 };
 export const local = LS;
 
-const uid = () => (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 32);
+// Mã thiết bị là bí mật nên chỉ dùng nguồn ngẫu nhiên mật mã (randomUUID, hoặc getRandomValues khi trang không ở HTTPS); không dùng Math.random.
+const uid = () => (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('')).slice(0, 32);
 
 // Mã thiết bị: bí mật ngẫu nhiên, đóng vai "chìa khóa" cho phiên và lịch sử của khách.
 export const deviceId = (() => {

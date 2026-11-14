@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { config } from '../config.js';
-import { HttpError, bad, notFound, conflict, nowIso, localDate, randomCode } from '../util.js';
+import { HttpError, bad, notFound, conflict, nowIso, localDate, randomCode, isEmail } from '../util.js';
 import {
   getStoreConfig, storeView, createOrResumeSession, sessionView, applyOps, lockSession, lockBasket, finishBasket, unlockSession, abandonSession, txView
 } from '../services/core.js';
@@ -13,7 +13,7 @@ import { audit } from '../services/audit.js';
 import { normalizeBarcode } from '../services/barcode.js';
 import { promoLabel } from '../services/pricing.js';
 
-const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
+const EMAIL = { test: isEmail };
 
 export default async function customerRoutes(app) {
   const ctx = app.ctx;
@@ -132,7 +132,7 @@ export default async function customerRoutes(app) {
   });
 
   // ---- Gửi bill về email ----
-  const MAIL = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+  const MAIL = { test: isEmail };
   app.post('/transactions/:id/bill-email', async (req) => {
     const tx = ownTx(req);
     const email = String(req.body?.email || '').trim().toLowerCase();

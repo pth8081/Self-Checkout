@@ -2,6 +2,26 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 4.3 (2026-11-14)
+
+- Bỏ đồng bộ bảng mã hàng và giá về trình duyệt khách hàng (hoàn lại bản 4.1); giá luôn tra trực tiếp từ máy chủ
+
+## 4.2 (2026-11-14)
+
+- App khách tự cập nhật ngầm (không hỏi) khi giỏ trống
+
+## 4.1 (2026-11-14)
+
+- Bảng mã hàng và giá lưu trên điện thoại khách: tra giá tức thì, giá tạm tính khi mất mạng
+
+## 4.0 (2026-11-13)
+
+- Ràng buộc UNIQUE (cửa hàng, mã đơn Dsmart POS) ở tầng CSDL, kiểm tra dữ liệu trùng khi khởi động
+
+## 3.9 (2026-11-12)
+
+- Rà soát an ninh vòng 2: passkey cần nhập lại mật khẩu, chống ReDoS email, đăng xuất nhân viên thu hồi token, siết hoàn trả/link/mã đơn, cấu hình mặc định an toàn hơn
+
 ## 3.8 (2026-11-12)
 
 - Làm rõ API Dsmart POS: thanh toán nhiều hình thức, hoàn theo sku, mẫu link giao dịch

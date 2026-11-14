@@ -10,7 +10,8 @@ import { nowIso } from './util.js';
 const arg = (k) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : undefined; };
 const id = String(arg('id') || 'QT0001').toUpperCase();
 const name = arg('name') || 'Quản trị chuỗi';
-const password = arg('password');
+// Ưu tiên biến môi trường BRG_ADMIN_PASSWORD (không hiện trong danh sách tiến trình / lịch sử lệnh); --password vẫn dùng được nhưng nên tránh.
+const password = process.env.BRG_ADMIN_PASSWORD || arg('password');
 const pin = arg('pin');
 if (!/^[A-Z0-9]{3,10}$/.test(id)) { console.error('Mã tài khoản gồm 3–10 chữ hoa hoặc số.'); process.exit(1); }
 if (!password || password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) { console.error('Cần --password tối thiểu 8 ký tự, có cả chữ và số.'); process.exit(1); }

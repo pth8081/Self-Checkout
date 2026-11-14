@@ -44,7 +44,7 @@ export function makeReceiptToken(txId, expiresAtIso) {
   return `${body}.${mac(body)}`;
 }
 
-// ---- Link xem bill không cần đăng nhập (gửi trong email): B1.<txId>.<chữ ký>, không hết hạn ----
+// ---- Link xem bill không cần đăng nhập (gửi trong email): B1.<txId>.<chữ ký>, hết hạn sau BILL_LINK_DAYS ngày (mặc định 180) ----
 export const makeBillToken = (txId) => `B1.${txId}.${mac(`B1.${txId}`)}`;
 export function parseBillToken(raw) {
   const m = /^B1\.([A-Z0-9-]+)\.([A-Za-z0-9_-]{22})$/.exec(String(raw || '').trim());

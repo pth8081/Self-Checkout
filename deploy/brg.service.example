@@ -16,7 +16,15 @@ RestartSec=3
 KillSignal=SIGTERM
 TimeoutStopSec=15
 NoNewPrivileges=true
-ProtectSystem=full
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+UMask=0077
 ReadWritePaths=/var/lib/brg /var/backups/brg
 
 [Install]

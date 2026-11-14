@@ -6,6 +6,8 @@ import htm from 'htm';
 import qrcode from './vendor/qrcode.js';
 
 export const html = htm.bind(h);
+/** decodeURIComponent không ném lỗi khi gặp chuỗi % sai (link bị cắt hoặc cố ý làm trắng trang). */
+export const safeDecode = (x) => { try { return decodeURIComponent(x); } catch { return String(x); } };
 export { h, render, Fragment, useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect };
 
 // ============================== Định dạng ==============================
@@ -102,7 +104,7 @@ export function QR({ text, label = 'Mã QR', ecc = 'M' }) {
       const q = qrcode(0, ecc); q.addData(String(text || ' ')); q.make();
       const n = q.getModuleCount(); const m = 2; let d = '';
       for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c + m} ${r + m}h1v1h-1z`;
-      return `<svg viewBox="0 0 ${n + m * 2} ${n + m * 2}" shape-rendering="crispEdges" role="img" aria-label="${label}"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#0b0f14"/></svg>`;
+      return `<svg viewBox="0 0 ${n + m * 2} ${n + m * 2}" shape-rendering="crispEdges" role="img" aria-label="${String(label ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))}"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#0b0f14"/></svg>`;
     } catch { return ''; }
   }, [text, ecc]);
   return html`<div class="qr" dangerouslySetInnerHTML=${{ __html: svg }}></div>`;
@@ -410,7 +412,8 @@ export function AppVersion({ prefix = 'Phiên bản', cls = 'xs muted center' })
  * Đăng ký service worker và báo khi có phiên bản mới: kiểm tra định kỳ (10 phút), khi quay lại tab và khi có mạng lại.
  * Bản mới tải xong thì hiện thanh thông báo "Có phiên bản mới ... Cập nhật ngay / Để sau". Không tự tải lại trang để không làm mất thao tác đang làm.
  */
-export function registerSW(path, scope) {
+export function registerSW(path, scope, { silent } = {}) {
+  // silent: () => boolean (khách đang rảnh). Có hàm này thì app tự cập nhật ngầm, không hỏi: đợi lúc rảnh (giỏ trống) rồi mới áp dụng và tải lại im lặng.
   if (!('serviceWorker' in navigator)) return;
   let current = null; // phiên bản máy chủ lúc mở trang
   const health = () => fetch('/api/health', { cache: 'no-store' }).then((r) => r.json()).then((j) => j.version || null).catch(() => null);
@@ -418,7 +421,18 @@ export function registerSW(path, scope) {
   let asked = false; // chỉ tải lại trang khi chính người dùng bấm Cập nhật (lần cài đặt đầu tiên cũng có controllerchange)
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (asked) location.reload(); });
   navigator.serviceWorker.register(path, { scope }).then((reg) => {
+    let silentTimer = 0;
+    const silentUpdate = () => {
+      if (silentTimer) return;
+      const apply = () => {
+        const w = reg.waiting; if (!w) { clearInterval(silentTimer); silentTimer = 0; return; }
+        if (document.hidden) return; // app ở nền: không kích hoạt giữa chừng (tránh trộn bản cũ và mới); bản mới tự có hiệu lực khi đóng hẳn app hoặc khi rảnh
+        if (silent()) { asked = true; w.postMessage({ type: 'SKIP_WAITING' }); } // rảnh (giỏ trống): áp dụng và tải lại im lặng
+      };
+      silentTimer = setInterval(apply, 15_000); apply();
+    };
     const offer = async () => {
+      if (silent) return silentUpdate();
       if (document.getElementById('updatebar')) return;
       const latest = await health();
       const bar = document.createElement('div');

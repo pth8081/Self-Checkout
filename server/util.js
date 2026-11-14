@@ -34,3 +34,7 @@ export const unauthorized = (code = 'UNAUTHORIZED', message = 'Cần đăng nh�
 
 export const money = (n) => Math.round(Number(n) || 0);
 export const normCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+/** Email: kiểm tra độ dài trước, chỉ ký tự an toàn (không dấu phẩy, chấm phẩy, ngoặc, dấu nháy), regex chạy tuyến tính (không bị ReDoS). */
+const EMAIL_RE = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63})+$/;
+export const isEmail = (s) => typeof s === 'string' && s.length >= 6 && s.length <= 120 && EMAIL_RE.test(s);
