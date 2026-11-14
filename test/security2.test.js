@@ -88,23 +88,3 @@ test('mã đơn Dsmart: duy nhất trong từng cửa hàng ở cả tầng CSDL
   assert.throws(() => mk('T-A2', stores[0], 'HD0001'), /UNIQUE/); // cùng cửa hàng: bị chặn
   await app.close();
 });
-
-test('bảng mã hàng và giá cho điện thoại: có ETag, trả 304 khi chưa đổi, đổi giá thì có phiên bản mới, cần mã thiết bị', async () => {
-  const app = await makeApp({ basket: true });
-  const r = await call(app, 'GET', '/api/c/catalog/Q7');
-  assert.equal(r.status, 200);
-  assert.ok(r.body.count > 0 && Array.isArray(r.body.items[0]) && r.body.items[0].length === 8);
-  const sku = r.body.items.find((x) => x[1] === 'SUA01');
-  assert.ok(sku && sku[0] === barcodeOf(app, 'Q7', 'SUA01') && sku[3] > 0);
-  const etag = (await app.inject({ method: 'GET', url: '/api/c/catalog/Q7', headers: { 'x-device-id': 'dev-1234567890abcdef' } })).headers.etag;
-  assert.ok(etag);
-  const again = await app.inject({ method: 'GET', url: '/api/c/catalog/Q7', headers: { 'x-device-id': 'dev-1234567890abcdef', 'if-none-match': etag } });
-  assert.equal(again.statusCode, 304);
-  app.ctx.db.prepare("UPDATE product_cache SET price = price + 1000, synced_at = '2099-01-01T00:00:00Z' WHERE store_id = 'Q7' AND sku = 'SUA01'").run();
-  const changed = await app.inject({ method: 'GET', url: '/api/c/catalog/Q7', headers: { 'x-device-id': 'dev-1234567890abcdef', 'if-none-match': etag } });
-  assert.equal(changed.statusCode, 200);
-  assert.notEqual(changed.headers.etag, etag);
-  assert.equal((await app.inject({ method: 'GET', url: '/api/c/catalog/Q7' })).statusCode, 400); // thiếu mã thiết bị
-  assert.equal((await call(app, 'GET', '/api/c/catalog/NOPE')).status, 404);
-  await app.close();
-});

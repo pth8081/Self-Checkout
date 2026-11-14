@@ -1,5 +1,4 @@
 import crypto from 'node:crypto';
-import zlib from 'node:zlib';
 import { config } from '../config.js';
 import { HttpError, bad, notFound, conflict, nowIso, localDate, randomCode, isEmail } from '../util.js';
 import {
@@ -75,30 +74,6 @@ export default async function customerRoutes(app) {
     if (!p) return { found: false };
     return { found: true, product: { name: p.name, barcode: p.barcode, price: p.price, unit: p.unit, active: !!p.active, inStock: p.stock > 0,
       promo: promoLabel(p.promo_min_qty, p.promo_off) } };
-  });
-
-  // Bảng mã hàng và giá của MỘT chi nhánh để điện thoại lưu sẵn (tra giá tức thì, có giá tạm tính khi mất mạng).
-  // Dạng gọn: items[i] = [mã vạch, sku, tên, giá, giá gốc (0 nếu không có), hàng cấm trẻ em (0/1), số lượng khuyến mãi tối thiểu, tiền giảm]. Có ETag: điện thoại chỉ tải lại khi có thay đổi.
-  // Giá trên điện thoại chỉ là TẠM TÍNH; số tiền thu thật do Dsmart POS tính.
-  const catalogCache = new Map(); // storeId -> { etag, json, gz }
-  app.get('/catalog/:id', async (req, reply) => {
-    const storeId = String(req.params.id).toUpperCase();
-    getStoreConfig(db, storeId);
-    const meta = db.prepare('SELECT COUNT(*) n, COALESCE(MAX(synced_at), \'\') t, COALESCE(SUM(price), 0) p FROM product_cache WHERE store_id = ? AND active = 1 AND price > 0').get(storeId);
-    const etag = `"${crypto.createHash('sha1').update(`${storeId}|${meta.n}|${meta.t}|${meta.p}`).digest('hex').slice(0, 20)}"`;
-    reply.header('ETag', etag).header('Cache-Control', 'no-cache');
-    if (req.headers['if-none-match'] === etag) return reply.code(304).send();
-    let c = catalogCache.get(storeId);
-    if (!c || c.etag !== etag) {
-      const rows = db.prepare('SELECT barcode, sku, name, price, list_price, age_restricted, promo_min_qty, promo_off FROM product_cache WHERE store_id = ? AND active = 1 AND price > 0 ORDER BY barcode LIMIT 100000').all(storeId);
-      const json = JSON.stringify({ storeId, version: etag.replace(/"/g, ''), count: rows.length, syncedAt: meta.t || null,
-        items: rows.map((r) => [r.barcode, r.sku, r.name, r.price, r.list_price && r.list_price > r.price ? r.list_price : 0, r.age_restricted ? 1 : 0, r.promo_min_qty || 0, r.promo_off || 0]) });
-      c = { etag, json, gz: zlib.gzipSync(json) };
-      catalogCache.set(storeId, c);
-    }
-    reply.header('Content-Type', 'application/json; charset=utf-8').header('Vary', 'Accept-Encoding');
-    if (/\bgzip\b/.test(String(req.headers['accept-encoding'] || ''))) return reply.header('Content-Encoding', 'gzip').send(c.gz);
-    return reply.send(c.json);
   });
 
   // ---- Phiên mua sắm ----

@@ -581,7 +581,3 @@ Khách có thể quét rồi bỏ đi, hoặc bấm Thanh toán nhưng không ra
 ## Mã đơn duy nhất trong từng cửa hàng (từ phiên bản 4.0)
 
 `posOrderRef` duy nhất theo cặp (cửa hàng, mã đơn), được bảo đảm cả ở tầng CSDL (chỉ mục UNIQUE `idx_tx_store_pos_ref`, SQLite và SQL Server). Cửa hàng khác nhau được dùng cùng mã đơn. Hai lệnh đến cùng lúc với cùng mã đơn cho hai giỏ khác nhau thì lệnh sau nhận `409 REF_IN_USE`. API gửi cho Dsmart POS không đổi. Hệ thống đang chạy mà đã có đơn trùng mã trong cùng cửa hàng thì khi khởi động BRG in cảnh báo kèm danh sách và bỏ qua chỉ mục, không tự sửa dữ liệu.
-
-## Bảng mã hàng và giá lưu trên điện thoại khách (từ phiên bản 4.1)
-
-App khách tải sẵn bảng mã hàng + giá của chi nhánh (`GET /api/c/catalog/{mã chi nhánh}`, có ETag, nén gzip) và lưu trong IndexedDB. Tự cập nhật khi mở app, khi có mạng trở lại, khi quay lại app sau 10 phút; chỉ tải lại khi máy chủ có bản mới (trả 304 nếu chưa đổi). Quét mã thấy tên và giá ngay; mã sai chữ số kiểm tra báo ngay trên máy; lúc mất mạng hàng quét vẫn có giá **tạm tính**. Giá này không dùng để thu tiền: số tiền thật do Dsmart POS tính. **API gửi cho Dsmart POS không đổi.**

@@ -2,7 +2,6 @@
 // Giỏ hàng luôn lưu trên máy (localStorage) và đồng bộ lên máy chủ khi có mạng.
 import { createApi, useState, useEffect, toast } from '/shared/lib.js';
 import { makeBasketRef } from '/shared/basket.js';
-import { catalogLookup, normalizeLocal, loadCatalog, watchCatalog, onCatalogChange } from './catalog.js';
 
 // ---------- Lưu trữ cục bộ (có thể bị chặn, nên luôn bọc try/catch) ----------
 const LS = {
@@ -76,21 +75,12 @@ export function cartView(s) {
     });
   const subtotal = items.reduce((a, i) => a + i.price * i.qty, 0);
   const discount = items.reduce((a, i) => a + i.discount, 0);
-  // Mặt hàng quét khi chưa gửi được: có trong bảng giá lưu trên máy thì tính giá TẠM TÍNH ngay (máy chủ tính lại khi đồng bộ); không có thì chờ máy chủ.
-  const pendingList = [...pending.entries()].map(([barcode, qty]) => {
-    const c = catalogLookup(barcode);
-    if (!c) return { barcode, qty, known: false };
-    const d = lineDiscount({ qty, promoMin: c.promoMin, promoOff: c.promoOff });
-    return { barcode, qty, known: true, estimated: true, sku: c.sku, name: c.name, price: c.price, listPrice: c.listPrice, discount: d, lineTotal: c.price * qty - d };
-  });
-  const estSub = pendingList.reduce((a, p) => a + (p.known ? p.price * p.qty : 0), 0);
-  const estDisc = pendingList.reduce((a, p) => a + (p.known ? p.discount : 0), 0);
+  const pendingList = [...pending.entries()].map(([barcode, qty]) => ({ barcode, qty }));
   return {
     items, pending: pendingList,
     pendingCount: pendingList.reduce((a, p) => a + p.qty, 0),
-    unknownCount: pendingList.reduce((a, p) => a + (p.known ? 0 : p.qty), 0), // chưa có giá trong tạm tính
     itemCount: items.reduce((a, i) => a + i.qty, 0),
-    subtotal: subtotal + estSub, discount: discount + estDisc, total: subtotal + estSub - discount - estDisc,
+    subtotal, discount, total: subtotal - discount,
     ageRestricted: items.some((i) => i.ageRestricted)
   };
 }
@@ -99,7 +89,6 @@ export function cartView(s) {
 export async function loadStore(code) {
   const store = await api.get(`/store/${encodeURIComponent(code)}`);
   setState({ storeCode: store.id, store });
-  loadCatalog(store.id); // bảng mã hàng + giá lưu trên máy: nạp bản đã lưu rồi cập nhật nếu có bản mới
   return store;
 }
 
@@ -188,7 +177,7 @@ export function makeBasket() {
   const point = state.store?.pointCode;
   if (!point) throw new Error('Cửa hàng chưa có Mã điểm nên chưa thanh toán được. Hãy báo nhân viên');
   const ref = makeBasketRef(state.storeCode);
-  setState({ basket: { ref, qrShort: null, total: v.total, count: v.itemCount + v.pendingCount, pending: v.unknownCount, synced: false, at: Date.now(), error: null, email: state.store?.emailEnabled && EMAIL_RE.test(rememberedMail) ? rememberedMail : '' } });
+  setState({ basket: { ref, qrShort: null, total: v.total, count: v.itemCount + v.pendingCount, pending: v.pendingCount, synced: false, at: Date.now(), error: null, email: state.store?.emailEnabled && EMAIL_RE.test(rememberedMail) ? rememberedMail : '' } });
   syncBasket();
 }
 
@@ -322,8 +311,6 @@ async function flushOnce(immediate) {
 
 /** Quét một mã: gửi ngay nếu có mạng, mất mạng thì giữ trong hàng đợi. */
 export async function scan(barcode) {
-  const n = normalizeLocal(barcode);
-  if (!n.ok) return { ok: false, code: 'INVALID_BARCODE', barcode: n.code || String(barcode), message: 'Không đọc được mã vạch, hãy quét lại' }; // báo ngay trên máy, không cần chờ máy chủ
   const op = { id: uid(), type: 'scan', barcode: String(barcode).trim() };
   enqueue(op);
   const map = await flush(new Set([op.id]));
@@ -359,10 +346,6 @@ export async function unlock() {
 // ---------- Theo dõi kết nối ----------
 addEventListener('online', async () => { setState({ online: true }); try { await flush(); await syncBasket(); await refreshSession(); } catch { /* lần sau */ } });
 addEventListener('offline', () => setState({ online: false }));
-// Bảng mã hàng + giá trên máy: tự cập nhật khi có mạng/mở lại app; mở app lúc mất mạng vẫn nạp được bản đã lưu.
-watchCatalog(() => ({ storeId: state.storeCode || '', deviceId }));
-onCatalogChange(() => setState({ catalogAt: Date.now() }));
-if (state.storeCode) loadCatalog(state.storeCode);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && state.session) { flush().then(() => syncBasket()).then(() => refreshSession()).catch(() => {}); }
 });
