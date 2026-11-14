@@ -25,8 +25,9 @@ export function createMockPos(db) {
     /** Tra theo mã vạch trong bộ nhớ đệm (nhanh, dùng khi quét). */
     lookup(storeId, variants) {
       const q = db.prepare('SELECT * FROM product_cache WHERE store_id = ? AND barcode = ?');
+      const bySku = db.prepare('SELECT * FROM product_cache WHERE store_id = ? AND sku = ?');
       for (const v of variants) {
-        const row = q.get(storeId, v);
+        const row = q.get(storeId, v) || bySku.get(storeId, v); // mã quét được có thể là mã hàng nội bộ (sku)
         if (row) return row;
       }
       return null;
