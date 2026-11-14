@@ -2,6 +2,10 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 4.7 (2026-11-14)
+
+- Tra giá theo cả 3 mã đối tác ánh xạ: maHang, maVach, dsMaVach
+
 ## 4.6 (2026-11-14)
 
 - Tra giá chỉ theo maVach và maDiem như đối tác xác nhận (bỏ thử maHang)

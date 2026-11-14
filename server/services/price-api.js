@@ -47,11 +47,12 @@ const NEG_MS = 60_000;
 const int = (v) => (v === null || v === undefined || v === '' ? null : (Number.isFinite(Number(v)) && Number(v) >= 0 ? Math.round(Number(v)) : NaN));
 
 /** Gọi API một lần. Trả { status: 'ok', row } | { status: 'notfound' } | { status: 'error', code, message }. */
-export async function callPriceApi(db, maDiem, maVach, fetchImpl = safeFetch) {
+/** `param` là maVach (mã vạch quét được) hoặc maHang (mã hàng nội bộ). Đối tác tự nhận diện nên gửi loại nào cũng ra giá; BRG thử maVach trước rồi maHang. */
+export async function callPriceApi(db, maDiem, maVach, fetchImpl = safeFetch, param = 'maVach') {
   const s = getSetting(db, PRICE_KEY, {});
   const c = priceConfig(db);
   if (!s.url || !s.keyEnc) return { status: 'error', code: 'NOT_CONFIGURED', message: 'Chưa cấu hình API giá' };
-  const url = new URL(s.url); url.searchParams.set('maVach', maVach); url.searchParams.set('maDiem', maDiem);
+  const url = new URL(s.url); url.searchParams.set(param, maVach); url.searchParams.set('maDiem', maDiem);
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), c.timeoutSec * 1000);
   try {
     const r = await fetchImpl(url, { headers: { 'X-API-Key': decryptSecret(s.keyEnc), Accept: 'application/json' }, signal: ctl.signal });
@@ -64,7 +65,12 @@ export async function callPriceApi(db, maDiem, maVach, fetchImpl = safeFetch) {
     const thuong = int(j.giaThuong), km = int(j.giaKhuyenMai);
     if (j.maHang == null || thuong == null || Number.isNaN(thuong) || Number.isNaN(km)) return { status: 'error', code: 'BAD_DATA', message: 'API giá trả dữ liệu không đúng dạng' };
     const promo = j.coKhuyenMai === true && km != null;
-    return { status: 'ok', row: { sku: String(j.maHang), barcode: String(j.maVach || maVach), name: String(j.tenHang || maVach).slice(0, 200), price: promo ? km : thuong, list_price: thuong, updatedAt: j.capNhatLuc || null } };
+    // Đối tác ánh xạ giá cho cả 3 loại mã: maHang (mã nội bộ), maVach (mã vạch chính) và dsMaVach (các mã vạch khác của cùng mặt hàng).
+    // Mã vạch lưu theo mã vạch chính; riêng khi mã quét được là một mã vạch phụ trong dsMaVach thì lưu chính mã đó để tra lại bằng mã vạch tức thì.
+    const ds = Array.isArray(j.dsMaVach) ? j.dsMaVach.map(String) : [];
+    const primary = j.maVach ? String(j.maVach) : '';
+    const barcode = primary && primary !== String(maVach) && ds.includes(String(maVach)) ? String(maVach) : (primary || String(maVach));
+    return { status: 'ok', row: { sku: String(j.maHang), barcode, name: String(j.tenHang || maVach).slice(0, 200), price: promo ? km : thuong, list_price: thuong, updatedAt: j.capNhatLuc || null } };
   } catch (e) {
     if (e instanceof NetBlocked) return { status: 'error', code: 'BLOCKED', message: e.message };
     return { status: 'error', code: e.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK', message: e.name === 'AbortError' ? `API giá không trả lời trong ${c.timeoutSec} giây` : 'Không kết nối được API giá' };
@@ -89,7 +95,7 @@ export async function ensurePrice(ctx, storeId, variants, fetchImpl) {
   const store = db.prepare('SELECT pos_code FROM stores WHERE id = ?').get(storeId);
   if (!store?.pos_code) return 'error';
   const cut = new Date(Date.now() - c.cacheMin * 60_000).toISOString();
-  const cached = (() => { for (const v of variants) { const r = db.prepare('SELECT synced_at FROM product_cache WHERE store_id = ? AND barcode = ?').get(storeId, v); if (r) return r; } return null; })();
+  const cached = (() => { for (const v of variants) { const r = db.prepare('SELECT synced_at FROM product_cache WHERE store_id = ? AND (barcode = ? OR sku = ?)').get(storeId, v, v); if (r) return r; } return null; })();
   if (cached && cached.synced_at >= cut) return 'fresh';
   const key = `${storeId}|${variants[0]}`;
   if (negative.get(key) > Date.now()) return 'notfound';
@@ -97,7 +103,11 @@ export async function ensurePrice(ctx, storeId, variants, fetchImpl) {
   const p = (async () => {
     let last = { status: 'notfound' };
     for (const v of variants) {
-      const r = await callPriceApi(db, store.pos_code, v, fetchImpl);
+      let r = await callPriceApi(db, store.pos_code, v, fetchImpl, 'maVach');
+      if (r.status === 'notfound') { // mã nội bộ (mã hàng/SKU) in trên nhãn, không phải mã vạch: thử thêm bằng maHang
+        const r2 = await callPriceApi(db, store.pos_code, v, fetchImpl, 'maHang');
+        r = r2.status === 'ok' ? r2 : { status: 'notfound' }; // API không hỗ trợ maHang (lỗi 4xx/5xx ở lần thử phụ) thì vẫn coi là không tìm thấy, không báo lỗi hệ thống giá
+      }
       if (r.status === 'ok') { save(db, storeId, r.row); return 'fetched'; }
       last = r;
       if (r.status === 'error') break; // lỗi hệ thống: không thử biến thể khác
