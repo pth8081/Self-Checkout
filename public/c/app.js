@@ -135,4 +135,5 @@ function App() {
 }
 
 render(html`<${App}/>`, document.getElementById('app'));
-registerSW('/c/sw.js', '/c/');
+// Khách không bị hỏi: cập nhật ngầm khi giỏ trống, không có thao tác chờ gửi, không đang giữ QR thanh toán.
+registerSW('/c/sw.js', '/c/', { silent: () => { const s = getState(); return !(s.session?.items?.length) && !(s.queue?.length) && !s.basket && !s.receipt && !(s.session?.transaction); } });

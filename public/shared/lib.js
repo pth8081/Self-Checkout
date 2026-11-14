@@ -412,7 +412,8 @@ export function AppVersion({ prefix = 'Phiên bản', cls = 'xs muted center' })
  * Đăng ký service worker và báo khi có phiên bản mới: kiểm tra định kỳ (10 phút), khi quay lại tab và khi có mạng lại.
  * Bản mới tải xong thì hiện thanh thông báo "Có phiên bản mới ... Cập nhật ngay / Để sau". Không tự tải lại trang để không làm mất thao tác đang làm.
  */
-export function registerSW(path, scope) {
+export function registerSW(path, scope, { silent } = {}) {
+  // silent: () => boolean (khách đang rảnh). Có hàm này thì app tự cập nhật ngầm, không hỏi: đợi lúc rảnh (giỏ trống) rồi mới áp dụng và tải lại im lặng.
   if (!('serviceWorker' in navigator)) return;
   let current = null; // phiên bản máy chủ lúc mở trang
   const health = () => fetch('/api/health', { cache: 'no-store' }).then((r) => r.json()).then((j) => j.version || null).catch(() => null);
@@ -420,7 +421,18 @@ export function registerSW(path, scope) {
   let asked = false; // chỉ tải lại trang khi chính người dùng bấm Cập nhật (lần cài đặt đầu tiên cũng có controllerchange)
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (asked) location.reload(); });
   navigator.serviceWorker.register(path, { scope }).then((reg) => {
+    let silentTimer = 0;
+    const silentUpdate = () => {
+      if (silentTimer) return;
+      const apply = () => {
+        const w = reg.waiting; if (!w) { clearInterval(silentTimer); silentTimer = 0; return; }
+        if (document.hidden) return; // app ở nền: không kích hoạt giữa chừng (tránh trộn bản cũ và mới); bản mới tự có hiệu lực khi đóng hẳn app hoặc khi rảnh
+        if (silent()) { asked = true; w.postMessage({ type: 'SKIP_WAITING' }); } // rảnh (giỏ trống): áp dụng và tải lại im lặng
+      };
+      silentTimer = setInterval(apply, 15_000); apply();
+    };
     const offer = async () => {
+      if (silent) return silentUpdate();
       if (document.getElementById('updatebar')) return;
       const latest = await health();
       const bar = document.createElement('div');

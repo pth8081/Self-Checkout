@@ -2,6 +2,10 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 4.2 (2026-11-14)
+
+- App khách tự cập nhật ngầm (không hỏi) khi giỏ trống
+
 ## 4.1 (2026-11-14)
 
 - Bảng mã hàng và giá lưu trên điện thoại khách: tra giá tức thì, giá tạm tính khi mất mạng
