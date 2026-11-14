@@ -99,7 +99,10 @@ export async function ensurePrice(ctx, storeId, variants, fetchImpl) {
     let last = { status: 'notfound' };
     for (const v of variants) {
       let r = await callPriceApi(db, store.pos_code, v, fetchImpl, 'maVach');
-      if (r.status === 'notfound') r = await callPriceApi(db, store.pos_code, v, fetchImpl, 'maHang'); // mã nội bộ (mã hàng/SKU) in trên nhãn, không phải mã vạch
+      if (r.status === 'notfound') { // mã nội bộ (mã hàng/SKU) in trên nhãn, không phải mã vạch: thử thêm bằng maHang
+        const r2 = await callPriceApi(db, store.pos_code, v, fetchImpl, 'maHang');
+        r = r2.status === 'ok' ? r2 : { status: 'notfound' }; // API không hỗ trợ maHang (lỗi 4xx/5xx ở lần thử phụ) thì vẫn coi là không tìm thấy, không báo lỗi hệ thống giá
+      }
       if (r.status === 'ok') { save(db, storeId, r.row); return 'fetched'; }
       last = r;
       if (r.status === 'error') break; // lỗi hệ thống: không thử biến thể khác

@@ -2,6 +2,10 @@
 
 Quy tắc đánh số: `chính.phụ`. Số sau chạy từ 0 đến 9, qua 9 thì số trước tăng 1 và số sau về 0 (1.0, 1.1 ... 1.9, 2.0 ... 2.9, 3.0 ...). Tăng bằng `npm run version:bump -- "ghi chú"`.
 
+## 4.5 (2026-11-14)
+
+- Tra giá bằng maHang chỉ là lần thử phụ: lỗi ở lần thử phụ không báo lỗi hệ thống giá
+
 ## 4.4 (2026-11-14)
 
 - Tra giá theo cả maVach và maHang (mã nội bộ in trên nhãn hàng)
