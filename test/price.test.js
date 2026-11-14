@@ -13,11 +13,11 @@ async function partner(table) {
   const st = { mode: 'ok', calls };
   const srv = http.createServer((req, res) => {
     const u = new URL(req.url, 'http://x');
-    calls.push({ maVach: u.searchParams.get('maVach'), maDiem: u.searchParams.get('maDiem'), key: req.headers['x-api-key'] });
+    calls.push({ maVach: u.searchParams.get('maVach'), maHang: u.searchParams.get('maHang'), maDiem: u.searchParams.get('maDiem'), key: req.headers['x-api-key'] });
     if (st.mode === 'down') { res.writeHead(500); return res.end('{}'); }
     if (st.mode === 'slow') return; // không trả lời: để hết thời gian chờ
     if (st.mode === 'auth') { res.writeHead(401); return res.end('{}'); }
-    const row = table[u.searchParams.get('maVach')];
+    const row = table[u.searchParams.get('maVach')] || (st.byMaHang && Object.values(table).find((r) => r.maHang === u.searchParams.get('maHang')));
     if (!row) { res.writeHead(404); return res.end('{"error":"NOT_FOUND"}'); }
     res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ reportId: 'gia-ban', ...row }));
   });
@@ -168,5 +168,20 @@ test('nhập file mã điểm: xem trước, ghép chi nhánh theo mã hoặc t�
   assert.equal((await call(app, 'POST', '/api/a/pos-points/preview', { token: admin, body: { text: 'ten,dia chi\nA,B' } })).body.error, 'BAD_FILE');
   const q7 = (await adminLogin(app, 'QT0007')).body.token;
   assert.equal((await call(app, 'POST', '/api/a/pos-points/preview', { token: q7, body: { text: csv } })).status, 403);
+  await app.close();
+});
+
+test('mã quét được là mã hàng nội bộ (maHang): thử maVach trước, không thấy thì thử maHang; giỏ có giá và dùng được lần sau', async () => {
+  const { app, p, sid } = await setup({ [MILK.maVach]: MILK });
+  p.byMaHang = true; // đối tác chỉ nhận ra mã nội bộ qua tham số maHang
+  const r = await scan(app, sid, MILK.maHang); // 2003330491: mã hàng, không phải mã vạch
+  const it = r.body.results[0];
+  assert.equal(it.ok, true, JSON.stringify(it));
+  assert.equal(it.item.price, 21500); assert.equal(it.item.noPrice, false); assert.equal(it.item.sku, MILK.maHang);
+  assert.deepEqual(p.calls.map((c) => [c.maVach, c.maHang]), [[MILK.maHang, null], [null, MILK.maHang]]);
+  await scan(app, sid, MILK.maHang); // lần hai: tra theo sku trong bộ nhớ giá, không gọi lại API
+  assert.equal(p.calls.length, 2);
+  const v = (await call(app, 'GET', `/api/c/sessions/${sid}`)).body.session;
+  assert.equal(v.items.length, 1); assert.equal(v.items[0].qty, 2);
   await app.close();
 });

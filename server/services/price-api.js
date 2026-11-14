@@ -47,11 +47,12 @@ const NEG_MS = 60_000;
 const int = (v) => (v === null || v === undefined || v === '' ? null : (Number.isFinite(Number(v)) && Number(v) >= 0 ? Math.round(Number(v)) : NaN));
 
 /** Gọi API một lần. Trả { status: 'ok', row } | { status: 'notfound' } | { status: 'error', code, message }. */
-export async function callPriceApi(db, maDiem, maVach, fetchImpl = safeFetch) {
+/** `param` là maVach (mã vạch quét được) hoặc maHang (mã hàng nội bộ). Đối tác tự nhận diện nên gửi loại nào cũng ra giá; BRG thử maVach trước rồi maHang. */
+export async function callPriceApi(db, maDiem, maVach, fetchImpl = safeFetch, param = 'maVach') {
   const s = getSetting(db, PRICE_KEY, {});
   const c = priceConfig(db);
   if (!s.url || !s.keyEnc) return { status: 'error', code: 'NOT_CONFIGURED', message: 'Chưa cấu hình API giá' };
-  const url = new URL(s.url); url.searchParams.set('maVach', maVach); url.searchParams.set('maDiem', maDiem);
+  const url = new URL(s.url); url.searchParams.set(param, maVach); url.searchParams.set('maDiem', maDiem);
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), c.timeoutSec * 1000);
   try {
     const r = await fetchImpl(url, { headers: { 'X-API-Key': decryptSecret(s.keyEnc), Accept: 'application/json' }, signal: ctl.signal });
@@ -89,7 +90,7 @@ export async function ensurePrice(ctx, storeId, variants, fetchImpl) {
   const store = db.prepare('SELECT pos_code FROM stores WHERE id = ?').get(storeId);
   if (!store?.pos_code) return 'error';
   const cut = new Date(Date.now() - c.cacheMin * 60_000).toISOString();
-  const cached = (() => { for (const v of variants) { const r = db.prepare('SELECT synced_at FROM product_cache WHERE store_id = ? AND barcode = ?').get(storeId, v); if (r) return r; } return null; })();
+  const cached = (() => { for (const v of variants) { const r = db.prepare('SELECT synced_at FROM product_cache WHERE store_id = ? AND (barcode = ? OR sku = ?)').get(storeId, v, v); if (r) return r; } return null; })();
   if (cached && cached.synced_at >= cut) return 'fresh';
   const key = `${storeId}|${variants[0]}`;
   if (negative.get(key) > Date.now()) return 'notfound';
@@ -97,7 +98,8 @@ export async function ensurePrice(ctx, storeId, variants, fetchImpl) {
   const p = (async () => {
     let last = { status: 'notfound' };
     for (const v of variants) {
-      const r = await callPriceApi(db, store.pos_code, v, fetchImpl);
+      let r = await callPriceApi(db, store.pos_code, v, fetchImpl, 'maVach');
+      if (r.status === 'notfound') r = await callPriceApi(db, store.pos_code, v, fetchImpl, 'maHang'); // mã nội bộ (mã hàng/SKU) in trên nhãn, không phải mã vạch
       if (r.status === 'ok') { save(db, storeId, r.row); return 'fetched'; }
       last = r;
       if (r.status === 'error') break; // lỗi hệ thống: không thử biến thể khác
