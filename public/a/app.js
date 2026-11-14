@@ -2,6 +2,7 @@
 import { safeDecode, html, render, useState, useEffect, useMemo, useCallback, useRoute, go, toast, Toasts, Header, Drawer, Icon, Logo, Spinner, OfflineBar, Field, registerSW, ErrorBox, QR, copyText, fmt, AppVersion } from '/shared/lib.js';
 import { api, S, store, ROLE_VI, passkeyGet, Banner } from '/a/common.js';
 import { Overview, Stores, Integrations, Reports, Users, Audit } from '/a/pages-chain.js';
+import { CartLimits } from '/a/pages-limits.js';
 import { GuideList, GuideDoc } from '/a/guides.js';
 import { Today, Transactions, TxDetail, PosOrders, Plans, RandomCheck, Reconcile, Unknown } from '/a/pages-store.js';
 
@@ -10,7 +11,7 @@ const link = document.createElement('link'); link.rel = 'stylesheet'; link.href 
 const TOKEN_KEY = 'brg_a_token', STORE_KEY = 'brg_a_store';
 
 const PAGE_TITLES = {
-  overview: 'Tổng quan chuỗi', stores: 'Chi nhánh & tính năng', integrations: 'Tích hợp', reports: 'Báo cáo', users: 'Tài khoản & phân quyền', audit: 'Nhật ký',
+  overview: 'Tổng quan chuỗi', stores: 'Chi nhánh & tính năng', 'cart-limits': 'Giỏ hàng: thời gian & giới hạn', integrations: 'Tích hợp', reports: 'Báo cáo', users: 'Tài khoản & phân quyền', audit: 'Nhật ký',
   today: 'Hôm nay', transactions: 'Giao dịch', 'pos-orders': 'Đơn Dsmart POS', plans: 'Nhân viên & ca', 'random-check': 'Kiểm tra ngẫu nhiên', reconcile: 'Đối soát', 'unknown-barcodes': 'Mã không tìm thấy',
   'huong-dan': 'Hướng dẫn nghiệp vụ', 'huong-dan-he-thong': 'Hướng dẫn hệ thống'
 };
@@ -25,13 +26,13 @@ function navItems(me, storeName) {
     { id: 'reconcile', label: 'Đối soát', icon: 'cash' }, { id: 'unknown-barcodes', label: 'Mã không tìm thấy', icon: 'barcode' }
   ];
   if (chain) return [
-    { id: 'overview', label: 'Tổng quan', icon: 'chart' }, { id: 'stores', label: 'Chi nhánh', icon: 'store' }, { id: 'integrations', label: 'Tích hợp', icon: 'link' },
+    { id: 'overview', label: 'Tổng quan', icon: 'chart' }, { id: 'stores', label: 'Chi nhánh', icon: 'store' }, { id: 'integrations', label: 'Tích hợp', icon: 'link' }, { id: 'cart-limits', label: 'Giỏ hàng: thời gian & giới hạn', icon: 'clock' },
     { id: 'reports', label: 'Báo cáo', icon: 'doc' }, { id: 'users', label: 'Tài khoản & phân quyền', icon: 'users' }, { id: 'audit', label: 'Nhật ký', icon: 'list' },
     { group: `Chi nhánh đang xem${storeName ? `: ${storeName}` : ''}` }, ...branch, ...guides
   ];
   return [
     { group: storeName || 'Chi nhánh' }, ...branch,
-    { group: 'Quản lý' }, { id: 'stores', label: 'Cấu hình chi nhánh', icon: 'store' }, { id: 'reports', label: 'Báo cáo', icon: 'doc' }, { id: 'users', label: 'Tài khoản', icon: 'users' }, { id: 'audit', label: 'Nhật ký', icon: 'list' }, ...guides
+    { group: 'Quản lý' }, { id: 'stores', label: 'Cấu hình chi nhánh', icon: 'store' }, { id: 'cart-limits', label: 'Giỏ hàng: thời gian & giới hạn', icon: 'clock' }, { id: 'reports', label: 'Báo cáo', icon: 'doc' }, { id: 'users', label: 'Tài khoản', icon: 'users' }, { id: 'audit', label: 'Nhật ký', icon: 'list' }, ...guides
   ];
 }
 
@@ -187,6 +188,7 @@ function Shell({ session, setSession, reloadStores, logout }) {
   switch (page) {
     case 'overview': view = chain && html`<${Overview} stores=${stores} setStoreId=${setStoreId}/>`; break;
     case 'stores': view = html`<${Stores} me=${me} reloadStores=${reloadStores} setStoreId=${setStoreId}/>`; break;
+    case 'cart-limits': view = html`<${CartLimits} me=${me} stores=${stores}/>`; break;
     case 'integrations': view = chain && html`<${Integrations} stores=${stores} reloadStores=${reloadStores}/>`; break;
     case 'reports': view = html`<${Reports} me=${me} stores=${stores}/>`; break;
     case 'users': view = html`<${Users} me=${me} stores=${stores} onMe=${(u) => setSession({ ...session, me: u })}/>`; break;
