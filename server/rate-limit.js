@@ -31,6 +31,7 @@ export const DEFAULT_RULES = [
   { name: 'basket', test: (r, p) => r.method === 'POST' && /^\/api\/c\/sessions\/[^/]+\/(basket|lock)$/.test(p), limit: 60, windowMs: MIN },
   { name: 'session-new', test: (r, p) => r.method === 'POST' && p === '/api/c/sessions', limit: 120, windowMs: MIN },
   { name: 'lookup', test: (r, p) => r.method === 'GET' && p === '/api/c/products/lookup', limit: 240, windowMs: MIN },
+  { name: 'catalog', test: (r, p) => r.method === 'GET' && p.startsWith('/api/c/catalog/'), limit: 120, windowMs: MIN }, // nhiều khách dùng chung Wi-Fi cửa hàng; trả 304 nếu chưa đổi
   { name: 'customer', test: (r, p) => p.startsWith('/api/c/'), limit: 1500, windowMs: MIN }, // nhiều khách dùng chung một IP (Wi-Fi cửa hàng, mạng di động)
   { name: 'pos', test: (r, p) => p.startsWith('/api/pos/'), limit: 3000, windowMs: MIN }
 ];

@@ -1,9 +1,10 @@
 // Tạo tự động bởi scripts/build-sw.js, không sửa tay.
-const VERSION = 'ca547f169b6c';
+const VERSION = 'a848db9153d3';
 const CACHE = 'brg-c-' + VERSION;
 const SHELL = [
  "/c/",
  "/c/app.js",
+ "/c/catalog.js",
  "/c/index.html",
  "/c/manifest.webmanifest",
  "/c/screens-basket.js",
