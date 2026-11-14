@@ -1,6 +1,6 @@
 {
   "name": "brg-self-checkout",
-  "version": "4.7.0",
+  "version": "4.8.0",
   "private": true,
   "description": "BRG Scan & Checkout: PWA khách tự quét, thu ngân, kiểm soát cổng và quản trị",
   "type": "module",

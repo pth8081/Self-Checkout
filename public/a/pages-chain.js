@@ -122,6 +122,11 @@ export function Stores({ me, reloadStores, setStoreId }) {
   const [compact, setCompactRaw] = useState(() => { try { return localStorage.getItem('brg_a_compact') !== '0'; } catch { return true; } }); // mặc định thu gọn
   const setCompact = (v) => { setCompactRaw(v); try { localStorage.setItem('brg_a_compact', v ? '1' : '0'); } catch { /* bỏ qua */ } };
   const [q, setQ] = useState('');
+  const [fScan, setFScan] = useState('all');   // lọc theo Scan & Checkout: all | on | off
+  const [fPos, setFPos] = useState('all');     // lọc theo Giỏ QR cho Dsmart POS: all | on | off
+  const match = (s) => (!q.trim() || `${s.name} ${s.id} ${s.address || ''} ${s.posCode || ''}`.toLowerCase().includes(q.trim().toLowerCase()))
+    && (fScan === 'all' || (fScan === 'on') === !!s.enabled)
+    && (fPos === 'all' || (fPos === 'on') === (s.config.checkoutMode === 'basket'));
   const [ask, setAsk] = useState(null); // { kind: 'source'|'guard', s, value }
   const refresh = async () => { await st.reload(); reloadStores(); };
   const file = async (path) => { try { downloadCsv(await api.get(path)); } catch (x) { toast(x.message || 'Không tải được file', 'err'); } };
@@ -156,11 +161,13 @@ export function Stores({ me, reloadStores, setStoreId }) {
       ${msg.code === 'CARTS_PENDING' && html`<div style="margin-top:8px"><button class="btn sm line" onClick=${() => { if (msg.storeId) setStoreId(msg.storeId); go('/transactions'); }}>Xem giao dịch</button></div>`}<//>`}
     <${Async} state=${st}>${(d) => html`<div class="card">
       <div class="toolbar" style="margin-bottom:10px"><input class="input sm grow" style="max-width:340px;min-width:min(240px,100%);flex:1 1 240px" type="search" placeholder="Tìm chi nhánh theo tên, mã, địa chỉ, mã điểm" aria-label="Tìm chi nhánh" value=${q} onInput=${(e) => setQ(e.target.value)}/>
-        <span class="small muted">${(() => { const n = q.trim() ? d.stores.filter((s) => `${s.name} ${s.id} ${s.address || ''} ${s.posCode || ''}`.toLowerCase().includes(q.trim().toLowerCase())).length : d.stores.length; return `${n}/${d.stores.length} chi nhánh`; })()}</span>
+        <label class="row small" style="gap:6px">Scan & Checkout<select class="input sm" style="width:auto" value=${fScan} aria-label="Lọc theo Scan & Checkout" onChange=${(e) => setFScan(e.target.value)}><option value="all">Tất cả</option><option value="on">Đã bật</option><option value="off">Chưa bật</option></select></label>
+        <label class="row small" style="gap:6px">Giỏ QR Dsmart POS<select class="input sm" style="width:auto" value=${fPos} aria-label="Lọc theo Giỏ QR cho Dsmart POS" onChange=${(e) => setFPos(e.target.value)}><option value="all">Tất cả</option><option value="on">Đã bật</option><option value="off">Chưa bật</option></select></label>
+        <span class="small muted">${d.stores.filter(match).length}/${d.stores.length} chi nhánh</span>
         <span class="grow"></span><label class="row small" style="gap:8px"><${Switch} checked=${compact} label="Thu gọn bảng" onChange=${setCompact}/>Thu gọn</label></div>
       <div class="tblwrap"><table class=${`tbl ${compact ? 'compact' : ''}`}>
       <thead><tr><th>Chi nhánh</th><th class="tc">Scan & Checkout</th><th class="tc">Giỏ QR cho Dsmart POS</th><th>Thu tiền</th><th class="tc">Tiền mặt</th><th class="tc">Chuyển khoản QR</th><th class="tc">Bảo vệ cổng ra</th><th class="tc col-online">Online</th></tr></thead>
-      <tbody>${(q.trim() ? d.stores.filter((s) => `${s.name} ${s.id} ${s.address || ''} ${s.posCode || ''}`.toLowerCase().includes(q.trim().toLowerCase())) : d.stores).map((s) => {
+      <tbody>${d.stores.filter(match).map((s) => {
         const basket = s.config.checkoutMode === 'basket'; // giỏ QR: Dsmart POS thu tiền, không bảo vệ; các luồng cũ bị khóa
         const pos = isPos(s.config) || basket;
         const dis = !chain || !!busyKey;
