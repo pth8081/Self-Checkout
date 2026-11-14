@@ -16,6 +16,7 @@ import { verifyTotp, matchTotpStep, randomSecret, otpauthUri } from '../services
 import { audit } from '../services/audit.js';
 import { retryPendingInvoices } from '../services/invoice.js';
 import { getStoreConfig, txView, voidTransaction, resolveHeld, shiftStats, markExited } from '../services/core.js';
+import { limitsConfig, saveGlobal, saveStore } from '../services/limits.js';
 import { newKey, previewCart, claimCart, orderPaid, orderCancelled, orderStatus, posLinkConfig, savePosLinkConfig } from '../services/pos-api.js';
 import { userView } from './staff.js';
 import { registerGuides } from './guides.js';
@@ -564,6 +565,34 @@ export default async function adminRoutes(app) {
       audit(db, { actorType: 'admin', actorId: req.user.id, action: 'pos.key_revoked', entity: 'integration_key', entityId: String(req.params.id) });
       return { ok: true };
     });
+    // ---------------- Thời gian và giới hạn giỏ hàng: chung toàn chuỗi + ghi đè riêng từng chi nhánh ----------------
+    s.get('/cart-limits', async (req) => {
+      const c = limitsConfig(db);
+      if (req.user.role === 'branch_admin') { // quản trị chi nhánh chỉ xem phần của chi nhánh mình
+        if (!req.user.store_id) throw forbidden('NO_STORE', 'Tài khoản chưa gắn chi nhánh');
+        c.stores = c.stores[req.user.store_id] ? { [req.user.store_id]: c.stores[req.user.store_id] } : {};
+      }
+      return c;
+    });
+    s.put('/cart-limits', async (req) => {
+      chainOnly(req);
+      reauth(req);
+      const r = saveGlobal(db, req.body?.values);
+      if (r.error) throw bad('BAD_LIMITS', r.error);
+      audit(db, { actorType: 'admin', actorId: req.user.id, action: 'limits.global_saved', entity: 'setting', entityId: 'cart_limits', data: { before: r.before, after: r.after } });
+      return limitsConfig(db);
+    });
+    s.put('/cart-limits/stores/:id', async (req) => {
+      chainOnly(req);
+      reauth(req);
+      const id = String(req.params.id).toUpperCase();
+      getStoreConfig(db, id);
+      const r = saveStore(db, id, req.body?.values === null ? null : req.body?.values || {});
+      if (r.error) throw bad('BAD_LIMITS', r.error);
+      audit(db, { storeId: id, actorType: 'admin', actorId: req.user.id, action: 'limits.store_saved', entity: 'store', entityId: id, data: { before: r.before, after: r.after } });
+      return limitsConfig(db);
+    });
+
     // Mẫu link giao dịch: BRG tự dựng từ posOrderRef khi Dsmart POS không gửi transactionUrl
     s.get('/pos/links', async (req) => { chainOnly(req); return posLinkConfig(db); });
     s.put('/pos/links', async (req) => {

@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 import { config } from '../config.js';
 import { nowIso, bad, notFound, conflict, forbidden, money } from '../util.js';
 import { audit } from './audit.js';
+import { limitsFor } from './limits.js';
 import { getStoreConfig, txView, markExited } from './core.js';
 import { sendBillEmailBg } from './bill-email.js';
 import { extraOf, linksOf } from './bill.js';
@@ -227,7 +228,7 @@ export function orderPaid(ctx, scope, ref, body = {}, storeId) {
   const ts = nowIso();
   const differs = amount !== tx.total;
   db.transaction(() => {
-    const exp = new Date(Date.now() + config.receiptTtlMinutes * 60000).toISOString();
+    const exp = new Date(Date.now() + limitsFor(db, tx.store_id).receiptMinutes * 60000).toISOString();
     for (const pm of pays) {
       db.prepare(`INSERT INTO payments(transaction_id,store_id,kind,method,amount,collected_by,collected_at,provider,provider_ref,confirmations)
         VALUES(?,?,'main',?,?,?,?,'pos',?,?)`).run(tx.id, tx.store_id, pm.method, pm.amount, `Dsmart POS:${cashier || scope.name}`, ts, ref,

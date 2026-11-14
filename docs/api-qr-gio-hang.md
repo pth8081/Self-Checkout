@@ -581,3 +581,7 @@ Khách có thể quét rồi bỏ đi, hoặc bấm Thanh toán nhưng không ra
 ## Mã đơn duy nhất trong từng cửa hàng (từ phiên bản 4.0)
 
 `posOrderRef` duy nhất theo cặp (cửa hàng, mã đơn), được bảo đảm cả ở tầng CSDL (chỉ mục UNIQUE `idx_tx_store_pos_ref`, SQLite và SQL Server). Cửa hàng khác nhau được dùng cùng mã đơn. Hai lệnh đến cùng lúc với cùng mã đơn cho hai giỏ khác nhau thì lệnh sau nhận `409 REF_IN_USE`. API gửi cho Dsmart POS không đổi. Hệ thống đang chạy mà đã có đơn trùng mã trong cùng cửa hàng thì khi khởi động BRG in cảnh báo kèm danh sách và bỏ qua chỉ mục, không tự sửa dữ liệu.
+
+## Cấu hình thời gian và giới hạn giỏ hàng (từ phiên bản 4.9)
+
+Trang quản trị **Giỏ hàng: thời gian & giới hạn** cho quản trị chuỗi đặt 6 giá trị chung cho toàn chuỗi và ghi đè riêng từng chi nhánh (`GET/PUT /api/a/cart-limits`, `PUT /api/a/cart-limits/stores/{mã chi nhánh}`): hạn chờ thanh toán tại quầy (mặc định 30 phút), hạn giữ sau khi đã thanh toán (180 phút), hạn không thao tác (3 giờ), thời gian tối đa một lần mua sắm (0 = không giới hạn), số mã hàng khác nhau tối đa (200), số lượng tối đa mỗi mã (99). Giá trị riêng của chi nhánh ưu tiên hơn giá trị chung; các biến môi trường cũ (`LOCKED_TTL_MINUTES`, `RECEIPT_TTL_MIN`, `CART_TTL_HOURS`, `MAX_CART_ITEMS`) vẫn là mặc định khi chưa cấu hình. Quản trị chi nhánh chỉ xem. **API gửi cho Dsmart POS không đổi**; Dsmart POS báo thanh toán muộn sau khi giỏ đã tự giải phóng vẫn được nhận.

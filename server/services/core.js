@@ -5,6 +5,7 @@ import { nextCounter } from '../db.js';
 import { nowIso, uuid, bad, notFound, conflict, forbidden, money, normCode, localDate, isEmail } from '../util.js';
 import { totals, itemCount, lineDiscount, promoLabel } from './pricing.js';
 import { normalizeBarcode } from './barcode.js';
+import { limitsFor } from './limits.js';
 import { vietQrPayload, makeReceiptToken, parseReceiptToken } from './qr.js';
 import { audit } from './audit.js';
 import { issueInvoice } from './invoice.js';
@@ -31,7 +32,7 @@ export function storeView(db, storeId) {
   return {
     id: store.id, name: store.name, address: store.address, enabled: !!store.enabled,
     paymentSource: cfg.payment_source, guardCheck: !!cfg.guard_check,
-    basket: cfg.checkout_mode === 'basket', pointCode: store.pos_code || '', maxCartItems: config.maxCartItems,
+    basket: cfg.checkout_mode === 'basket', pointCode: store.pos_code || '', maxCartItems: limitsFor(db, storeId).maxItems, maxQty: limitsFor(db, storeId).maxQty,
     payment: { cash: !pos && !!cfg.pay_cash, qrTransfer: !pos && !!cfg.pay_qr && bankOk, pos, online: false /* chưa tích hợp */ }
   };
 }
@@ -112,23 +113,24 @@ export function cleanBuyer(b) {
 export function sweepStaleCarts(ctx, { activeHours = 3, lockedMinutes = 30 } = {}) {
   const { db } = ctx;
   let n = 0;
-  const lockedCut = new Date(Date.now() - lockedMinutes * 60_000).toISOString();
+  const base = { lockedMinutes, idleHours: activeHours }; // tham số cũ làm mặc định; cấu hình trong CSDL (chung/riêng chi nhánh) được ưu tiên
   const locked = db.prepare(`SELECT t.id txId, t.store_id, t.session_id, t.pos_claimed_at, s.last_activity FROM transactions t JOIN scan_sessions s ON s.id = t.session_id
     WHERE t.method = 'basket' AND t.status = 'awaiting_counter' AND s.status = 'locked'`).all();
   for (const r of locked) {
     const last = [r.last_activity, r.pos_claimed_at].filter(Boolean).sort().pop();
-    if (last >= lockedCut) continue;
+    const lm = limitsFor(db, r.store_id, base).lockedMinutes;
+    if (last >= new Date(Date.now() - lm * 60_000).toISOString()) continue;
     const ts = nowIso();
     db.transaction(() => {
       db.prepare(`UPDATE transactions SET status='cancelled', cancel_reason='expired' WHERE id=? AND status='awaiting_counter'`).run(r.txId);
       db.prepare(`UPDATE scan_sessions SET status='active', last_activity=? WHERE id=?`).run(ts, r.session_id);
-      db.prepare('INSERT INTO scan_events(session_id,store_id,type,detail,ts) VALUES(?,?,?,?,?)').run(r.session_id, r.store_id, 'basket_expired', `${lockedMinutes} phút`, ts);
-      audit(db, { storeId: r.store_id, actorType: 'system', actorId: 'SYSTEM', action: 'cart.expired', entity: 'transaction', entityId: r.txId, data: { lockedMinutes } });
+      db.prepare('INSERT INTO scan_events(session_id,store_id,type,detail,ts) VALUES(?,?,?,?,?)').run(r.session_id, r.store_id, 'basket_expired', `${lm} phút`, ts);
+      audit(db, { storeId: r.store_id, actorType: 'system', actorId: 'SYSTEM', action: 'cart.expired', entity: 'transaction', entityId: r.txId, data: { lockedMinutes: lm } });
     })();
     n++;
   }
-  const cutoff = new Date(Date.now() - activeHours * 3600_000).toISOString();
-  const rows = db.prepare(`SELECT * FROM scan_sessions WHERE status IN ('active','locked') AND last_activity < ?`).all(cutoff);
+  const rows = db.prepare(`SELECT * FROM scan_sessions WHERE status IN ('active','locked')`).all()
+    .filter((s) => s.last_activity < new Date(Date.now() - limitsFor(db, s.store_id, base).idleHours * 3600_000).toISOString());
   for (const s of rows) { try { abandonSession(ctx, s); n++; } catch { /* Dsmart POS đang xử lý: để nguyên */ } }
   return n;
 }
@@ -157,6 +159,11 @@ function recordUnknown(db, storeId, barcode) {
 
 function runOp(ctx, session, op, prices) {
   const { db, pos } = ctx;
+  const lim = limitsFor(db, session.store_id);
+  if ((op.type === 'scan' || op.type === 'setQty') && lim.maxShopHours > 0 && Date.now() - Date.parse(session.started_at) > lim.maxShopHours * 3600_000) {
+    const cur0 = op.type === 'setQty' ? db.prepare('SELECT qty FROM cart_items WHERE id = ? AND session_id = ?').get(Number(op.itemId), session.id) : null;
+    if (op.type === 'scan' || !cur0 || Math.floor(Number(op.qty)) > cur0.qty) return { ok: false, code: 'SHOP_TIME_UP', message: `Đã hết thời gian mua sắm tối đa (${lim.maxShopHours} giờ). Hãy thanh toán giỏ này hoặc bắt đầu giỏ mới` };
+  }
   if (op.type === 'scan') {
     const n = normalizeBarcode(op.barcode);
     if (!n.ok) { logScan(db, session, 'scan_fail', n.code, 'invalid'); return { ok: false, code: 'INVALID_BARCODE', message: 'Không đọc được mã vạch, hãy quét lại' }; }
@@ -171,11 +178,11 @@ function runOp(ctx, session, op, prices) {
     if (!p) { recordUnknown(db, session.store_id, n.code); logScan(db, session, 'scan_fail', n.code, 'not_found'); return { ok: false, code: 'NOT_FOUND', barcode: n.code, message: 'Sản phẩm chưa có trong hệ thống của chi nhánh' }; }
     if (!p.active) { logScan(db, session, 'scan_fail', n.code, 'inactive'); return { ok: false, code: 'INACTIVE', barcode: n.code, name: p.name, message: 'Sản phẩm này đang ngừng bán' }; }
     const cur = db.prepare('SELECT * FROM cart_items WHERE session_id = ? AND sku = ?').get(session.id, p.sku);
-    if (!cur && db.prepare('SELECT COUNT(*) n FROM cart_items WHERE session_id = ?').get(session.id).n >= config.maxCartItems) {
-      return { ok: false, code: 'CART_FULL', barcode: n.code, name: p.name, message: `Giỏ đã đủ ${config.maxCartItems} mặt hàng khác nhau. Hãy thanh toán giỏ này, rồi quét giỏ mới cho phần còn lại` };
+    if (!cur && db.prepare('SELECT COUNT(*) n FROM cart_items WHERE session_id = ?').get(session.id).n >= lim.maxItems) {
+      return { ok: false, code: 'CART_FULL', barcode: n.code, name: p.name, message: `Giỏ đã đủ ${lim.maxItems} mặt hàng khác nhau. Hãy thanh toán giỏ này, rồi quét giỏ mới cho phần còn lại` };
     }
     const want = (cur?.qty || 0) + 1;
-    if (want > 99) return { ok: false, code: 'BAD_QTY', message: 'Số lượng tối đa mỗi mặt hàng là 99' };
+    if (want > lim.maxQty) return { ok: false, code: 'BAD_QTY', message: `Số lượng tối đa mỗi mặt hàng là ${lim.maxQty}` };
     if (cur) db.prepare('UPDATE cart_items SET qty = ? WHERE id = ?').run(want, cur.id);
     else db.prepare(`INSERT INTO cart_items(session_id,sku,barcode,name,unit_price,qty,promo_min_qty,promo_off,age_restricted,added_at,list_price,no_price)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(session.id, p.sku, p.barcode, p.name, p.price, 1, p.promo_min_qty, p.promo_off, p.age_restricted, nowIso(), p.list_price ?? null, p.no_price ? 1 : 0);
@@ -187,7 +194,7 @@ function runOp(ctx, session, op, prices) {
     const it = db.prepare('SELECT * FROM cart_items WHERE id = ? AND session_id = ?').get(Number(op.itemId), session.id);
     if (!it) return { ok: false, code: 'ITEM_NOT_FOUND', message: 'Sản phẩm không còn trong giỏ' };
     const qty = Math.floor(Number(op.qty));
-    if (!Number.isFinite(qty) || qty < 0 || qty > 99) return { ok: false, code: 'BAD_QTY', message: 'Số lượng không hợp lệ' };
+    if (!Number.isFinite(qty) || qty < 0 || qty > lim.maxQty) return { ok: false, code: 'BAD_QTY', message: `Số lượng không hợp lệ (tối đa ${lim.maxQty})` };
     if (qty === 0) { db.prepare('DELETE FROM cart_items WHERE id = ?').run(it.id); logScan(db, session, 'remove', it.barcode); return { ok: true }; }
     db.prepare('UPDATE cart_items SET qty = ? WHERE id = ?').run(qty, it.id);
     logScan(db, session, 'qty', it.barcode, String(qty));
@@ -542,7 +549,7 @@ export async function collectPayment(ctx, user, txId, body) {
     db.prepare(`INSERT INTO payments(transaction_id,store_id,kind,method,amount,cash_received,change_given,collected_by,shift_id,collected_at,confirmations)
       VALUES(?,?,?,?,?,?,?,?,?,?,?)`).run(tx.id, tx.store_id, kind, method, amount, cashReceived, change, user.id, shift.id, ts, confirmations);
     if (kind === 'main') {
-      const exp = new Date(Date.now() + config.receiptTtlMinutes * 60000).toISOString();
+      const exp = new Date(Date.now() + limitsFor(db, tx.store_id).receiptMinutes * 60000).toISOString();
       db.prepare(`UPDATE transactions SET status='paid', method=?, paid_at=?, receipt_expires_at=?, extra_due=0 WHERE id=?`).run(method, ts, exp, tx.id);
       db.prepare(`UPDATE scan_sessions SET status='paid', ended_at=? WHERE id=?`).run(ts, tx.session_id);
     } else db.prepare('UPDATE transactions SET extra_due = 0 WHERE id = ?').run(tx.id);
