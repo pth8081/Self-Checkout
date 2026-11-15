@@ -24,7 +24,7 @@ async function api(method,url,body,headers={}){const r=await fetch(BASE+url,{met
  await api('POST',`/api/pos/v1/baskets/${code}/paid`,{pointCode:'SP-0107',posOrderRef:'POS-MORE-1',amount:l0.lineTotal+l1.lineTotal,method:'cash',lines:[l0,l1]},PH);
  await p.waitForSelector('text=Đơn ở quầy khác giỏ bạn đã quét',{timeout:20000}).catch(()=>{});
  ok('sau thanh toán hiện đơn ở quầy khác giỏ đã quét',await p.isVisible('text=Đơn ở quầy khác giỏ bạn đã quét'));
- ok('hiện số mặt hàng thực mua',(await p.innerText('body')).includes('Thực mua · 3 mặt hàng'));
+ ok('hiện số tiền chính xác và số mặt hàng thực mua',(await p.innerText('body')).includes('Số tiền chính xác · 3 mặt hàng'));
  await br.close();
  console.log(fails.length?'FAILS: '+JSON.stringify(fails):'FAILS: []');process.exit(fails.length?1:0);
 })().catch(e=>{console.error(e);process.exit(1)});
