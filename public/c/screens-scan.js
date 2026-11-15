@@ -85,7 +85,7 @@ export function Scan({ s, store, onBlocked }) {
         <button class="btn auto sm" style="background:rgba(255,255,255,.94);color:#1F2430;box-shadow:0 2px 10px rgba(0,0,0,.16)" onClick=${() => setHelp(true)}><${Icon} name="info" size=${16}/>Cần giúp</button>
       </div>
       <button class="row" style="background:#fff;color:#1F2430;border:0;border-radius:20px;padding:10px 10px 10px 16px;text-align:left" onClick=${() => go('/cart')}>
-        <${Icon} name="bag"/><div class="grow"><b class="num" style="font-size:17px;display:block">${fmt.money(cart.total)}</b><span class="xs" style="color:#6B7280">${cart.itemCount} mặt hàng trong giỏ${cart.pendingCount ? ` · ${cart.pendingCount} chờ đồng bộ` : ''}</span></div>
+        <${Icon} name="bag"/><div class="grow"><b class="num" style="font-size:17px;display:block">${store.basket ? '≈ ' : ''}${fmt.money(cart.total)}</b><span class="xs" style="color:#6B7280">${cart.itemCount} mặt hàng${store.basket ? ' · giá tham khảo, chính xác tại quầy' : ' trong giỏ'}${cart.pendingCount ? ` · ${cart.pendingCount} chờ đồng bộ` : ''}</span></div>
         <span class="btn primary sm auto">Xem giỏ <${Icon} name="chev" size=${16}/></span></button>
     </div>
     ${live && html`<${ScanSheet} result=${live} onClose=${() => { setSheet(null); }} onManual=${() => go('/manual')} onHelp=${() => setHelp(true)}/>`}
@@ -184,13 +184,14 @@ export function Cart({ s, store }) {
           ${cart.pending.map((p) => html`<div class="item"><div class="tile" style="--h:40"><${Icon} name="clock" size=${18}/></div><div class="grow"><div class="name num">Mã ${p.barcode}</div><div class="small muted">Chờ đồng bộ để lấy tên và giá</div></div><${Pill} tone="warn">× ${p.qty}<//></div>`)}
         </div></div>
         <div class="card flat"><div class="sum num">
-          <div><span class="muted">Tạm tính${cart.pendingCount ? ' (chưa gồm mặt hàng chờ đồng bộ)' : ''}</span><span>${fmt.money(cart.subtotal)}</span></div>
+          <div><span class="muted">Tạm tính${store.basket ? ' (tham khảo)' : ''}${cart.pendingCount ? ' (chưa gồm mặt hàng chờ đồng bộ)' : ''}</span><span>${fmt.money(cart.subtotal)}</span></div>
           ${cart.discount > 0 && html`<div><span class="muted">Khuyến mãi</span><span style="color:var(--ok)">−${fmt.money(cart.discount)}</span></div>`}
-          <div class="tot"><span>Tổng cộng</span><span>${fmt.money(cart.total)}</span></div></div></div>`}
+          <div class="tot"><span>Tổng cộng${store.basket ? ' (tham khảo)' : ''}</span><span>${fmt.money(cart.total)}</span></div></div></div>
+        ${store.basket && html`<${Banner} tone="info" icon="info" title="Giá chỉ mang tính tham khảo">Giá trên ứng dụng có thể chưa chính xác 100% (khuyến mãi, giá mới cập nhật). <b>Số tiền chính xác do hệ thống Dsmart POS tính khi bạn thanh toán tại quầy.</b><//>`}`}
     </div>
     ${!empty && html`<div class="bar-bottom"><div class="in" style="flex-direction:row">
       <button class="btn line" style="width:auto;padding:0 20px" onClick=${() => go('/scan')}>Quét thêm</button>
-      <button class="btn primary" disabled=${!canPay} onClick=${() => { if (store.basket) { try { makeBasket(); go('/basket'); } catch (e) { toast(e.message, 'err'); } } else go('/pay'); }}>${store.basket || online ? `Thanh toán ${fmt.money(cart.total)}` : 'Cần có mạng để thanh toán'}</button></div></div>`}
+      <button class="btn primary" disabled=${!canPay} onClick=${() => { if (store.basket) { try { makeBasket(); go('/basket'); } catch (e) { toast(e.message, 'err'); } } else go('/pay'); }}>${store.basket ? `Thanh toán tại quầy (≈ ${fmt.money(cart.total)})` : online ? `Thanh toán ${fmt.money(cart.total)}` : 'Cần có mạng để thanh toán'}</button></div></div>`}
     ${confirm && html`<${Confirm} title="Bỏ sản phẩm này?" text=${confirm.name} ok="Bỏ khỏi giỏ" danger busy=${busy} onCancel=${() => setConfirm(null)}
       onOk=${async () => { setBusy(true); try { await removeItem(confirm.id); } finally { setBusy(false); setConfirm(null); } }}/>`}
   </div>`;
